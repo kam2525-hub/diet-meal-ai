@@ -51,7 +51,16 @@ document.addEventListener("DOMContentLoaded", () => {
     },
 
     // 買い物リストのチェック状態
-    checkedShoppingItems: new Set()
+    checkedShoppingItems: new Set(),
+
+    // 各食事の実際の写真記録データ
+    records: {
+      breakfast: null,
+      lunch: null,
+      dinner: null,
+      snack: null
+    },
+    currentRecordSlot: 'lunch'
   };
 
   // 初期化
@@ -59,6 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function init() {
     loadUserFromStorage();
+    loadRecordsFromStorage();
     calculateAllMetrics();
     generateFullDayPlan();
     setupEventListeners();
@@ -256,58 +266,67 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderPlanSummary() {
-    let totalCal = 0;
-    let totalP = 0;
-    let totalF = 0;
-    let totalC = 0;
-    let totalPrice = 0;
-
-    Object.values(state.currentPlan).flat().forEach(item => {
-      totalCal += item.calories;
-      totalP += item.p;
-      totalF += item.f;
-      totalC += item.c;
-      totalPrice += item.price;
-    });
-
     const targetCal = state.metrics.targetCal;
 
-    // カロリー
-    document.getElementById("currentTotalCal").textContent = Math.round(totalCal).toLocaleString();
-    document.getElementById("targetTotalCal").textContent = Math.round(targetCal).toLocaleString();
+    // 今日実際に食べた合計カロリーとPFCの集計
+    let eatenCal = 0;
+    let eatenP = 0;
+    let eatenF = 0;
+    let eatenC = 0;
 
-    const calDiff = Math.round(totalCal - targetCal);
-    const diffBadge = document.getElementById("calDiffBadge");
-    if (Math.abs(calDiff) <= 50) {
-      diffBadge.textContent = "ぴったり目標内！";
-      diffBadge.className = "text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800";
-    } else if (calDiff < -50) {
-      diffBadge.textContent = `${Math.abs(calDiff)} kcal 余裕あり`;
-      diffBadge.className = "text-xs px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800";
-    } else {
-      diffBadge.textContent = `+${calDiff} kcal オーバー`;
-      diffBadge.className = "text-xs px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800";
+    Object.values(state.records).forEach(rec => {
+      if (rec) {
+        eatenCal += rec.calories;
+        eatenP += rec.p;
+        eatenF += rec.f;
+        eatenC += rec.c;
+      }
+    });
+
+    const remainingCal = targetCal - eatenCal;
+
+    // トップの「1日目標摂取量」表示
+    document.getElementById("targetTotalCal").textContent = Math.round(targetCal).toLocaleString();
+    const targetRef = document.getElementById("targetTotalCalRef");
+    if (targetRef) targetRef.textContent = Math.round(targetCal).toLocaleString();
+
+    // 食べた合計
+    const eatenTotalEl = document.getElementById("eatenTotalCal");
+    if (eatenTotalEl) eatenTotalEl.textContent = Math.round(eatenCal).toLocaleString();
+
+    // 残りあと何kcal食べられるかバッジ
+    const remBadge = document.getElementById("remainingCalBadge");
+    if (remBadge) {
+      if (remainingCal >= 0) {
+        remBadge.textContent = `残りあと ${Math.round(remainingCal).toLocaleString()} kcal`;
+        remBadge.className = "text-xs px-3 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800";
+      } else {
+        remBadge.textContent = `目標を ${Math.round(Math.abs(remainingCal)).toLocaleString()} kcal 超過`;
+        remBadge.className = "text-xs px-3 py-1 rounded-full font-bold bg-rose-100 text-rose-800";
+      }
     }
 
-    const pct = Math.min(100, Math.round((totalCal / targetCal) * 100));
-    document.getElementById("calProgressBar").style.width = `${pct}%`;
+    // 消化進捗バー
+    const progressBar = document.getElementById("eatenProgressBar");
+    if (progressBar) {
+      const pct = Math.min(100, Math.round((eatenCal / targetCal) * 100));
+      progressBar.style.width = `${pct}%`;
+      if (remainingCal < 0) {
+        progressBar.className = "bg-rose-500 h-full transition-all duration-300";
+      } else {
+        progressBar.className = "bg-gradient-to-r from-teal-400 to-emerald-500 h-full transition-all duration-300";
+      }
+    }
 
-    // 価格
-    document.getElementById("currentTotalPrice").textContent = totalPrice.toLocaleString();
-    document.getElementById("budgetLimitBadge").textContent = `(予算目安: 〜${state.user.budget}円)`;
-
-    // PFC
-    document.getElementById("pfcP").textContent = Math.round(totalP);
+    // PFC目標値と現在の摂取進捗
     document.getElementById("targetP").textContent = state.metrics.pfc.p;
-    document.getElementById("barP").style.width = `${Math.min(100, (totalP / state.metrics.pfc.p) * 100)}%`;
+    document.getElementById("barP").style.width = `${Math.min(100, (eatenP / state.metrics.pfc.p) * 100)}%`;
 
-    document.getElementById("pfcF").textContent = Math.round(totalF);
     document.getElementById("targetF").textContent = state.metrics.pfc.f;
-    document.getElementById("barF").style.width = `${Math.min(100, (totalF / state.metrics.pfc.f) * 100)}%`;
+    document.getElementById("barF").style.width = `${Math.min(100, (eatenF / state.metrics.pfc.f) * 100)}%`;
 
-    document.getElementById("pfcC").textContent = Math.round(totalC);
     document.getElementById("targetC").textContent = state.metrics.pfc.c;
-    document.getElementById("barC").style.width = `${Math.min(100, (totalC / state.metrics.pfc.c) * 100)}%`;
+    document.getElementById("barC").style.width = `${Math.min(100, (eatenC / state.metrics.pfc.c) * 100)}%`;
   }
 
   function renderMealSlots() {
@@ -315,27 +334,48 @@ document.addEventListener("DOMContentLoaded", () => {
     const targetCal = state.metrics.targetCal;
     const targetPfc = state.metrics.pfc;
 
-    // 各食事のカロリー＆栄養目標比率
-    const ratios = {
+    // 基本のカロリー比率（朝25%, 昼38%, 夜30%, 間食7%）
+    const baseRatios = {
       breakfast: { cal: 0.25, p: 0.25, f: 0.22, c: 0.27 },
       lunch:     { cal: 0.38, p: 0.38, f: 0.40, c: 0.38 },
       dinner:    { cal: 0.30, p: 0.32, f: 0.25, c: 0.28 },
       snack:     { cal: 0.07, p: 0.05, f: 0.13, c: 0.07 }
     };
 
+    // 食べた実績カロリーの集計と、未記録スロットの自動調整
+    let totalEaten = 0;
+    slots.forEach(s => {
+      if (state.records[s]) totalEaten += state.records[s].calories;
+    });
+
+    // 昼食に超過があった場合の夕食目標カロリーの動的補正
+    let lunchExcess = 0;
+    const lunchTargetBase = Math.round(targetCal * baseRatios.lunch.cal);
+    if (state.records.lunch && state.records.lunch.calories > lunchTargetBase) {
+      lunchExcess = state.records.lunch.calories - lunchTargetBase;
+    }
+
     slots.forEach(slot => {
       const card = document.querySelector(`.meal-card[data-meal="${slot}"]`);
       if (!card) return;
 
-      const r = ratios[slot];
-      const slotTargetCal = Math.round(targetCal * r.cal);
+      const r = baseRatios[slot];
+      let slotTargetCal = Math.round(targetCal * r.cal);
+
+      // 夕食が未記録で、昼食がオーバーしている場合は夕食目標を自動相殺！
+      let isAutoAdjusted = false;
+      if (slot === 'dinner' && !state.records.dinner && lunchExcess > 0) {
+        slotTargetCal = Math.max(250, slotTargetCal - lunchExcess);
+        isAutoAdjusted = true;
+      }
+
       const slotTargetP = Math.round(targetPfc.p * r.p);
       const slotTargetF = Math.round(targetPfc.f * r.f);
       const slotTargetC = Math.round(targetPfc.c * r.c);
 
       // 目標数値のDOM反映
       const calTargetEl = card.querySelector(".slot-cal-target");
-      if (calTargetEl) calTargetEl.innerHTML = `${slotTargetCal} <span class="text-xs font-bold text-slate-600">kcal</span>`;
+      if (calTargetEl) calTargetEl.innerHTML = `${slotTargetCal} <span class="text-[10px] font-normal text-slate-600">kcal</span>`;
       const pEl = card.querySelector(".slot-p");
       if (pEl) pEl.textContent = `約 ${slotTargetP}g`;
       const fEl = card.querySelector(".slot-f");
@@ -343,49 +383,95 @@ document.addEventListener("DOMContentLoaded", () => {
       const cEl = card.querySelector(".slot-c");
       if (cEl) cEl.textContent = `約 ${slotTargetC}g`;
 
-      const items = state.currentPlan[slot] || [];
-      const container = card.querySelector(".slot-items");
-      if (!container) return;
-      container.innerHTML = "";
-
-      if (items.length === 0) {
-        container.innerHTML = `<div class="text-xs text-slate-600 italic py-2">指定の条件に合うメニューがありません</div>`;
-        return;
+      // 自動調整バナーの表示（夕食）
+      if (slot === 'dinner') {
+        const adjustNote = card.querySelector(".dinner-auto-adjust-note");
+        if (adjustNote) {
+          if (isAutoAdjusted) {
+            adjustNote.classList.remove("hidden");
+            adjustNote.querySelector(".adjust-text").textContent = `昼食の超過(+${lunchExcess}kcal)を相殺するため、夕食目標を ${slotTargetCal}kcal に自動調整しました！`;
+          } else {
+            adjustNote.classList.add("hidden");
+          }
+        }
       }
 
-      items.forEach(item => {
-        const itemEl = document.createElement("div");
-        itemEl.className = "meal-item flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs";
+      // 実績の描画（未記録 vs 記録済み）
+      const record = state.records[slot];
+      const actualDisplay = card.querySelector(".slot-actual-display");
+      const emptyView = card.querySelector(".record-empty-view");
+      const filledView = card.querySelector(".record-filled-view");
 
-        let storeColor = "bg-slate-200 text-slate-700";
-        if (item.store === 'seven') storeColor = "bg-orange-100 text-orange-800 border border-orange-200";
-        else if (item.store === 'lawson') storeColor = "bg-blue-100 text-blue-800 border border-blue-200";
-        else if (item.store === 'family') storeColor = "bg-emerald-100 text-emerald-800 border border-emerald-200";
-        else if (item.store === 'matsuya') storeColor = "bg-amber-100 text-amber-800 border border-amber-200";
-        else if (item.store === 'sukiya') storeColor = "bg-red-100 text-red-800 border border-red-200";
-        else if (item.store === 'ootoya') storeColor = "bg-indigo-100 text-indigo-800 border border-indigo-200";
-        else if (item.store === 'starbucks') storeColor = "bg-teal-100 text-teal-800 border border-teal-200";
+      if (record) {
+        // 記録済みの場合
+        const diff = record.calories - slotTargetCal;
+        let diffBadgeHtml = "";
+        if (diff > 30) {
+          diffBadgeHtml = `<span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800 ml-1">+${diff} kcal</span>`;
+        } else if (diff < -30) {
+          diffBadgeHtml = `<span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800 ml-1">${Math.abs(diff)} kcal 余裕</span>`;
+        } else {
+          diffBadgeHtml = `<span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 ml-1">ナイス調整！</span>`;
+        }
 
-        itemEl.innerHTML = `
-          <div class="flex items-center space-x-2.5">
-            <span class="text-xl shrink-0">${item.icon}</span>
-            <div>
-              <div class="flex items-center space-x-1.5 flex-wrap">
-                <span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${storeColor}">${item.storeName}</span>
-                <span class="font-bold text-slate-800">${item.name}</span>
-              </div>
-              <div class="text-[10px] text-slate-600 mt-0.5">
-                <span>P:${item.p}g</span> · <span>F:${item.f}g</span> · <span>C:${item.c}g</span>
+        actualDisplay.innerHTML = `${record.calories} <span class="text-[10px] font-normal text-slate-600">kcal</span> ${diffBadgeHtml}`;
+
+        if (emptyView) emptyView.classList.add("hidden");
+        if (filledView) {
+          filledView.classList.remove("hidden");
+          filledView.className = "record-filled-view p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs flex items-center justify-between flex-wrap gap-2";
+          filledView.innerHTML = `
+            <div class="flex items-center space-x-2.5">
+              ${record.img ? `<img src="${record.img}" class="w-12 h-12 rounded-xl object-cover border border-emerald-300 shadow-xs shrink-0">` : `<span class="text-2xl">${record.icon || '🍽️'}</span>`}
+              <div>
+                <div class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                  <span>${record.name}</span>
+                </div>
+                <div class="text-[11px] text-slate-600 mt-0.5">
+                  <span class="font-mono font-bold text-emerald-800">${record.calories} kcal</span>
+                  <span>(P:${record.p}g · F:${record.f}g · C:${record.c}g)</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="text-right shrink-0">
-            <div class="font-bold text-slate-700">${item.calories} <span class="text-[10px] font-normal text-slate-600">kcal</span></div>
-            <div class="text-[10px] text-slate-600">¥${item.price}</div>
-          </div>
-        `;
-        container.appendChild(itemEl);
-      });
+            <button class="delete-record-btn text-xs text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition" data-slot="${slot}">
+              <i class="fa-solid fa-trash-can mr-1"></i>取り消す
+            </button>
+          `;
+
+          // 削除ボタンイベント
+          filledView.querySelector(".delete-record-btn").onclick = (e) => {
+            const s = e.currentTarget.dataset.slot;
+            state.records[s] = null;
+            saveRecordsToStorage();
+            updateUI();
+          };
+        }
+      } else {
+        // 未記録の場合
+        actualDisplay.textContent = "未記録";
+        actualDisplay.className = "slot-actual-display text-lg font-black text-slate-400 font-mono";
+        if (emptyView) emptyView.classList.remove("hidden");
+        if (filledView) filledView.classList.add("hidden");
+      }
+
+      // 参考コンビニ例
+      const items = state.currentPlan[slot] || [];
+      const container = card.querySelector(".slot-items");
+      if (container) {
+        container.innerHTML = "";
+        items.forEach(item => {
+          const itemEl = document.createElement("div");
+          itemEl.className = "meal-item flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs";
+          itemEl.innerHTML = `
+            <div class="flex items-center space-x-2">
+              <span>${item.icon}</span>
+              <span class="font-medium text-slate-700">${item.storeName} ${item.name}</span>
+            </div>
+            <div class="font-bold font-mono text-slate-600">${item.calories} kcal</div>
+          `;
+          container.appendChild(itemEl);
+        });
+      }
     });
   }
 
@@ -868,42 +954,33 @@ document.addEventListener("DOMContentLoaded", () => {
       scanResultArea.classList.remove("hidden");
     }
 
-    // 献立に反映して他の枠を自動調整
+    // 各カードの「写真で記録」トリガーボタン
+    document.querySelectorAll(".trigger-photo-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const mealSlot = e.currentTarget.dataset.meal;
+        document.getElementById("recordTargetSlot").value = mealSlot;
+        photoModal.classList.remove("hidden");
+      });
+    });
+
+    // 献立・実績に反映して他の枠を自動調整
     applyPhotoMealBtn.addEventListener("click", () => {
       if (!currentScanItem) return;
 
       const slot = document.getElementById("recordTargetSlot").value;
 
-      // 写真の料理をアイテム形式に変換してスロットにセット
-      const recordedItem = {
-        id: "photo_" + Date.now(),
-        name: `📸 ${currentScanItem.name}`,
-        store: "photo",
-        storeName: "写真記録",
-        slot: slot,
+      // 実際の食事記録としてstate.recordsに保存
+      state.records[slot] = {
+        name: currentScanItem.name,
         calories: currentScanItem.calories,
         p: currentScanItem.p,
         f: currentScanItem.f,
         c: currentScanItem.c,
-        price: currentScanItem.price || 0,
-        icon: currentScanItem.icon || "📸",
-        tags: ["custom", "photo"]
+        img: currentScanItem.img || null,
+        icon: currentScanItem.icon || "📸"
       };
 
-      state.currentPlan[slot] = [recordedItem];
-
-      // カロリーが高かった場合、他のスロット（特に夕食や間食）を低カロリーメニューに自動調整
-      if (currentScanItem.calories > 600) {
-        if (slot !== 'dinner') {
-          // 夕食を低カロリーな鍋やスープ、魚に変更
-          const lowCalDinner = MEAL_DATABASE.find(item => item.slot === 'dinner' && item.calories <= 300) || MEAL_DATABASE.find(item => item.slot === 'dinner');
-          if (lowCalDinner) state.currentPlan.dinner = [lowCalDinner];
-        }
-        // 間食をゼロカロリーゼリーやお茶などのヘルシー枠に調整
-        const lowCalSnack = MEAL_DATABASE.find(item => item.slot === 'snack' && item.calories <= 50) || MEAL_DATABASE.find(item => item.slot === 'snack');
-        if (lowCalSnack) state.currentPlan.snack = [lowCalSnack];
-      }
-
+      saveRecordsToStorage();
       updateUI();
       photoModal.classList.add("hidden");
 
@@ -913,7 +990,7 @@ document.addEventListener("DOMContentLoaded", () => {
       banner.innerHTML = `
         <div class="flex items-center space-x-2">
           <span class="text-lg">📸</span>
-          <span><strong>写真から食事を記録しました：</strong>【${currentScanItem.name} (${currentScanItem.calories}kcal)】を反映し、残りの献立を目標カロリー内に自動調整しました！</span>
+          <span><strong>【${getSlotJpName(slot)}】に記録しました：</strong>${currentScanItem.name} (${currentScanItem.calories}kcal) を反映し、残りカロリーと目標をリアルタイム更新しました！</span>
         </div>
         <button id="dismissPhotoBannerBtn" class="text-[11px] underline font-bold ml-2">閉じる</button>
       `;
@@ -922,5 +999,25 @@ document.addEventListener("DOMContentLoaded", () => {
         banner.classList.add("hidden");
       };
     });
+  }
+
+  function getSlotJpName(slot) {
+    const map = { breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食・ドリンク' };
+    return map[slot] || slot;
+  }
+
+  function saveRecordsToStorage() {
+    try {
+      localStorage.setItem("mealai_records", JSON.stringify(state.records));
+    } catch (e) { }
+  }
+
+  function loadRecordsFromStorage() {
+    try {
+      const saved = localStorage.getItem("mealai_records");
+      if (saved) {
+        state.records = Object.assign(state.records, JSON.parse(saved));
+      }
+    } catch (e) { }
   }
 });
