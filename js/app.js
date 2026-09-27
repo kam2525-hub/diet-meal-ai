@@ -225,17 +225,41 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderMealSlots() {
-    const slots = ['breakfast', 'lunch', 'dinner', 'snack', 'drink'];
+    const slots = ['breakfast', 'lunch', 'dinner', 'snack'];
+    const targetCal = state.metrics.targetCal;
+    const targetPfc = state.metrics.pfc;
+
+    // 各食事のカロリー＆栄養目標比率
+    const ratios = {
+      breakfast: { cal: 0.25, p: 0.25, f: 0.22, c: 0.27 },
+      lunch:     { cal: 0.38, p: 0.38, f: 0.40, c: 0.38 },
+      dinner:    { cal: 0.30, p: 0.32, f: 0.25, c: 0.28 },
+      snack:     { cal: 0.07, p: 0.05, f: 0.13, c: 0.07 }
+    };
 
     slots.forEach(slot => {
       const card = document.querySelector(`.meal-card[data-meal="${slot}"]`);
       if (!card) return;
 
-      const items = state.currentPlan[slot] || [];
-      const slotCal = items.reduce((sum, i) => sum + i.calories, 0);
-      card.querySelector(".slot-cal").textContent = `約 ${slotCal} kcal`;
+      const r = ratios[slot];
+      const slotTargetCal = Math.round(targetCal * r.cal);
+      const slotTargetP = Math.round(targetPfc.p * r.p);
+      const slotTargetF = Math.round(targetPfc.f * r.f);
+      const slotTargetC = Math.round(targetPfc.c * r.c);
 
+      // 目標数値のDOM反映
+      const calTargetEl = card.querySelector(".slot-cal-target");
+      if (calTargetEl) calTargetEl.innerHTML = `${slotTargetCal} <span class="text-xs font-bold text-slate-600">kcal</span>`;
+      const pEl = card.querySelector(".slot-p");
+      if (pEl) pEl.textContent = `約 ${slotTargetP}g`;
+      const fEl = card.querySelector(".slot-f");
+      if (fEl) fEl.textContent = `約 ${slotTargetF}g`;
+      const cEl = card.querySelector(".slot-c");
+      if (cEl) cEl.textContent = `約 ${slotTargetC}g`;
+
+      const items = state.currentPlan[slot] || [];
       const container = card.querySelector(".slot-items");
+      if (!container) return;
       container.innerHTML = "";
 
       if (items.length === 0) {

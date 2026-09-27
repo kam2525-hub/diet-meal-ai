@@ -73,61 +73,75 @@
     <div id="statusBanner"
       class="hidden rounded-xl p-3.5 flex items-center justify-between text-xs font-medium border shadow-sm"></div>
 
-    <!-- カロリー & PFC 進捗カード -->
-    <section class="bg-white rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm space-y-3">
-      <div class="flex items-center justify-between flex-wrap gap-2">
+    <!-- 1日の総目標カロリー & 栄養量ガイド -->
+    <section class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
         <div>
-          <span class="text-xs text-slate-600 font-medium">今日の目標カロリー</span>
-          <div class="flex items-baseline space-x-2">
-            <span id="currentTotalCal" class="text-2xl font-black text-slate-800">0</span>
-            <span class="text-sm font-semibold text-slate-600">/ <span id="targetTotalCal">1,650</span> kcal</span>
-            <span id="calDiffBadge" class="text-xs px-2 py-0.5 rounded-full font-bold">ぴったり</span>
+          <span class="text-xs text-slate-600 font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-bullseye text-emerald-500"></i>
+            今日の1日目標摂取量
+          </span>
+          <div class="flex items-baseline space-x-2 mt-0.5">
+            <span id="targetTotalCal" class="text-3xl font-black text-slate-800 font-mono">1,650</span>
+            <span class="text-sm font-bold text-slate-600">kcal / 日</span>
+            <span id="calDiffBadge" class="text-xs px-2.5 py-0.5 rounded-full font-bold">ぴったり</span>
           </div>
         </div>
-        <div class="text-right">
-          <span class="text-xs text-slate-600 font-medium">推定食費</span>
-          <div class="text-base font-bold text-slate-700">
-            約 <span id="currentTotalPrice" class="text-emerald-600">0</span> 円
-            <span id="budgetLimitBadge" class="text-[11px] text-slate-600 ml-1">(予算: 〜1,500円)</span>
+        <div class="text-right flex items-center space-x-3 text-xs">
+          <div class="bg-blue-50 text-blue-800 px-3 py-1.5 rounded-xl border border-blue-100 font-semibold flex items-center gap-1.5">
+            <i class="fa-solid fa-droplet text-blue-500"></i>
+            <span>水分目安: <strong>約 2.0 L</strong></span>
+          </div>
+          <div class="bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-100 font-semibold flex items-center gap-1.5">
+            <i class="fa-solid fa-leaf text-emerald-500"></i>
+            <span>食物繊維: <strong>20g+</strong></span>
           </div>
         </div>
       </div>
 
-      <!-- カロリーバー -->
-      <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
-        <div id="calProgressBar"
-          class="bg-gradient-to-r from-emerald-400 to-teal-500 h-full transition-all duration-300" style="width: 0%">
+      <!-- PFC 3大栄養素の目標量カード -->
+      <div class="grid grid-cols-3 gap-3 text-xs">
+        <div class="bg-amber-50/80 p-3 rounded-2xl border border-amber-200/70 space-y-1">
+          <div class="flex justify-between items-center text-amber-900 font-bold">
+            <span class="flex items-center gap-1">🥩 たんぱく質</span>
+            <span class="text-sm font-black font-mono"><span id="targetP">95</span>g</span>
+          </div>
+          <p class="text-[10px] text-amber-800">筋肉維持・基礎代謝UP（体重×1.5g）</p>
+          <div class="w-full bg-amber-100 rounded-full h-1.5 mt-1">
+            <div id="barP" class="bg-amber-500 h-1.5 rounded-full transition-all duration-300" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <div class="bg-rose-50/80 p-3 rounded-2xl border border-rose-200/70 space-y-1">
+          <div class="flex justify-between items-center text-rose-900 font-bold">
+            <span class="flex items-center gap-1">🥑 脂質</span>
+            <span class="text-sm font-black font-mono"><span id="targetF">45</span>g</span>
+          </div>
+          <p class="text-[10px] text-rose-800">ホルモンバランス維持（総カロリーの約22%）</p>
+          <div class="w-full bg-rose-100 rounded-full h-1.5 mt-1">
+            <div id="barF" class="bg-rose-500 h-1.5 rounded-full transition-all duration-300" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <div class="bg-blue-50/80 p-3 rounded-2xl border border-blue-200/70 space-y-1">
+          <div class="flex justify-between items-center text-blue-900 font-bold">
+            <span class="flex items-center gap-1">🍚 炭水化物</span>
+            <span class="text-sm font-black font-mono"><span id="targetC">210</span>g</span>
+          </div>
+          <p class="text-[10px] text-blue-800">脳と筋肉の活動エネルギー（低GI推奨）</p>
+          <div class="w-full bg-blue-100 rounded-full h-1.5 mt-1">
+            <div id="barC" class="bg-blue-500 h-1.5 rounded-full transition-all duration-300" style="width: 100%"></div>
+          </div>
         </div>
       </div>
 
-      <!-- PFCバランス -->
-      <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-xs">
-        <div class="bg-amber-50/60 p-2 rounded-xl border border-amber-100/70">
-          <div class="flex justify-between text-amber-900 font-semibold mb-1">
-            <span>🥩 たんぱく質</span>
-            <span><span id="pfcP">0</span>g / <span id="targetP">95</span>g</span>
-          </div>
-          <div class="w-full bg-amber-100 rounded-full h-1.5">
-            <div id="barP" class="bg-amber-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-          </div>
+      <!-- 現在の記録との比較バー -->
+      <div class="pt-1 flex items-center justify-between text-xs text-slate-600 flex-wrap gap-2">
+        <div class="flex items-center space-x-2">
+          <span>現在の合計目安: <strong id="currentTotalCal" class="text-slate-800 font-mono">0</strong> kcal</span>
         </div>
-        <div class="bg-rose-50/60 p-2 rounded-xl border border-rose-100/70">
-          <div class="flex justify-between text-rose-900 font-semibold mb-1">
-            <span>🥑 脂質</span>
-            <span><span id="pfcF">0</span>g / <span id="targetF">45</span>g</span>
-          </div>
-          <div class="w-full bg-rose-100 rounded-full h-1.5">
-            <div id="barF" class="bg-rose-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-          </div>
-        </div>
-        <div class="bg-blue-50/60 p-2 rounded-xl border border-blue-100/70">
-          <div class="flex justify-between text-blue-900 font-semibold mb-1">
-            <span>🍚 炭水化物</span>
-            <span><span id="pfcC">0</span>g / <span id="targetC">210</span>g</span>
-          </div>
-          <div class="w-full bg-blue-100 rounded-full h-1.5">
-            <div id="barC" class="bg-blue-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-          </div>
+        <div class="text-[11px] text-slate-600">
+          推定食費目安: 約 <span id="currentTotalPrice" class="font-bold text-emerald-600">0</span> 円
         </div>
       </div>
     </section>
@@ -176,144 +190,218 @@
       </div>
     </section>
 
-    <!-- 食事提案スロット一覧 -->
+    <!-- 食事ごとの目標カロリー ＆ 栄養量ガイド -->
     <section class="space-y-3" id="mealSlotsContainer">
-      <!-- 朝食 -->
-      <div
-        class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition hover:border-emerald-200"
-        data-meal="breakfast">
-        <div class="flex items-center justify-between mb-2.5">
-          <div class="flex items-center space-x-2">
-            <span
-              class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">朝</span>
-            <h3 class="font-bold text-sm text-slate-800">朝食プラン</h3>
-            <span class="text-xs text-slate-600 font-medium slot-cal">約 380 kcal</span>
-          </div>
-          <div class="flex items-center space-x-1">
-            <select
-              class="store-select text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 outline-none">
-              <option value="seven">セブン</option>
-              <option value="lawson">ローソン</option>
-              <option value="family">ファミマ</option>
-              <option value="home">自炊/軽食</option>
-            </select>
-            <button class="reroll-slot-btn p-1.5 text-slate-600 hover:text-emerald-600 transition" title="この枠だけ別の候補にする">
-              <i class="fa-solid fa-arrows-rotate text-xs"></i>
-            </button>
-          </div>
-        </div>
-        <div class="slot-items space-y-2"></div>
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-pie text-emerald-500"></i>
+          1食ごとの目標カロリー ＆ 栄養配分ガイド
+        </h2>
+        <span class="text-[11px] text-slate-600">この数字を目安に食べるだけ！</span>
       </div>
 
-      <!-- 昼食（外食チェーンにも切り替え可能） -->
-      <div
-        class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition hover:border-emerald-200"
-        data-meal="lunch">
-        <div class="flex items-center justify-between mb-2.5">
-          <div class="flex items-center space-x-2">
-            <span
-              class="w-7 h-7 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center text-xs font-bold">昼</span>
-            <h3 class="font-bold text-sm text-slate-800">昼食プラン</h3>
-            <span class="text-xs text-slate-600 font-medium slot-cal">約 550 kcal</span>
+      <!-- 朝食スロット -->
+      <div class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition" data-meal="breakfast">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold shadow-xs">🌅</span>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h3 class="font-bold text-base text-slate-800">朝食の目標</h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">目安 7:00〜9:00</span>
+              </div>
+              <p class="text-[11px] text-slate-600">代謝をスイッチON！たんぱく質＋適量の主食</p>
+            </div>
           </div>
-          <div class="flex items-center space-x-1">
-            <select
-              class="store-select text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 outline-none">
-              <option value="seven">セブン</option>
-              <option value="lawson">ローソン</option>
-              <option value="family">ファミマ</option>
-              <option value="matsuya">松屋（外食）</option>
-              <option value="sukiya">すき家（外食）</option>
-              <option value="ootoya">大戸屋（外食）</option>
-            </select>
-            <button class="reroll-slot-btn p-1.5 text-slate-600 hover:text-emerald-600 transition" title="この枠だけ別の候補にする">
-              <i class="fa-solid fa-arrows-rotate text-xs"></i>
-            </button>
+          <div class="text-right">
+            <span class="text-xs text-slate-600 font-medium">目標</span>
+            <div class="text-2xl font-black text-amber-600 font-mono slot-cal-target">410 <span class="text-xs font-bold text-slate-600">kcal</span></div>
           </div>
         </div>
-        <div class="slot-items space-y-2"></div>
+
+        <!-- 栄養素（PFC）内訳目安 -->
+        <div class="grid grid-cols-3 gap-2 py-3 text-center text-xs">
+          <div class="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+            <div class="text-[10px] font-bold text-amber-900">🥩 たんぱく質</div>
+            <div class="text-base font-black text-amber-700 font-mono slot-p">約 24g</div>
+            <div class="text-[9px] text-slate-600">卵2個・納豆・鮭</div>
+          </div>
+          <div class="bg-rose-50/70 p-2 rounded-xl border border-rose-100">
+            <div class="text-[10px] font-bold text-rose-900">🥑 脂質</div>
+            <div class="text-base font-black text-rose-700 font-mono slot-f">約 10g</div>
+            <div class="text-[9px] text-slate-600">控えめが理想</div>
+          </div>
+          <div class="bg-blue-50/70 p-2 rounded-xl border border-blue-100">
+            <div class="text-[10px] font-bold text-blue-900">🍚 炭水化物</div>
+            <div class="text-base font-black text-blue-700 font-mono slot-c">約 55g</div>
+            <div class="text-[9px] text-slate-600">おにぎり約1個分</div>
+          </div>
+        </div>
+
+        <!-- 折りたたみ：参考メニュー例 -->
+        <details class="group border-t border-slate-100 pt-2 text-xs">
+          <summary class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-600 hover:text-emerald-600 transition">
+            <span class="flex items-center gap-1 font-semibold text-[11px]">
+              <i class="fa-solid fa-lightbulb text-amber-500"></i>
+              コンビニ・外食での具体例を見る
+            </span>
+            <i class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition"></i>
+          </summary>
+          <div class="slot-items space-y-1.5 pt-2"></div>
+        </details>
       </div>
 
-      <!-- 夕食 -->
-      <div
-        class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition hover:border-emerald-200"
-        data-meal="dinner">
-        <div class="flex items-center justify-between mb-2.5">
-          <div class="flex items-center space-x-2">
-            <span
-              class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">夜</span>
-            <h3 class="font-bold text-sm text-slate-800">夕食プラン</h3>
-            <span class="text-xs text-slate-600 font-medium slot-cal">約 520 kcal</span>
+      <!-- 昼食スロット -->
+      <div class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition" data-meal="lunch">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-8 h-8 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center text-sm font-bold shadow-xs">☀️</span>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h3 class="font-bold text-base text-slate-800">昼食の目標</h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">目安 12:00〜13:30</span>
+              </div>
+              <p class="text-[11px] text-slate-600">1日の中で一番しっかり食べてOK！午後の活力源</p>
+            </div>
           </div>
-          <div class="flex items-center space-x-1">
-            <select
-              class="store-select text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 outline-none">
-              <option value="seven">セブン</option>
-              <option value="lawson">ローソン</option>
-              <option value="family">ファミマ</option>
-              <option value="matsuya">松屋（外食）</option>
-              <option value="ootoya">大戸屋（外食）</option>
-              <option value="yoshinoya">吉野家（外食）</option>
-            </select>
-            <button class="reroll-slot-btn p-1.5 text-slate-600 hover:text-emerald-600 transition" title="この枠だけ別の候補にする">
-              <i class="fa-solid fa-arrows-rotate text-xs"></i>
-            </button>
+          <div class="text-right">
+            <span class="text-xs text-slate-600 font-medium">目標</span>
+            <div class="text-2xl font-black text-orange-600 font-mono slot-cal-target">620 <span class="text-xs font-bold text-slate-600">kcal</span></div>
           </div>
         </div>
-        <div class="slot-items space-y-2"></div>
+
+        <!-- 栄養素（PFC）内訳目安 -->
+        <div class="grid grid-cols-3 gap-2 py-3 text-center text-xs">
+          <div class="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+            <div class="text-[10px] font-bold text-amber-900">🥩 たんぱく質</div>
+            <div class="text-base font-black text-amber-700 font-mono slot-p">約 35g</div>
+            <div class="text-[9px] text-slate-600">肉・魚定食など</div>
+          </div>
+          <div class="bg-rose-50/70 p-2 rounded-xl border border-rose-100">
+            <div class="text-[10px] font-bold text-rose-900">🥑 脂質</div>
+            <div class="text-base font-black text-rose-700 font-mono slot-f">約 18g</div>
+            <div class="text-[9px] text-slate-600">揚げ物は少なめに</div>
+          </div>
+          <div class="bg-blue-50/70 p-2 rounded-xl border border-blue-100">
+            <div class="text-[10px] font-bold text-blue-900">🍚 炭水化物</div>
+            <div class="text-base font-black text-blue-700 font-mono slot-c">約 75g</div>
+            <div class="text-[9px] text-slate-600">ご飯並盛〜少なめ</div>
+          </div>
+        </div>
+
+        <!-- 折りたたみ：参考メニュー例 -->
+        <details class="group border-t border-slate-100 pt-2 text-xs">
+          <summary class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-600 hover:text-emerald-600 transition">
+            <span class="flex items-center gap-1 font-semibold text-[11px]">
+              <i class="fa-solid fa-lightbulb text-orange-500"></i>
+              コンビニ・外食（松屋等）の具体例を見る
+            </span>
+            <i class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition"></i>
+          </summary>
+          <div class="slot-items space-y-1.5 pt-2"></div>
+        </details>
       </div>
 
-      <!-- 間食・スイーツ枠 -->
-      <div
-        class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition hover:border-emerald-200"
-        data-meal="snack">
-        <div class="flex items-center justify-between mb-2.5">
-          <div class="flex items-center space-x-2">
-            <span
-              class="w-7 h-7 rounded-lg bg-pink-100 text-pink-700 flex items-center justify-center text-xs font-bold">間</span>
-            <h3 class="font-bold text-sm text-slate-800">おやつ・間食枠</h3>
-            <span class="text-xs text-slate-600 font-medium slot-cal">約 120 kcal</span>
+      <!-- 夕食スロット -->
+      <div class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition" data-meal="dinner">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center text-sm font-bold shadow-xs">🌙</span>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h3 class="font-bold text-base text-slate-800">夕食の目標</h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">目安 18:30〜20:30</span>
+              </div>
+              <p class="text-[11px] text-slate-600">夜は糖質・脂質を抑えて脂肪蓄積を防止！</p>
+            </div>
           </div>
-          <div class="flex items-center space-x-1">
-            <select
-              class="store-select text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 outline-none">
-              <option value="all">コンビニ・全般</option>
-              <option value="seven">セブン</option>
-              <option value="lawson">ローソン(低糖質)</option>
-              <option value="family">ファミマ</option>
-            </select>
-            <button class="reroll-slot-btn p-1.5 text-slate-600 hover:text-emerald-600 transition" title="別の間食にする">
-              <i class="fa-solid fa-arrows-rotate text-xs"></i>
-            </button>
+          <div class="text-right">
+            <span class="text-xs text-slate-600 font-medium">目標</span>
+            <div class="text-2xl font-black text-indigo-600 font-mono slot-cal-target">480 <span class="text-xs font-bold text-slate-600">kcal</span></div>
           </div>
         </div>
-        <div class="slot-items space-y-2"></div>
+
+        <!-- 栄養素（PFC）内訳目安 -->
+        <div class="grid grid-cols-3 gap-2 py-3 text-center text-xs">
+          <div class="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+            <div class="text-[10px] font-bold text-amber-900">🥩 たんぱく質</div>
+            <div class="text-base font-black text-amber-700 font-mono slot-p">約 30g</div>
+            <div class="text-[9px] text-slate-600">豆腐・魚・鶏肉</div>
+          </div>
+          <div class="bg-rose-50/70 p-2 rounded-xl border border-rose-100">
+            <div class="text-[10px] font-bold text-rose-900">🥑 脂質</div>
+            <div class="text-base font-black text-rose-700 font-mono slot-f">約 12g</div>
+            <div class="text-[9px] text-slate-600">あっさり調理</div>
+          </div>
+          <div class="bg-blue-50/70 p-2 rounded-xl border border-blue-100">
+            <div class="text-[10px] font-bold text-blue-900">🍚 炭水化物</div>
+            <div class="text-base font-black text-blue-700 font-mono slot-c">約 50g</div>
+            <div class="text-[9px] text-slate-600">ご飯小盛または麺なし</div>
+          </div>
+        </div>
+
+        <!-- 折りたたみ：参考メニュー例 -->
+        <details class="group border-t border-slate-100 pt-2 text-xs">
+          <summary class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-600 hover:text-emerald-600 transition">
+            <span class="flex items-center gap-1 font-semibold text-[11px]">
+              <i class="fa-solid fa-lightbulb text-indigo-500"></i>
+              コンビニ（キムチ鍋等）・外食の具体例を見る
+            </span>
+            <i class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition"></i>
+          </summary>
+          <div class="slot-items space-y-1.5 pt-2"></div>
+        </details>
       </div>
 
-      <!-- ドリンク・カフェ枠 -->
-      <div
-        class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition hover:border-emerald-200"
-        data-meal="drink">
-        <div class="flex items-center justify-between mb-2.5">
-          <div class="flex items-center space-x-2">
-            <span
-              class="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-bold">飲</span>
-            <h3 class="font-bold text-sm text-slate-800">ドリンク・カフェ枠</h3>
-            <span class="text-xs text-slate-600 font-medium slot-cal">約 50 kcal</span>
+      <!-- 間食・ドリンクスロット -->
+      <div class="meal-card bg-white rounded-2xl p-4 border border-slate-200 shadow-sm transition" data-meal="snack">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-8 h-8 rounded-xl bg-pink-100 text-pink-800 flex items-center justify-center text-sm font-bold shadow-xs">☕</span>
+            <div>
+              <div class="flex items-center space-x-2">
+                <h3 class="font-bold text-base text-slate-800">間食・ドリンクの目標</h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">息抜き・カフェ</span>
+              </div>
+              <p class="text-[11px] text-slate-600">無理に我慢せず、低糖質スイーツやコーヒーで満足感を</p>
+            </div>
           </div>
-          <div class="flex items-center space-x-1">
-            <select
-              class="store-select text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-600 outline-none">
-              <option value="all">カフェ・コンビニ</option>
-              <option value="starbucks">スタバ</option>
-              <option value="seven">セブンカフェ</option>
-            </select>
-            <button class="reroll-slot-btn p-1.5 text-slate-600 hover:text-emerald-600 transition" title="別のドリンクにする">
-              <i class="fa-solid fa-arrows-rotate text-xs"></i>
-            </button>
+          <div class="text-right">
+            <span class="text-xs text-slate-600 font-medium">目標</span>
+            <div class="text-2xl font-black text-pink-600 font-mono slot-cal-target">140 <span class="text-xs font-bold text-slate-600">kcal</span></div>
           </div>
         </div>
-        <div class="slot-items space-y-2"></div>
+
+        <!-- 栄養素（PFC）内訳目安 -->
+        <div class="grid grid-cols-3 gap-2 py-3 text-center text-xs">
+          <div class="bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+            <div class="text-[10px] font-bold text-amber-900">🥩 たんぱく質</div>
+            <div class="text-base font-black text-amber-700 font-mono slot-p">約 6g</div>
+            <div class="text-[9px] text-slate-600">プロテイン等</div>
+          </div>
+          <div class="bg-rose-50/70 p-2 rounded-xl border border-rose-100">
+            <div class="text-[10px] font-bold text-rose-900">🥑 脂質</div>
+            <div class="text-base font-black text-rose-700 font-mono slot-f">約 5g</div>
+            <div class="text-[9px] text-slate-600">控えめに</div>
+          </div>
+          <div class="bg-blue-50/70 p-2 rounded-xl border border-blue-100">
+            <div class="text-[10px] font-bold text-blue-900">🍚 炭水化物</div>
+            <div class="text-base font-black text-blue-700 font-mono slot-c">約 15g</div>
+            <div class="text-[9px] text-slate-600">低糖質菓子・果物</div>
+          </div>
+        </div>
+
+        <!-- 折りたたみ：参考メニュー例 -->
+        <details class="group border-t border-slate-100 pt-2 text-xs">
+          <summary class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-600 hover:text-emerald-600 transition">
+            <span class="flex items-center gap-1 font-semibold text-[11px]">
+              <i class="fa-solid fa-lightbulb text-pink-500"></i>
+              おすすめ低糖質おやつ・カフェの具体例を見る
+            </span>
+            <i class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition"></i>
+          </summary>
+          <div class="slot-items space-y-1.5 pt-2"></div>
+        </details>
       </div>
     </section>
 
