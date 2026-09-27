@@ -15,7 +15,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then((reg) => {
+        navigator.serviceWorker.register('./sw.js?v=3.0').then((reg) => {
           reg.update();
         }).catch(() => {});
       });
@@ -25,7 +25,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome / Lucide icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
   <script>
     tailwind.config = {
       theme: {
@@ -1080,7 +1080,7 @@
         </div>
 
         <!-- すぐ試せるサンプルボタン -->
-        <div class="space-y-1 pt-1 border-t border-slate-100">
+        <div class="sample-presets-box space-y-1 pt-1 border-t border-slate-100">
           <span class="text-[10px] font-bold text-slate-500">またはサンプルで即座にテスト：</span>
           <div class="grid grid-cols-2 gap-1.5 text-[11px]">
             <button class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5" data-type="ramen">
@@ -1120,7 +1120,7 @@
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
                 <i class="fa-solid fa-wand-magic-sparkles text-emerald-600"></i>
-                <span>写真から検出した候補（タップで即選択）：</span>
+                <span>写真から検出した料理（「決定」で即記録）：</span>
               </span>
               <span class="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">あすけん方式</span>
             </div>
@@ -1173,9 +1173,9 @@
             <button id="retakeCameraBtn" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer">
               <i class="fa-solid fa-rotate-left mr-1"></i>撮り直す
             </button>
-            <button id="applyPhotoMealBtn" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center space-x-1.5 cursor-pointer">
-              <i class="fa-solid fa-check"></i>
-              <span>この料理を記録して残りを自動調整</span>
+            <button id="applyPhotoMealBtn" class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white font-bold rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center space-x-2 cursor-pointer">
+              <i class="fa-solid fa-circle-check text-base"></i>
+              <span id="applyPhotoBtnLabel">この料理を記録する</span>
             </button>
           </div>
         </div>
@@ -1225,9 +1225,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=2.8"></script>
-  <script src="js/calculator.js?v=2.8"></script>
-  <script src="js/app.js?v=2.8"></script>
+  <script src="js/data.js?v=3.0"></script>
+  <script src="js/calculator.js?v=3.0"></script>
+  <script src="js/app.js?v=3.0"></script>
 </body>
 
 </html>

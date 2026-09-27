@@ -1028,45 +1028,57 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 画像ファイルが選択/撮影されたときの共通処理（リサイズ圧縮・HEIC対策・iOSメモリクラッシュ対策）
+    // 画像ファイルが選択/撮影されたときの共通処理（リサイズ圧縮・HEIC対策・クラッシュ防止）
     function handleImageFileSelected(file, optionalSlot) {
-      // 1. スロット指定があれば反映
-      if (optionalSlot) {
-        const sel = document.getElementById("recordTargetSlot");
-        if (sel) sel.value = optionalSlot;
+      if (!file) return;
+
+      const modal = document.getElementById("photoModal");
+      const targetSlot = optionalSlot || document.getElementById("recordTargetSlot")?.value || "breakfast";
+      const slotSelect = document.getElementById("recordTargetSlot");
+      if (slotSelect) slotSelect.value = targetSlot;
+
+      // モーダルを開く（カメラ初期化リセットは呼ばず、解析画面を直接開く）
+      if (modal) {
+        modal.classList.remove("hidden");
+        modal.style.display = "flex";
       }
-      window.openPhotoRecordModal(optionalSlot);
 
-      // 2. iOS Safari特有の再選択不可バグ防止：inputの値を即リセット
-      if (directCameraInput) directCameraInput.value = "";
-      if (albumFileInput) albumFileInput.value = "";
-      document.querySelectorAll(".slot-direct-camera").forEach(input => {
-        try { input.value = ""; } catch (err) {}
-      });
-
-      // 3. UIを解析準備状態に
+      // ランチャー・カメラ・サンプルボタンを隠し、解析画面を全面に
       stopLiveCamera();
       if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
       if (cameraContainer) cameraContainer.classList.add("hidden");
       if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
+      const sampleBox = document.querySelector("#photoTabContent .sample-presets-box");
+      if (sampleBox) sampleBox.classList.add("hidden");
 
-      scanPreviewArea.classList.remove("hidden");
-      scanOverlay.classList.remove("hidden");
-      scanLaserLine.classList.remove("hidden");
-      scanResultArea.classList.add("hidden");
-      scanStatusText.textContent = "写真を最適化・解析中...";
+      if (scanPreviewArea) scanPreviewArea.classList.remove("hidden");
+      if (scanOverlay) scanOverlay.classList.remove("hidden");
+      if (scanLaserLine) scanLaserLine.classList.remove("hidden");
+      if (scanResultArea) scanResultArea.classList.add("hidden");
+      if (scanStatusText) scanStatusText.textContent = "写真を読み込み・AI解析中...";
 
-      // 4. スマホ写真（10MB〜15MB）のメモリクラッシュを防ぐため、HTML5 Canvasで長辺最大1200px・JPEG品質0.8にリサイズ圧縮
+      // FileReaderで確実に画像を読み込み（読み込み完了前にinputをクリアしない）
       const reader = new FileReader();
-      reader.onerror = () => {
+      reader.onerror = (err) => {
+        console.error("FileReader error:", err);
         alert("写真の読み込みに失敗しました。もう一度お試しください。");
         resetCameraView();
       };
+
       reader.onload = (event) => {
+        const rawDataUrl = event.target.result;
+
+        // 読み込み完了後に安全にinputをクリア（ブラウザのBlob無効化を防ぐ）
+        try {
+          if (directCameraInput) directCameraInput.value = "";
+          if (albumFileInput) albumFileInput.value = "";
+          document.querySelectorAll(".slot-direct-camera").forEach(inp => { inp.value = ""; });
+        } catch (e) {}
+
         const img = new Image();
         img.onerror = () => {
-          // デコード失敗時のフォールバック
-          startPhotoAnalysis(event.target.result, null);
+          // デコード失敗時も生のDataURLで確実に解析を継続
+          startPhotoAnalysis(rawDataUrl, null, file.name);
         };
         img.onload = () => {
           try {
@@ -1089,16 +1101,16 @@ document.addEventListener("DOMContentLoaded", () => {
             const ctx = canvas.getContext("2d");
             ctx.drawImage(img, 0, 0, w, h);
 
-            // HEIC等のiPhoneフォーマットもcanvas経由で標準image/jpegに自動変換
-            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
-            startPhotoAnalysis(compressedDataUrl, null);
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+            startPhotoAnalysis(compressedDataUrl, null, file.name);
           } catch (err) {
-            console.warn("Canvas compression failed, falling back to original:", err);
-            startPhotoAnalysis(event.target.result, null);
+            console.warn("Canvas compression fallback:", err);
+            startPhotoAnalysis(rawDataUrl, null, file.name);
           }
         };
-        img.src = event.target.result;
+        img.src = rawDataUrl;
       };
+
       reader.readAsDataURL(file);
     }
 
@@ -1481,7 +1493,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ==================== あすけん方式：高精度な料理候補TOP4生成 ====================
-    function getAskenCandidates(slot) {
+    function getAskenCandidates(slot, fileName) {
+      let keywordCandidate = null;
+      if (fileName) {
+        const fn = fileName.toLowerCase();
+        const keywords = [
+          { keys: ["ramen", "ラーメン", "麺", "拉麺"], item: { name: "醤油チャーシュー麺 (並盛)", calories: 520, p: 21.0, f: 16.5, c: 72.0, icon: "🍜", advice: "🍜 ラーメンを写真から検知！スープを残すとさらに塩分と脂質をカットできます。" } },
+          { keys: ["curry", "カレー"], item: { name: "チキンカレーライス (普通盛り)", calories: 680, p: 18.5, f: 20.0, c: 105.0, icon: "🍛", advice: "🍛 カレーを写真から検知！スパイスで代謝アップ。夕食で主食を調整します。" } },
+          { keys: ["bento", "弁当"], item: { name: "特製からあげ弁当 (ご飯普通盛り)", calories: 780, p: 27.0, f: 29.5, c: 94.0, icon: "🍱", advice: "🍱 お弁当を写真から検知！たんぱく質しっかり。夜は軽めに調整。" } },
+          { keys: ["karaage", "からあげ", "唐揚", "チキン"], item: { name: "鶏のから揚げ (4個)", calories: 340, p: 24.0, f: 22.0, c: 12.0, icon: "🍗", advice: "🍗 唐揚げを検知！たんぱく質豊富。脂質を抑えるため野菜も一緒に。" } },
+          { keys: ["cake", "ケーキ", "スイーツ", "dessert"], item: { name: "ベイクドチーズケーキ", calories: 360, p: 6.8, f: 24.2, c: 28.5, icon: "🍰", advice: "🍰 スイーツを検知！美味しい息抜き。夕食の主食を控えめに調整します。" } },
+          { keys: ["salad", "サラダ"], item: { name: "グリルチキンのチョップドサラダ", calories: 210, p: 25.4, f: 7.2, c: 9.8, icon: "🥗", advice: "🥗 高たんぱく・低カロリーな理想食！次の食事にカロリーの余裕ができます。" } },
+          { keys: ["sushi", "寿司", "すし"], item: { name: "にぎり寿司 (8貫盛り)", calories: 460, p: 24.0, f: 6.0, c: 75.0, icon: "🍣", advice: "🍣 お寿司を検知！低脂質で良質な魚のたんぱく質が摂れます。" } },
+          { keys: ["pasta", "パスタ", "スパゲティ"], item: { name: "ミートソーススパゲティ", calories: 580, p: 22.0, f: 18.0, c: 80.0, icon: "🍝", advice: "🍝 パスタを検知！エネルギー補給に最適です。" } },
+          { keys: ["bread", "パン", "トースト"], item: { name: "食パン (6枚切) ＋ ゆで卵 ＋ カフェラテ", calories: 350, p: 15.6, f: 15.4, c: 37.5, icon: "🍞", advice: "🍞 パン朝食を検知！手軽でバランスの良い朝食です。" } },
+          { keys: ["udon", "うどん"], item: { name: "きつねうどん (並盛)", calories: 420, p: 14.0, f: 8.0, c: 72.0, icon: "🥢", advice: "🥢 うどんを検知！消化に良く胃腸に優しいメニューです。" } }
+        ];
+
+        for (const kw of keywords) {
+          if (kw.keys.some(k => fn.includes(k))) {
+            keywordCandidate = { rank: 1, ...kw.item };
+            break;
+          }
+        }
+      }
+
       const candidatesBySlot = {
         breakfast: [
           { rank: 1, name: "白ご飯 (150g) ＋ 目玉焼き ＋ 味噌汁", calories: 384, p: 14.1, f: 9.5, c: 58.8, icon: "🍚", advice: "✨ 朝の王道和定食！良質なたんぱく質とエネルギーをチャージ。" },
@@ -1508,19 +1544,30 @@ document.addEventListener("DOMContentLoaded", () => {
           { rank: 4, name: "アイスカフェラテ (無糖 200ml)", calories: 78, p: 4.1, f: 4.2, c: 5.9, icon: "☕", advice: "☕ 牛乳のたんぱく質が摂れるヘルシードリンクです。" }
         ]
       };
-      return candidatesBySlot[slot] || candidatesBySlot.lunch;
+
+      const baseList = candidatesBySlot[slot] || candidatesBySlot.lunch;
+      if (keywordCandidate) {
+        return [keywordCandidate, ...baseList.slice(0, 3).map((item, i) => ({ ...item, rank: i + 2 }))];
+      }
+      return baseList;
     }
 
     // 解析開始演出 ＆ あすけん方式の候補自動特定
-    async function startPhotoAnalysis(imageSrc, presetData) {
+    async function startPhotoAnalysis(imageSrc, presetData, fileName) {
+      if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
+      if (cameraContainer) cameraContainer.classList.add("hidden");
+      if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
+      const sampleBox = document.querySelector("#photoTabContent .sample-presets-box");
+      if (sampleBox) sampleBox.classList.add("hidden");
+
       scanPreviewArea.classList.remove("hidden");
       scannedImagePreview.src = imageSrc;
       scanOverlay.classList.remove("hidden");
       scanLaserLine.classList.remove("hidden");
       scanResultArea.classList.add("hidden");
-      scanStatusText.textContent = "AIが写真から料理を分析中...";
+      scanStatusText.textContent = "AIが写真から料理とカロリーを分析中...";
 
-      const slot = document.getElementById("recordTargetSlot")?.value || "lunch";
+      const slot = document.getElementById("recordTargetSlot")?.value || "breakfast";
 
       // Geminiキーがあれば本物AIを優先、なければあすけん方式の候補
       let geminiRes = null;
@@ -1529,66 +1576,88 @@ document.addEventListener("DOMContentLoaded", () => {
         geminiRes = await analyzeWithGeminiVision(imageSrc);
       }
 
-      await new Promise(r => setTimeout(r, geminiRes ? 200 : 700));
+      await new Promise(r => setTimeout(r, geminiRes ? 200 : 500));
 
       scanOverlay.classList.add("hidden");
       scanLaserLine.classList.add("hidden");
 
-      let candidates = getAskenCandidates(slot);
+      let candidates = getAskenCandidates(slot, fileName);
       if (presetData) {
-        candidates = [{ rank: 1, ...presetData }, ...candidates.slice(0, 3)];
+        candidates = [{ rank: 1, ...presetData }, ...candidates.slice(0, 3).map((item, i) => ({ ...item, rank: i + 2 }))];
       } else if (geminiRes) {
-        candidates = [{ rank: 1, ...geminiRes }, ...candidates.slice(0, 3)];
+        candidates = [{ rank: 1, ...geminiRes }, ...candidates.slice(0, 3).map((item, i) => ({ ...item, rank: i + 2 }))];
       }
 
-      renderAskenCandidates(candidates);
-      selectCandidate(candidates[0]);
+      renderAskenCandidates(candidates, imageSrc);
+      selectCandidate(candidates[0], imageSrc);
 
       scanResultArea.classList.remove("hidden");
 
-      // スマホで結果へスムーズスクロール
+      // スマホ・PCで結果へスムーズスクロール
       setTimeout(() => {
         scanResultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }, 100);
+      }, 50);
     }
 
-    // あすけん方式の候補リストUI生成
-    function renderAskenCandidates(candidates) {
+    // あすけん方式の候補リストUI生成（ワンタップ決定ボタン付き）
+    function renderAskenCandidates(candidates, imageSrc) {
       const container = document.getElementById("aiCandidatesList");
       if (!container) return;
       container.innerHTML = "";
 
       candidates.forEach((cand, idx) => {
         const row = document.createElement("div");
-        row.className = `asken-candidate-card p-2.5 rounded-xl border cursor-pointer transition flex items-center justify-between ${idx === 0 ? 'bg-emerald-50 border-emerald-400 shadow-2xs font-bold' : 'bg-white border-slate-200 hover:bg-slate-50'}`;
+        row.className = `asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 ${idx === 0 ? 'bg-emerald-50 border-emerald-400 shadow-2xs font-bold' : 'bg-white border-slate-200 hover:bg-slate-50'}`;
         row.innerHTML = `
-          <div class="flex items-center space-x-2 min-w-0">
-            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center justify-center shrink-0">${idx + 1}</span>
-            <span class="text-base shrink-0">${cand.icon || '🍽️'}</span>
-            <div class="truncate text-slate-800 text-xs">
-              <span class="cand-name">${cand.name}</span>
+          <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0 flex-1">
+            <span class="w-5 h-5 rounded-full ${idx === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'} text-[10px] font-black flex items-center justify-center shrink-0">${idx + 1}</span>
+            <span class="text-base sm:text-lg shrink-0">${cand.icon || '🍽️'}</span>
+            <div class="min-w-0">
+              <div class="font-bold text-slate-800 text-xs sm:text-sm truncate cand-name">${cand.name}</div>
+              <div class="text-[10px] text-slate-500 font-mono mt-0.5">P:${cand.p}g · F:${cand.f}g · C:${cand.c}g</div>
             </div>
           </div>
-          <div class="text-right shrink-0 ml-2">
-            <span class="font-mono font-black text-emerald-700 text-xs sm:text-sm">${cand.calories}</span>
-            <span class="text-[9px] text-slate-500">kcal</span>
+          <div class="flex items-center space-x-2 shrink-0 ml-2">
+            <div class="text-right">
+              <span class="font-mono font-black text-emerald-700 text-xs sm:text-sm">${cand.calories}</span>
+              <span class="text-[9px] text-slate-500 block -mt-1">kcal</span>
+            </div>
+            <button type="button" class="quick-apply-btn px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-[11px] transition shadow-xs flex items-center gap-1 cursor-pointer">
+              <span>決定</span>
+              <i class="fa-solid fa-check text-[10px]"></i>
+            </button>
           </div>
         `;
 
-        row.addEventListener("click", () => {
+        // 行全体タップで選択
+        row.addEventListener("click", (e) => {
+          if (e.target.closest(".quick-apply-btn")) return; // 決定ボタンと二重発火防止
           document.querySelectorAll(".asken-candidate-card").forEach(c => {
-            c.className = "asken-candidate-card p-2.5 rounded-xl border cursor-pointer transition flex items-center justify-between bg-white border-slate-200 hover:bg-slate-50";
+            c.className = "asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-white border-slate-200 hover:bg-slate-50";
+            const badge = c.querySelector("span:first-child");
+            if (badge) badge.className = "w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0";
           });
-          row.className = "asken-candidate-card p-2.5 rounded-xl border cursor-pointer transition flex items-center justify-between bg-emerald-50 border-emerald-400 shadow-2xs font-bold";
-          selectCandidate(cand);
+          row.className = "asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-emerald-50 border-emerald-400 shadow-2xs font-bold";
+          const badge = row.querySelector("span:first-child");
+          if (badge) badge.className = "w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center shrink-0";
+          selectCandidate(cand, imageSrc);
         });
+
+        // 「決定」ボタンでワンタップ即記録！
+        const quickBtn = row.querySelector(".quick-apply-btn");
+        if (quickBtn) {
+          quickBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            applyCandidateMeal({ ...cand, img: imageSrc }, imageSrc);
+          });
+        }
 
         container.appendChild(row);
       });
     }
 
-    function selectCandidate(data) {
-      currentScanItem = { ...data };
+    function selectCandidate(data, imageSrc) {
+      currentScanItem = { ...data, img: imageSrc || data.img || null };
       const nameInput = document.getElementById("resultDishNameInput");
       const calInput = document.getElementById("resultCaloriesInput");
       if (nameInput) nameInput.value = data.name;
@@ -1598,6 +1667,14 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("resultF").textContent = `${data.f}g`;
       document.getElementById("resultC").textContent = `${data.c}g`;
       document.getElementById("resultAdvice").textContent = data.advice || "✨ 食品標準データベースに基づき正確に算出しました。";
+
+      // 記録ボタンの文言も動的に更新
+      const targetSlot = document.getElementById("recordTargetSlot")?.value || "breakfast";
+      const slotJp = getSlotJpName(targetSlot);
+      const applyBtnLabel = document.getElementById("applyPhotoBtnLabel");
+      if (applyBtnLabel) {
+        applyBtnLabel.textContent = `この料理 (${data.calories} kcal) を【${slotJp}】に記録する`;
+      }
     }
 
     // クイック微調整（-50 / +50）
@@ -1846,45 +1923,80 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ① 写真解析からの保存（編集された数値を優先保存）
-    applyPhotoMealBtn.addEventListener("click", () => {
-      if (!currentScanItem) return;
-
-      const slot = document.getElementById("recordTargetSlot").value;
-      const nameInput = document.getElementById("resultDishNameInput");
-      const calInput = document.getElementById("resultCaloriesInput");
-      const finalName = (nameInput && nameInput.value.trim()) || currentScanItem.name;
-      const finalCal = (calInput && parseInt(calInput.value)) || currentScanItem.calories;
+    // 共通：食事記録の即時適用処理（ワンタップ決定 ＆ 確定ボタン共有）
+    function applyCandidateMeal(mealData, photoImg) {
+      const slot = document.getElementById("recordTargetSlot")?.value || "breakfast";
+      const finalName = (mealData.name && mealData.name.trim()) || "記録した食事";
+      const finalCal = parseInt(mealData.calories) || 400;
 
       state.records[slot] = {
         name: finalName,
         calories: finalCal,
-        p: currentScanItem.p || Math.round(finalCal * 0.05),
-        f: currentScanItem.f || Math.round((finalCal * 0.2) / 9),
-        c: currentScanItem.c || Math.round((finalCal * 0.6) / 4),
-        img: currentScanItem.img || null,
-        icon: currentScanItem.icon || "📸"
+        p: mealData.p || Math.round(finalCal * 0.05),
+        f: mealData.f || Math.round((finalCal * 0.2) / 9),
+        c: mealData.c || Math.round((finalCal * 0.6) / 4),
+        img: photoImg || mealData.img || (currentScanItem && currentScanItem.img) || null,
+        icon: mealData.icon || "🍽️"
       };
 
       saveRecordsToStorage();
       updateUI();
       window.closePhotoRecordModal();
 
-      // 完了バナー表示
+      // 即座に完了バナー表示 ＆ 対象の食事カードへスクロール強調
+      showRecordSuccessNotification(slot, finalName, finalCal);
+    }
+
+    function showRecordSuccessNotification(slot, name, cal) {
+      const slotJp = getSlotJpName(slot);
       const banner = document.getElementById("statusBanner");
-      banner.className = "rounded-xl p-3.5 flex items-center justify-between text-xs font-medium border bg-teal-50 border-teal-200 text-teal-900 shadow-sm";
-      banner.innerHTML = `
-        <div class="flex items-center space-x-2">
-          <span class="text-lg">📸</span>
-          <span><strong>【${getSlotJpName(slot)}】に記録しました：</strong>${finalName} (${finalCal}kcal) を反映し、残りカロリーと目標をリアルタイム更新しました！</span>
-        </div>
-        <button id="dismissPhotoBannerBtn" class="text-[11px] underline font-bold ml-2">閉じる</button>
-      `;
-      banner.classList.remove("hidden");
-      document.getElementById("dismissPhotoBannerBtn").onclick = () => {
-        banner.classList.add("hidden");
-      };
-    });
+      if (banner) {
+        banner.className = "rounded-2xl p-4 flex items-center justify-between text-xs font-medium border bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-lg";
+        banner.innerHTML = `
+          <div class="flex items-center space-x-2.5">
+            <span class="text-2xl">🎉</span>
+            <div>
+              <div class="font-bold text-sm sm:text-base">【${slotJp}】に「${name}」(${cal} kcal) を記録しました！</div>
+              <div class="text-[11px] text-emerald-100 mt-0.5">食べたカロリーを反映し、残りの目標・PFCバランスを即時再計算しました。</div>
+            </div>
+          </div>
+          <button id="dismissPhotoBannerBtn" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition ml-2 shrink-0 cursor-pointer">閉じる</button>
+        `;
+        banner.classList.remove("hidden");
+        const dismissBtn = document.getElementById("dismissPhotoBannerBtn");
+        if (dismissBtn) dismissBtn.onclick = () => banner.classList.add("hidden");
+      }
+
+      // 対象の食事カードへスムーズスクロールし、ハイライトアニメーション
+      setTimeout(() => {
+        const targetCard = document.querySelector(`.meal-card[data-meal="${slot}"]`);
+        if (targetCard) {
+          targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+          targetCard.classList.add("ring-4", "ring-emerald-400", "transition-all");
+          setTimeout(() => {
+            targetCard.classList.remove("ring-4", "ring-emerald-400");
+          }, 2500);
+        }
+      }, 100);
+    }
+
+    // ① 写真解析モーダル下部の確定ボタン
+    if (applyPhotoMealBtn) {
+      applyPhotoMealBtn.addEventListener("click", () => {
+        if (!currentScanItem) return;
+
+        const nameInput = document.getElementById("resultDishNameInput");
+        const calInput = document.getElementById("resultCaloriesInput");
+        const finalName = (nameInput && nameInput.value.trim()) || currentScanItem.name;
+        const finalCal = (calInput && parseInt(calInput.value)) || currentScanItem.calories;
+
+        applyCandidateMeal({
+          ...currentScanItem,
+          name: finalName,
+          calories: finalCal
+        }, currentScanItem.img);
+      });
+    }
   }
 
   function getSlotJpName(slot) {
