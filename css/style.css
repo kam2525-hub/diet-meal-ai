@@ -1,0 +1,44 @@
+/* style.css */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* スクロールバー非表示 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* アクティブな気分ボタン */
+.craving-btn.active {
+  background-color: #047857 !important;
+  color: #ffffff !important;
+  border-color: #047857 !important;
+  box-shadow: 0 4px 6px -1px rgba(4, 120, 87, 0.25);
+}
+
+.craving-btn.active span {
+  color: #ffffff !important;
+}
+
+/* アイテムカードアニメーション */
+.meal-item {
+  transition: all 0.2s ease-in-out;
+}
+
+.meal-item:hover {
+  transform: translateY(-1px);
+}
+
+/* チェック済みアイテム */
+.item-checked {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
