@@ -1,12 +1,12 @@
 // MealAI Service Worker
-const CACHE_NAME = 'mealai-v2.6';
+const CACHE_NAME = 'mealai-v2.7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/style.css',
-  './js/data.js?v=2.6',
-  './js/calculator.js?v=2.6',
-  './js/app.js?v=2.6',
+  './js/data.js?v=2.7',
+  './js/calculator.js?v=2.7',
+  './js/app.js?v=2.7',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'

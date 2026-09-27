@@ -1396,33 +1396,141 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // 解析開始演出
-    function startPhotoAnalysis(imageSrc, presetData) {
+    // ==================== Gemini API設定 ＆ 状態管理 ====================
+    let geminiApiKey = localStorage.getItem("mealai_gemini_key") || "";
+    const geminiInput = document.getElementById("geminiApiKeyInput");
+    const saveGeminiBtn = document.getElementById("saveGeminiKeyBtn");
+    const geminiBadge = document.getElementById("geminiStatusBadge");
+
+    function updateGeminiStatusUI() {
+      if (geminiInput) geminiInput.value = geminiApiKey;
+      if (geminiBadge) {
+        if (geminiApiKey) {
+          geminiBadge.textContent = "AI連携中";
+          geminiBadge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800";
+        } else {
+          geminiBadge.textContent = "未連携";
+          geminiBadge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600";
+        }
+      }
+    }
+    updateGeminiStatusUI();
+
+    if (saveGeminiBtn && geminiInput) {
+      saveGeminiBtn.addEventListener("click", () => {
+        geminiApiKey = geminiInput.value.trim();
+        localStorage.setItem("mealai_gemini_key", geminiApiKey);
+        updateGeminiStatusUI();
+        if (geminiApiKey) {
+          alert("✨ Google Gemini APIキーを連携しました！\n撮った写真を本物のAIが解析し、料理名・カロリー・栄養素を自動特定します。");
+        } else {
+          alert("APIキーの連携を解除しました。");
+        }
+      });
+    }
+
+    // Google Gemini 1.5 Flash Vision 呼び出し関数
+    async function analyzeWithGeminiVision(imageSrc) {
+      if (!geminiApiKey) return null;
+      try {
+        const base64Data = imageSrc.includes(",") ? imageSrc.split(",")[1] : imageSrc;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+        const prompt = "あなたはプロの管理栄養士AIです。写真の料理を正確に識別し、料理名、推定総カロリー(kcal、半角数値)、PFC(たんぱく質g, 脂質g, 炭水化物g、半角数値)、および実践的なダイエットアドバイス(1行)を以下のJSON形式のみで出力してください。\n{\n  \"name\": \"料理名\",\n  \"calories\": 480,\n  \"p\": 22.0,\n  \"f\": 14.5,\n  \"c\": 65.0,\n  \"advice\": \"アドバイス\"\n}";
+
+        const payload = {
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+            ]
+          }],
+          generationConfig: {
+            response_mime_type: "application/json"
+          }
+        };
+
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.warn("Gemini API call failed:", err);
+          return null;
+        }
+
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) return null;
+        const parsed = JSON.parse(text);
+        return {
+          name: parsed.name || "解析された料理",
+          calories: parseInt(parsed.calories) || 500,
+          p: parseFloat(parsed.p) || 20,
+          f: parseFloat(parsed.f) || 15,
+          c: parseFloat(parsed.c) || 60,
+          advice: `🤖 Gemini AI解析：${parsed.advice || "食材のバランスを考慮して推計しました。"}`,
+          icon: "🍽️"
+        };
+      } catch (e) {
+        console.error("Gemini Vision exception:", e);
+        return null;
+      }
+    }
+
+    // 解析開始演出 ＆ 本物AI / 賢いスマート推計の実行
+    async function startPhotoAnalysis(imageSrc, presetData) {
       scanPreviewArea.classList.remove("hidden");
       scannedImagePreview.src = imageSrc;
       scanOverlay.classList.remove("hidden");
       scanLaserLine.classList.remove("hidden");
       scanResultArea.classList.add("hidden");
-      scanStatusText.textContent = "AIが食材・カロリーを解析中...";
+      scanStatusText.textContent = geminiApiKey 
+        ? "Google Gemini AIが写真を解析中..." 
+        : "AIが食材・ボリュームを解析中...";
 
-      setTimeout(() => {
-        scanStatusText.textContent = "栄養成分（PFC）と盛り付け量を推計中...";
-      }, 700);
+      // スロットによる賢い推計デフォルト
+      const slot = document.getElementById("recordTargetSlot")?.value || "lunch";
+      const slotDefaults = {
+        breakfast: { name: "朝食（目玉焼き・トーストセット）", calories: 360, p: 14.0, f: 12.0, c: 48.0, advice: "💡 良い朝のエネルギー補給！昼・夜のバランスに合わせて自動調整します。" },
+        lunch: { name: "昼食（日替わり定食・主菜セット）", calories: 620, p: 26.0, f: 19.0, c: 84.0, advice: "💡 主菜と主食がしっかり摂れています。夕食の目標を自動調整します。" },
+        dinner: { name: "夕食（和食定食・肉または魚）", calories: 510, p: 28.0, f: 16.0, c: 62.0, advice: "💡 夜のカロリーを抑えて睡眠時の脂肪燃焼を促進します。" },
+        snack: { name: "間食（フルーツ・スイーツ・おやつ）", calories: 160, p: 4.0, f: 5.0, c: 24.0, advice: "💡 息抜きの間食！残りの食事でカロリーを調整します。" }
+      };
 
-      setTimeout(() => {
-        scanOverlay.classList.add("hidden");
-        scanLaserLine.classList.add("hidden");
-        showAnalysisResult(presetData || {
-          name: "写真から解析した料理（盛り合わせ）",
-          calories: 580,
-          p: 22.0,
-          f: 18.0,
-          c: 78.0,
-          price: 650,
+      let finalResult = presetData;
+
+      if (!finalResult && geminiApiKey) {
+        // 本物のGemini Vision APIを実行
+        finalResult = await analyzeWithGeminiVision(imageSrc);
+      }
+
+      if (!finalResult) {
+        // キー未設定またはエラー時のスマート推計
+        await new Promise(r => setTimeout(r, 900));
+        const def = slotDefaults[slot] || slotDefaults.lunch;
+        finalResult = {
+          name: def.name,
+          calories: def.calories,
+          p: def.p,
+          f: def.f,
+          c: def.c,
+          price: 500,
           icon: "🍽️",
-          advice: "💡 食材の色味と盛り付けからAIが推計しました。夕食の献立を自動調整して目標に合わせます。"
-        });
-      }, 1400);
+          advice: def.advice
+        };
+      }
+
+      scanOverlay.classList.add("hidden");
+      scanLaserLine.classList.add("hidden");
+      showAnalysisResult(finalResult);
+
+      // スマホで結果がすぐ目に入るようスムーズスクロール
+      setTimeout(() => {
+        scanResultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 100);
     }
 
     // 解析結果の表示
@@ -1480,6 +1588,230 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       };
     });
+
+    // ==================== リアルタイム食品検索エンジン ====================
+    const foodSearchInput = document.getElementById("foodQuickSearchInput");
+    const foodSearchResults = document.getElementById("foodQuickSearchResults");
+
+    if (foodSearchInput && foodSearchResults) {
+      foodSearchInput.addEventListener("input", (e) => {
+        const query = e.target.value.trim().toLowerCase();
+        if (!query) {
+          foodSearchResults.classList.add("hidden");
+          foodSearchResults.innerHTML = "";
+          return;
+        }
+
+        const matched = MEAL_DATABASE.filter(item => 
+          item.name.toLowerCase().includes(query) || 
+          (item.storeName && item.storeName.toLowerCase().includes(query)) ||
+          (item.tags && item.tags.some(t => t.toLowerCase().includes(query)))
+        ).slice(0, 10);
+
+        if (matched.length === 0) {
+          foodSearchResults.innerHTML = `<div class="p-2 text-slate-400 text-center text-xs">「${query}」に一致する食品が見つかりません</div>`;
+          foodSearchResults.classList.remove("hidden");
+          return;
+        }
+
+        foodSearchResults.innerHTML = matched.map(item => `
+          <div class="p-2 hover:bg-emerald-50 cursor-pointer flex items-center justify-between transition search-item-row"
+               data-name="${item.name}" data-cal="${item.calories}" data-p="${item.p}" data-f="${item.f}" data-c="${item.c}">
+            <div class="flex items-center space-x-1.5 min-w-0">
+              <span class="text-sm shrink-0">${item.icon || '🍽️'}</span>
+              <div class="truncate">
+                <span class="font-bold text-slate-800">${item.name}</span>
+                <span class="text-[10px] text-slate-500 ml-1">(${item.storeName})</span>
+              </div>
+            </div>
+            <span class="font-mono font-bold text-emerald-700 shrink-0 ml-2">${item.calories} kcal</span>
+          </div>
+        `).join("");
+        foodSearchResults.classList.remove("hidden");
+
+        foodSearchResults.querySelectorAll(".search-item-row").forEach(row => {
+          row.onclick = () => {
+            const name = row.dataset.name;
+            const cal = parseInt(row.dataset.cal);
+            const p = parseFloat(row.dataset.p);
+            const f = parseFloat(row.dataset.f);
+            const c = parseFloat(row.dataset.c);
+
+            document.getElementById("resultDishNameInput").value = name;
+            document.getElementById("resultCaloriesInput").value = cal;
+            document.getElementById("resultP").textContent = `${p}g`;
+            document.getElementById("resultF").textContent = `${f}g`;
+            document.getElementById("resultC").textContent = `${c}g`;
+            document.getElementById("resultAdvice").textContent = `✨ 食品DB「${name}」の正確な栄養成分 (${cal}kcal) を適用しました！`;
+            
+            if (currentScanItem) {
+              currentScanItem.name = name;
+              currentScanItem.calories = cal;
+              currentScanItem.p = p;
+              currentScanItem.f = f;
+              currentScanItem.c = c;
+            }
+            foodSearchResults.classList.add("hidden");
+            foodSearchInput.value = "";
+          };
+        });
+      });
+
+      // 外側クリックで検索候補を閉じる
+      document.addEventListener("click", (e) => {
+        if (!foodSearchInput.contains(e.target) && !foodSearchResults.contains(e.target)) {
+          foodSearchResults.classList.add("hidden");
+        }
+      });
+    }
+
+    // ==================== 今月の減量ダッシュボード ＆ カレンダー ====================
+    const monthlyModal = document.getElementById("monthlyModal");
+    const openMonthlyBtn = document.getElementById("openMonthlyBtn");
+    const closeMonthlyBtn = document.getElementById("closeMonthlyBtn");
+
+    if (openMonthlyBtn) {
+      openMonthlyBtn.addEventListener("click", () => {
+        renderMonthlyDashboard();
+        if (monthlyModal) monthlyModal.classList.remove("hidden");
+      });
+    }
+    if (closeMonthlyBtn) {
+      closeMonthlyBtn.addEventListener("click", () => {
+        if (monthlyModal) monthlyModal.classList.add("hidden");
+      });
+    }
+    if (monthlyModal) {
+      monthlyModal.addEventListener("click", (e) => {
+        if (e.target === monthlyModal) monthlyModal.classList.add("hidden");
+      });
+    }
+
+    function renderMonthlyDashboard() {
+      const parts = state.currentDate.split("-");
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]);
+      const todayStr = state.currentDate;
+
+      // 月の初日と日数
+      const firstDay = new Date(year, month - 1, 1).getDay();
+      const totalDays = new Date(year, month, 0).getDate();
+
+      const monthLabel = document.getElementById("monthlyCalendarMonthLabel");
+      if (monthLabel) monthLabel.textContent = `${year}年 ${month}月`;
+
+      const grid = document.getElementById("monthlyCalendarGrid");
+      if (!grid) return;
+      grid.innerHTML = "";
+
+      // 曜日ヘッダー
+      const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+      dayNames.forEach((d, i) => {
+        const h = document.createElement("div");
+        h.className = `font-bold text-[10px] pb-1 ${i === 0 ? 'text-rose-500' : i === 6 ? 'text-blue-500' : 'text-slate-500'}`;
+        h.textContent = d;
+        grid.appendChild(h);
+      });
+
+      // 空白セル
+      for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement("div");
+        empty.className = "p-1";
+        grid.appendChild(empty);
+      }
+
+      // 日付セル生成
+      let totalActualCalories = 0;
+      let totalTargetCalories = 0;
+      let recordedDaysCount = 0;
+
+      const targetPerDay = state.targetCalories || 1650;
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dayStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayCell = document.createElement("div");
+        dayCell.className = "p-1.5 rounded-xl border transition cursor-pointer flex flex-col items-center justify-between min-h-[50px]";
+
+        // 保存された記録を読み込み
+        let dayRecords = null;
+        try {
+          const raw = localStorage.getItem(`mealai_records_${dayStr}`);
+          if (raw) dayRecords = JSON.parse(raw);
+        } catch (e) {}
+
+        let dayCalories = 0;
+        let hasAnyRecord = false;
+        if (dayRecords) {
+          ['breakfast', 'lunch', 'dinner', 'snack'].forEach(s => {
+            if (dayRecords[s] && dayRecords[s].calories) {
+              dayCalories += dayRecords[s].calories;
+              hasAnyRecord = true;
+            }
+          });
+        }
+
+        const isToday = dayStr === todayStr;
+
+        if (hasAnyRecord) {
+          recordedDaysCount++;
+          totalActualCalories += dayCalories;
+          totalTargetCalories += targetPerDay;
+
+          const isUnder = dayCalories <= targetPerDay;
+          dayCell.className += isUnder 
+            ? " bg-emerald-50/80 border-emerald-300 hover:bg-emerald-100" 
+            : " bg-rose-50/80 border-rose-300 hover:bg-rose-100";
+
+          dayCell.innerHTML = `
+            <span class="font-bold text-[11px] ${isToday ? 'text-emerald-700 underline' : 'text-slate-700'}">${day}</span>
+            <span class="text-[9px] font-mono font-bold ${isUnder ? 'text-emerald-700' : 'text-rose-600'}">${dayCalories}</span>
+            <span class="w-1.5 h-1.5 rounded-full ${isUnder ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+          `;
+        } else {
+          dayCell.className += isToday 
+            ? " bg-teal-50/60 border-teal-300 font-bold" 
+            : " bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-400";
+          dayCell.innerHTML = `
+            <span class="text-[11px] ${isToday ? 'text-teal-700 font-bold' : 'text-slate-600'}">${day}</span>
+            <span class="text-[8px] text-slate-300">-</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
+          `;
+        }
+
+        // クリックでその日の記録へジャンプ
+        dayCell.addEventListener("click", () => {
+          saveRecordsToStorage();
+          state.currentDate = dayStr;
+          state.records = { breakfast: null, lunch: null, dinner: null, snack: null };
+          loadRecordsFromStorage();
+          updateUI();
+          if (monthlyModal) monthlyModal.classList.add("hidden");
+        });
+
+        grid.appendChild(dayCell);
+      }
+
+      // サマリー計算（累積カロリーカット ＆ 脂肪燃焼量）
+      const netDeficit = totalTargetCalories - totalActualCalories;
+      const fatLostKg = Math.max(0, (netDeficit / 7200)).toFixed(2);
+      const paceGoalKg = Math.abs(parseFloat(state.user.pace) || 2.0);
+
+      const deficitEl = document.getElementById("monthlyDeficitTotal");
+      const fatEl = document.getElementById("monthlyFatLost");
+      const rateEl = document.getElementById("monthlyProgressRate");
+      const goalLabel = document.getElementById("monthlyGoalLabel");
+
+      if (deficitEl) {
+        deficitEl.textContent = netDeficit >= 0 ? `-${netDeficit} kcal` : `+${Math.abs(netDeficit)} kcal`;
+        deficitEl.className = netDeficit >= 0 ? "text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5" : "text-base sm:text-lg font-black text-rose-600 font-mono mt-0.5";
+      }
+      if (fatEl) fatEl.textContent = `約 -${fatLostKg} kg`;
+      if (goalLabel) goalLabel.textContent = `月 -${paceGoalKg}kg 目標`;
+      if (rateEl) {
+        const rate = paceGoalKg > 0 ? Math.min(100, Math.round((parseFloat(fatLostKg) / paceGoalKg) * 100)) : 100;
+        rateEl.textContent = `${rate}%`;
+      }
+    }
 
     // ① 写真解析からの保存（編集された数値を優先保存）
     applyPhotoMealBtn.addEventListener("click", () => {

@@ -461,5 +461,27 @@ const MEAL_DATABASE = [
     price: 170,
     icon: "🥤",
     tags: ["drink", "sweet", "zero_cal"]
-  }
+  },
+  // ==================== 一般的な家庭料理・定番主食・フルーツ ====================
+  { id: "h_rice", name: "白ご飯 (茶碗1杯 150g)", store: "home", storeName: "主食", slot: "breakfast", calories: 234, p: 3.8, f: 0.5, c: 53.4, price: 50, icon: "🍚", tags: ["staple", "home"] },
+  { id: "h_toast", name: "食パン (6枚切 1枚 バター付)", store: "home", storeName: "主食", slot: "breakfast", calories: 210, p: 5.5, f: 6.8, c: 31.0, price: 40, icon: "🍞", tags: ["staple", "bread"] },
+  { id: "h_egg_fried", name: "目玉焼き (1個)", store: "home", storeName: "家庭料理", slot: "breakfast", calories: 95, p: 6.5, f: 7.2, c: 0.2, price: 30, icon: "🍳", tags: ["high_protein", "egg"] },
+  { id: "h_tamagoyaki", name: "卵焼き (2切れ)", store: "home", storeName: "家庭料理", slot: "breakfast", calories: 145, p: 8.2, f: 9.8, c: 4.5, price: 60, icon: "🥚", tags: ["high_protein", "egg"] },
+  { id: "h_natto", name: "納豆 (1パック タレ・からし付)", store: "home", storeName: "家庭料理", slot: "breakfast", calories: 86, p: 7.4, f: 4.4, c: 5.4, price: 35, icon: "🥢", tags: ["healthy", "high_protein"] },
+  { id: "h_miso", name: "豆腐とわかめの味噌汁 (1杯)", store: "home", storeName: "家庭料理", slot: "breakfast", calories: 55, p: 3.8, f: 1.8, c: 5.2, price: 40, icon: "🥣", tags: ["soup", "healthy"] },
+  { id: "h_banana", name: "バナナ (1本 中サイズ)", store: "fresh", storeName: "果物", slot: "snack", calories: 86, p: 1.1, f: 0.2, c: 22.5, price: 50, icon: "🍌", tags: ["fruit", "healthy"] },
+  { id: "h_apple", name: "りんご (1/2個)", store: "fresh", storeName: "果物", slot: "snack", calories: 70, p: 0.3, f: 0.2, c: 18.0, price: 80, icon: "🍎", tags: ["fruit", "healthy"] },
+  { id: "h_milk", name: "牛乳 (コップ1杯 200ml)", store: "home", storeName: "飲料", slot: "breakfast", calories: 134, p: 6.6, f: 7.6, c: 9.6, price: 55, icon: "🥛", tags: ["drink", "high_protein"] },
+  { id: "h_curry", name: "チキンカレーライス (普通盛り)", store: "home", storeName: "家庭料理", slot: "lunch", calories: 680, p: 18.5, f: 20.0, c: 105.0, price: 350, icon: "🍛", tags: ["staple", "curry"] },
+  { id: "h_hamburg", name: "デミグラスハンバーグ (付け合わせ付)", store: "home", storeName: "家庭料理", slot: "dinner", calories: 480, p: 26.0, f: 28.5, c: 24.0, price: 300, icon: "🥩", tags: ["high_protein", "meat"] },
+  { id: "h_karaage", name: "鶏のからあげ (4個)", store: "home", storeName: "家庭料理", slot: "dinner", calories: 340, p: 22.0, f: 22.0, c: 11.0, price: 200, icon: "🍗", tags: ["high_protein", "fried"] },
+  { id: "h_salmon", name: "焼き鮭・塩鮭 (1切れ)", store: "home", storeName: "家庭料理", slot: "breakfast", calories: 195, p: 22.4, f: 11.0, c: 0.1, price: 180, icon: "🐟", tags: ["high_protein", "fish"] },
+  { id: "h_udon", name: "かけうどん (ねぎ・かまぼこ)", store: "home", storeName: "麺類", slot: "lunch", calories: 320, p: 8.5, f: 2.0, c: 65.0, price: 150, icon: "🍜", tags: ["noodle", "staple"] },
+  { id: "h_ramen", name: "醤油ラーメン (チャーシュー・メンマ)", store: "home", storeName: "麺類", slot: "lunch", calories: 520, p: 21.0, f: 16.5, c: 72.0, price: 400, icon: "🍜", tags: ["noodle", "soup"] },
+  { id: "h_pasta", name: "ミートソースパスタ (普通盛り)", store: "home", storeName: "麺類", slot: "lunch", calories: 590, p: 21.5, f: 18.0, c: 84.0, price: 250, icon: "🍝", tags: ["noodle", "pasta"] },
+  { id: "h_gyudon", name: "牛丼 (並盛り つゆ普通)", store: "home", storeName: "外食", slot: "lunch", calories: 650, p: 20.0, f: 23.0, c: 88.0, price: 480, icon: "🍚", tags: ["meat", "staple"] },
+  { id: "h_tonkatsu", name: "とんかつ・ロースカツ (1枚)", store: "home", storeName: "家庭料理", slot: "dinner", calories: 460, p: 24.0, f: 34.0, c: 12.0, price: 320, icon: "🍱", tags: ["meat", "fried"] },
+  { id: "h_sandwich", name: "ミックスサンド (ハム・たまご・レタス)", store: "seven", storeName: "コンビニ", slot: "breakfast", calories: 285, p: 10.2, f: 13.5, c: 29.5, price: 280, icon: "🥪", tags: ["bread", "staple"] },
+  { id: "h_salad_chicken", name: "国産鶏サラダチキン プレーン", store: "all", storeName: "コンビニ", slot: "lunch", calories: 115, p: 24.5, f: 1.2, c: 0.5, price: 230, icon: "🥗", tags: ["high_protein", "clean"] },
+  { id: "h_protein_bar", name: "プロテインバー (チョコ味)", store: "all", storeName: "間食", slot: "snack", calories: 195, p: 15.0, f: 9.5, c: 12.5, price: 160, icon: "🍫", tags: ["snack", "high_protein"] }
 ];
