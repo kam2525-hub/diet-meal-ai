@@ -53,6 +53,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // 買い物リストのチェック状態
     checkedShoppingItems: new Set(),
 
+    // 日付管理 (YYYY-MM-DD)
+    currentDate: getTodayString(),
+
     // 各食事の実際の写真記録データ
     records: {
       breakfast: null,
@@ -62,6 +65,14 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     currentRecordSlot: 'lunch'
   };
+
+  function getTodayString() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   // 初期化
   init();
@@ -179,12 +190,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===================== UI レンダリング =====================
   function updateUI() {
+    renderDateBar();
     renderTopBmrPanel();
     renderProfileModalValues();
     renderPlanSummary();
     renderMealSlots();
     renderShoppingBadge();
     renderStatusBanner();
+  }
+
+  function renderDateBar() {
+    const input = document.getElementById("datePickerInput");
+    const badge = document.getElementById("dateLabelBadge");
+    if (!input || !badge) return;
+
+    input.value = state.currentDate;
+
+    const todayStr = getTodayString();
+    const d = new Date(state.currentDate);
+    const today = new Date(todayStr);
+
+    const diffDays = Math.round((d - today) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      badge.textContent = "今日";
+      badge.className = "bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold";
+    } else if (diffDays === -1) {
+      badge.textContent = "昨日";
+      badge.className = "bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold";
+    } else if (diffDays === 1) {
+      badge.textContent = "明日";
+      badge.className = "bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded-full font-bold";
+    } else {
+      badge.textContent = `${d.getMonth() + 1}月${d.getDate()}日`;
+      badge.className = "bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded-full font-bold";
+    }
+  }
+
+  function changeDateByOffset(offset) {
+    saveRecordsToStorage();
+    const parts = state.currentDate.split("-");
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    d.setDate(d.getDate() + offset);
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    state.currentDate = `${year}-${month}-${day}`;
+
+    // 新しい日付の記録を読み込み
+    state.records = { breakfast: null, lunch: null, dinner: null, snack: null };
+    loadRecordsFromStorage();
+    updateUI();
   }
 
   function renderTopBmrPanel() {
@@ -611,6 +668,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===================== イベントリスナー =====================
   function setupEventListeners() {
+    // 日付切り替えナビゲーション
+    const prevDateBtn = document.getElementById("prevDateBtn");
+    if (prevDateBtn) prevDateBtn.addEventListener("click", () => changeDateByOffset(-1));
+    const nextDateBtn = document.getElementById("nextDateBtn");
+    if (nextDateBtn) nextDateBtn.addEventListener("click", () => changeDateByOffset(1));
+    const datePicker = document.getElementById("datePickerInput");
+    if (datePicker) {
+      datePicker.addEventListener("change", (e) => {
+        if (e.target.value) {
+          saveRecordsToStorage();
+          state.currentDate = e.target.value;
+          state.records = { breakfast: null, lunch: null, dinner: null, snack: null };
+          loadRecordsFromStorage();
+          updateUI();
+        }
+      });
+    }
+
+    // イベント委任（Event Delegation）：各カードの「写真で記録」ボタンが確実に開くようにする
+    document.addEventListener("click", (e) => {
+      const triggerBtn = e.target.closest(".trigger-photo-btn");
+      if (triggerBtn) {
+        const slot = triggerBtn.dataset.meal;
+        const modal = document.getElementById("photoModal");
+        const slotSelect = document.getElementById("recordTargetSlot");
+        if (slotSelect) slotSelect.value = slot;
+        if (modal) modal.classList.remove("hidden");
+      }
+    });
+
     // 画面トップの基礎代謝 ＆ 減量目標 パネルのリアルタイム連動
     const topInputs = ['mainGender', 'mainAge', 'mainHeight', 'mainWeight', 'mainPace', 'mainActivity'];
     topInputs.forEach(id => {
@@ -839,6 +926,118 @@ document.addEventListener("DOMContentLoaded", () => {
       photoModal.classList.add("hidden");
     });
 
+    // タブ切り替え（写真 / 手動 / 定番）
+    const tabPhotoBtn = document.getElementById("tabPhotoBtn");
+    const tabManualBtn = document.getElementById("tabManualBtn");
+    const tabPresetBtn = document.getElementById("tabPresetBtn");
+    const photoTabContent = document.getElementById("photoTabContent");
+    const manualTabContent = document.getElementById("manualTabContent");
+    const presetTabContent = document.getElementById("presetTabContent");
+
+    function switchRecordTab(activeTab) {
+      [tabPhotoBtn, tabManualBtn, tabPresetBtn].forEach(b => {
+        b.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 flex items-center justify-center gap-1 transition";
+      });
+      [photoTabContent, manualTabContent, presetTabContent].forEach(c => c.classList.add("hidden"));
+
+      if (activeTab === 'photo') {
+        tabPhotoBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
+        photoTabContent.classList.remove("hidden");
+      } else if (activeTab === 'manual') {
+        tabManualBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
+        manualTabContent.classList.remove("hidden");
+      } else if (activeTab === 'preset') {
+        tabPresetBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
+        presetTabContent.classList.remove("hidden");
+        renderPresetMenuList();
+      }
+    }
+
+    if (tabPhotoBtn) tabPhotoBtn.addEventListener("click", () => switchRecordTab('photo'));
+    if (tabManualBtn) tabManualBtn.addEventListener("click", () => switchRecordTab('manual'));
+    if (tabPresetBtn) tabPresetBtn.addEventListener("click", () => switchRecordTab('preset'));
+
+    // ② 手動入力の保存処理
+    const saveManualBtn = document.getElementById("saveManualMealBtn");
+    if (saveManualBtn) {
+      saveManualBtn.addEventListener("click", () => {
+        const dishName = document.getElementById("manualDishName").value.trim() || "手動記録の食事";
+        const calories = parseInt(document.getElementById("manualCalories").value) || 0;
+        const p = parseFloat(document.getElementById("manualP").value) || Math.round(calories * 0.05);
+        const f = parseFloat(document.getElementById("manualF").value) || Math.round((calories * 0.2) / 9);
+        const c = parseFloat(document.getElementById("manualC").value) || Math.round((calories * 0.6) / 4);
+
+        if (calories <= 0) {
+          alert("カロリーを入力してください！");
+          return;
+        }
+
+        const slot = document.getElementById("recordTargetSlot").value;
+        state.records[slot] = {
+          name: dishName,
+          calories: calories,
+          p: p,
+          f: f,
+          c: c,
+          img: null,
+          icon: "✏️"
+        };
+
+        saveRecordsToStorage();
+        updateUI();
+        photoModal.classList.add("hidden");
+
+        // フォームクリア
+        document.getElementById("manualDishName").value = "";
+        document.getElementById("manualCalories").value = "";
+        document.getElementById("manualP").value = "";
+        document.getElementById("manualF").value = "";
+        document.getElementById("manualC").value = "";
+      });
+    }
+
+    // ③ 定番メニューリストの描画
+    function renderPresetMenuList() {
+      const container = document.getElementById("presetMenuList");
+      if (!container) return;
+      container.innerHTML = "";
+
+      MEAL_DATABASE.forEach(item => {
+        const itemEl = document.createElement("div");
+        itemEl.className = "flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 cursor-pointer transition";
+        itemEl.innerHTML = `
+          <div class="flex items-center space-x-2">
+            <span class="text-base">${item.icon}</span>
+            <div>
+              <div class="font-bold text-slate-800 text-xs">${item.name}</div>
+              <div class="text-[10px] text-slate-600">${item.storeName} · P:${item.p}g F:${item.f}g C:${item.c}g</div>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="font-mono font-bold text-emerald-700">${item.calories} kcal</span>
+          </div>
+        `;
+
+        itemEl.addEventListener("click", () => {
+          const slot = document.getElementById("recordTargetSlot").value;
+          state.records[slot] = {
+            name: `${item.storeName} ${item.name}`,
+            calories: item.calories,
+            p: item.p,
+            f: item.f,
+            c: item.c,
+            img: null,
+            icon: item.icon
+          };
+          saveRecordsToStorage();
+          updateUI();
+          photoModal.classList.add("hidden");
+        });
+
+        container.appendChild(itemEl);
+      });
+    }
+
     // 写真クリック / ファイル選択
     photoDropArea.addEventListener("click", () => {
       photoInput.click();
@@ -954,22 +1153,12 @@ document.addEventListener("DOMContentLoaded", () => {
       scanResultArea.classList.remove("hidden");
     }
 
-    // 各カードの「写真で記録」トリガーボタン
-    document.querySelectorAll(".trigger-photo-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const mealSlot = e.currentTarget.dataset.meal;
-        document.getElementById("recordTargetSlot").value = mealSlot;
-        photoModal.classList.remove("hidden");
-      });
-    });
-
-    // 献立・実績に反映して他の枠を自動調整
+    // ① 写真解析からの保存
     applyPhotoMealBtn.addEventListener("click", () => {
       if (!currentScanItem) return;
 
       const slot = document.getElementById("recordTargetSlot").value;
 
-      // 実際の食事記録としてstate.recordsに保存
       state.records[slot] = {
         name: currentScanItem.name,
         calories: currentScanItem.calories,
@@ -1008,15 +1197,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function saveRecordsToStorage() {
     try {
-      localStorage.setItem("mealai_records", JSON.stringify(state.records));
+      const key = `mealai_records_${state.currentDate}`;
+      localStorage.setItem(key, JSON.stringify(state.records));
     } catch (e) { }
   }
 
   function loadRecordsFromStorage() {
     try {
-      const saved = localStorage.getItem("mealai_records");
+      const key = `mealai_records_${state.currentDate}`;
+      const saved = localStorage.getItem(key);
       if (saved) {
-        state.records = Object.assign(state.records, JSON.parse(saved));
+        state.records = JSON.parse(saved);
+      } else {
+        state.records = { breakfast: null, lunch: null, dinner: null, snack: null };
       }
     } catch (e) { }
   }
