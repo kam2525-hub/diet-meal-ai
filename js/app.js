@@ -2075,7 +2075,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 50);
     }
 
-    // AI料理候補リストUI生成（ワンタップ決定ボタン付き ＆ AI検出バッジ ＆ ジャンル即時切替チップ）
+    // AI料理候補リストUI生成（ワンタップ決定ボタン付き ＆ AI検出バッジ ＆ 世界の料理検索バー ＆ ジャンル即時切替チップ）
     function renderAskenCandidates(candidates, imageSrc, detectedLabel, detectedCategory, slot) {
       const container = document.getElementById("aiCandidatesList");
       if (!container) return;
@@ -2090,6 +2090,20 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         container.appendChild(headerBadge);
       }
+
+      // 世界の料理・即時検索バー（あすけん方式：写真＋文字検索で世界中のどんな料理も即座に特定）
+      const searchBox = document.createElement("div");
+      searchBox.className = "relative mb-2";
+      searchBox.innerHTML = `
+        <div class="flex items-center bg-slate-50 border border-slate-300 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200 rounded-xl px-2.5 py-1.5 transition">
+          <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs mr-2 shrink-0"></i>
+          <input type="text" id="worldFoodSearchInput" class="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none font-medium" placeholder="料理名・世界中の料理を検索（例: 焼肉定食、ガパオ、タコス...）">
+          <button type="button" id="clearWorldSearchBtn" class="hidden text-slate-400 hover:text-slate-600 px-1 text-xs shrink-0 cursor-pointer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      container.appendChild(searchBox);
 
       // ジャンル即時切り替えバー（別の料理を選びたい場合もワンタップで即候補再生成！）
       const quickCategories = [
@@ -2124,62 +2138,124 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.textContent = cat.label;
         btn.addEventListener("click", () => {
           const res = getAskenCandidates(slot || "lunch", cat.key);
-          renderAskenCandidates(res.candidates, imageSrc, res.label, cat.key, slot);
+          renderCandidateRows(res.candidates, imageSrc);
           selectCandidate(res.candidates[0], imageSrc);
+          chipContainer.querySelectorAll("button").forEach(b => {
+            b.className = "px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition cursor-pointer border bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200";
+          });
+          btn.className = "px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition cursor-pointer border bg-emerald-600 text-white border-emerald-600 shadow-xs";
         });
         chipContainer.appendChild(btn);
       });
       container.appendChild(chipContainer);
 
-      candidates.forEach((cand, idx) => {
-        const row = document.createElement("div");
-        row.className = `asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 ${idx === 0 ? 'bg-emerald-50 border-emerald-400 shadow-2xs font-bold' : 'bg-white border-slate-200 hover:bg-slate-50'}`;
-        row.innerHTML = `
-          <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0 flex-1">
-            <span class="w-5 h-5 rounded-full ${idx === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'} text-[10px] font-black flex items-center justify-center shrink-0">${idx + 1}</span>
-            <span class="text-base sm:text-lg shrink-0">${cand.icon || '🍽️'}</span>
-            <div class="min-w-0">
-              <div class="font-bold text-slate-800 text-xs sm:text-sm truncate cand-name">${cand.name}</div>
-              <div class="text-[10px] text-slate-500 font-mono mt-0.5">P:${cand.p}g · F:${cand.f}g · C:${cand.c}g</div>
-            </div>
-          </div>
-          <div class="flex items-center space-x-2 shrink-0 ml-2">
-            <div class="text-right">
-              <span class="font-mono font-black text-emerald-700 text-xs sm:text-sm">${cand.calories}</span>
-              <span class="text-[9px] text-slate-500 block -mt-1">kcal</span>
-            </div>
-            <button type="button" class="quick-apply-btn px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-[11px] transition shadow-xs flex items-center gap-1 cursor-pointer">
-              <span>決定</span>
-              <i class="fa-solid fa-check text-[10px]"></i>
-            </button>
-          </div>
-        `;
+      const rowsWrapper = document.createElement("div");
+      rowsWrapper.id = "askenCandidateRowsWrapper";
+      rowsWrapper.className = "space-y-2";
+      container.appendChild(rowsWrapper);
 
-        // 行全体タップで選択
-        row.addEventListener("click", (e) => {
-          if (e.target.closest(".quick-apply-btn")) return; // 決定ボタンと二重発火防止
-          document.querySelectorAll(".asken-candidate-card").forEach(c => {
-            c.className = "asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-white border-slate-200 hover:bg-slate-50";
-            const badge = c.querySelector("span:first-child");
-            if (badge) badge.className = "w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0";
+      function renderCandidateRows(itemList, img) {
+        rowsWrapper.innerHTML = "";
+        itemList.forEach((cand, idx) => {
+          const row = document.createElement("div");
+          row.className = `asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 ${idx === 0 ? 'bg-emerald-50 border-emerald-400 shadow-2xs font-bold' : 'bg-white border-slate-200 hover:bg-slate-50'}`;
+          row.innerHTML = `
+            <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0 flex-1">
+              <span class="w-5 h-5 rounded-full ${idx === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'} text-[10px] font-black flex items-center justify-center shrink-0">${idx + 1}</span>
+              <span class="text-base sm:text-lg shrink-0">${cand.icon || '🍽️'}</span>
+              <div class="min-w-0">
+                <div class="font-bold text-slate-800 text-xs sm:text-sm truncate cand-name">${cand.name}</div>
+                <div class="text-[10px] text-slate-500 font-mono mt-0.5">P:${cand.p}g · F:${cand.f}g · C:${cand.c}g ${cand.country ? '· ' + cand.country : ''}</div>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0 ml-2">
+              <div class="text-right">
+                <span class="font-mono font-black text-emerald-700 text-xs sm:text-sm">${cand.calories}</span>
+                <span class="text-[9px] text-slate-500 block -mt-1">kcal</span>
+              </div>
+              <button type="button" class="quick-apply-btn px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-[11px] transition shadow-xs flex items-center gap-1 cursor-pointer">
+                <span>決定</span>
+                <i class="fa-solid fa-check text-[10px]"></i>
+              </button>
+            </div>
+          `;
+
+          row.addEventListener("click", (e) => {
+            if (e.target.closest(".quick-apply-btn")) return;
+            rowsWrapper.querySelectorAll(".asken-candidate-card").forEach(c => {
+              c.className = "asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-white border-slate-200 hover:bg-slate-50";
+              const badge = c.querySelector("span:first-child");
+              if (badge) badge.className = "w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0";
+            });
+            row.className = "asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-emerald-50 border-emerald-400 shadow-2xs font-bold";
+            const badge = row.querySelector("span:first-child");
+            if (badge) badge.className = "w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center shrink-0";
+            selectCandidate(cand, img);
           });
-          row.className = "asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-emerald-50 border-emerald-400 shadow-2xs font-bold";
-          const badge = row.querySelector("span:first-child");
-          if (badge) badge.className = "w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center shrink-0";
-          selectCandidate(cand, imageSrc);
+
+          const quickBtn = row.querySelector(".quick-apply-btn");
+          if (quickBtn) {
+            quickBtn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              applyCandidateMeal({ ...cand, img: img }, img);
+            });
+          }
+
+          rowsWrapper.appendChild(row);
+        });
+      }
+
+      renderCandidateRows(candidates, imageSrc);
+
+      // リアルタイム検索イベントリスナー
+      const searchInput = searchBox.querySelector("#worldFoodSearchInput");
+      const clearBtn = searchBox.querySelector("#clearWorldSearchBtn");
+
+      if (searchInput) {
+        searchInput.addEventListener("input", () => {
+          const val = searchInput.value.trim();
+          if (clearBtn) clearBtn.classList.toggle("hidden", val.length === 0);
+
+          if (!val) {
+            renderCandidateRows(candidates, imageSrc);
+            selectCandidate(candidates[0], imageSrc);
+            return;
+          }
+
+          // 1. 世界の料理データベースから検索
+          const queryLower = val.toLowerCase();
+          const dbMatches = (window.WORLD_FOOD_DATABASE || []).filter(item => {
+            return item.name.toLowerCase().includes(queryLower) ||
+                   (item.country && item.country.toLowerCase().includes(queryLower));
+          }).slice(0, 4);
+
+          // 2. もしデータベースにない未知の料理なら「動的AI推計エンジン」で即時生成！
+          let searchResults = [];
+          if (dbMatches.length > 0) {
+            searchResults = dbMatches;
+          } else if (window.estimateWorldFoodNutrition) {
+            const dynamicItem = window.estimateWorldFoodNutrition(val);
+            if (dynamicItem) {
+              searchResults = [dynamicItem];
+            }
+          }
+
+          if (searchResults.length > 0) {
+            renderCandidateRows(searchResults, imageSrc);
+            selectCandidate(searchResults[0], imageSrc);
+          }
         });
 
-        // 「決定」ボタンでワンタップ即記録！
-        const quickBtn = row.querySelector(".quick-apply-btn");
-        if (quickBtn) {
-          quickBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            applyCandidateMeal({ ...cand, img: imageSrc }, imageSrc);
+        if (clearBtn) {
+          clearBtn.addEventListener("click", () => {
+            searchInput.value = "";
+            clearBtn.classList.add("hidden");
+            renderCandidateRows(candidates, imageSrc);
+            selectCandidate(candidates[0], imageSrc);
+            searchInput.focus();
           });
         }
-
-        container.appendChild(row);
-      });
+      }
     }
 
     // スープ・汁物系料理の判定（ラーメン、うどん、そば、スープ、鍋、味噌汁等）
