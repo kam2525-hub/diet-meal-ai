@@ -1427,9 +1427,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 解析結果の表示
     function showAnalysisResult(data) {
-      currentScanItem = data;
-      document.getElementById("resultDishName").textContent = data.name;
-      document.getElementById("resultCalories").textContent = data.calories;
+      currentScanItem = { ...data };
+      const nameInput = document.getElementById("resultDishNameInput");
+      const calInput = document.getElementById("resultCaloriesInput");
+      if (nameInput) nameInput.value = data.name;
+      if (calInput) calInput.value = data.calories;
+
       document.getElementById("resultP").textContent = `${data.p}g`;
       document.getElementById("resultF").textContent = `${data.f}g`;
       document.getElementById("resultC").textContent = `${data.c}g`;
@@ -1437,18 +1440,63 @@ document.addEventListener("DOMContentLoaded", () => {
       scanResultArea.classList.remove("hidden");
     }
 
-    // ① 写真解析からの保存
+    // クイック微調整（-50 / +50）
+    const minus50 = document.getElementById("calMinus50Btn");
+    const plus50 = document.getElementById("calPlus50Btn");
+    if (minus50) {
+      minus50.onclick = () => {
+        const inp = document.getElementById("resultCaloriesInput");
+        if (inp) inp.value = Math.max(0, (parseInt(inp.value) || 0) - 50);
+      };
+    }
+    if (plus50) {
+      plus50.onclick = () => {
+        const inp = document.getElementById("resultCaloriesInput");
+        if (inp) inp.value = (parseInt(inp.value) || 0) + 50;
+      };
+    }
+
+    // クイック料理ジャンルチップ選択
+    document.querySelectorAll(".quick-chip").forEach(chip => {
+      chip.onclick = () => {
+        const name = chip.dataset.name;
+        const cal = parseInt(chip.dataset.cal) || 500;
+        const p = parseFloat(chip.dataset.p) || 20;
+        const f = parseFloat(chip.dataset.f) || 15;
+        const c = parseFloat(chip.dataset.c) || 60;
+        const nameInput = document.getElementById("resultDishNameInput");
+        const calInput = document.getElementById("resultCaloriesInput");
+        if (nameInput) nameInput.value = name;
+        if (calInput) calInput.value = cal;
+        document.getElementById("resultP").textContent = `${p}g`;
+        document.getElementById("resultF").textContent = `${f}g`;
+        document.getElementById("resultC").textContent = `${c}g`;
+        if (currentScanItem) {
+          currentScanItem.name = name;
+          currentScanItem.calories = cal;
+          currentScanItem.p = p;
+          currentScanItem.f = f;
+          currentScanItem.c = c;
+        }
+      };
+    });
+
+    // ① 写真解析からの保存（編集された数値を優先保存）
     applyPhotoMealBtn.addEventListener("click", () => {
       if (!currentScanItem) return;
 
       const slot = document.getElementById("recordTargetSlot").value;
+      const nameInput = document.getElementById("resultDishNameInput");
+      const calInput = document.getElementById("resultCaloriesInput");
+      const finalName = (nameInput && nameInput.value.trim()) || currentScanItem.name;
+      const finalCal = (calInput && parseInt(calInput.value)) || currentScanItem.calories;
 
       state.records[slot] = {
-        name: currentScanItem.name,
-        calories: currentScanItem.calories,
-        p: currentScanItem.p,
-        f: currentScanItem.f,
-        c: currentScanItem.c,
+        name: finalName,
+        calories: finalCal,
+        p: currentScanItem.p || Math.round(finalCal * 0.05),
+        f: currentScanItem.f || Math.round((finalCal * 0.2) / 9),
+        c: currentScanItem.c || Math.round((finalCal * 0.6) / 4),
         img: currentScanItem.img || null,
         icon: currentScanItem.icon || "📸"
       };
@@ -1463,7 +1511,7 @@ document.addEventListener("DOMContentLoaded", () => {
       banner.innerHTML = `
         <div class="flex items-center space-x-2">
           <span class="text-lg">📸</span>
-          <span><strong>【${getSlotJpName(slot)}】に記録しました：</strong>${currentScanItem.name} (${currentScanItem.calories}kcal) を反映し、残りカロリーと目標をリアルタイム更新しました！</span>
+          <span><strong>【${getSlotJpName(slot)}】に記録しました：</strong>${finalName} (${finalCal}kcal) を反映し、残りカロリーと目標をリアルタイム更新しました！</span>
         </div>
         <button id="dismissPhotoBannerBtn" class="text-[11px] underline font-bold ml-2">閉じる</button>
       `;
