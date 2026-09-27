@@ -960,18 +960,19 @@ document.addEventListener("DOMContentLoaded", () => {
   function setupPhotoScanner() {
     const photoModal = document.getElementById("photoModal");
     const closePhotoBtn = document.getElementById("closePhotoBtn");
+    const directCameraInput = document.getElementById("directCameraInput");
+    const albumFileInput = document.getElementById("albumFileInput");
+    const toggleLiveStreamBtn = document.getElementById("toggleLiveStreamBtn");
     const cameraVideo = document.getElementById("cameraVideo");
     const cameraContainer = document.getElementById("cameraContainer");
     const cameraLoadingOverlay = document.getElementById("cameraLoadingOverlay");
     const cameraErrorBox = document.getElementById("cameraErrorBox");
     const cameraStatusText = document.getElementById("cameraStatusText");
-    const cameraRetryBtn = document.getElementById("cameraRetryBtn");
     const switchCameraBtn = document.getElementById("switchCameraBtn");
     const captureShutterBtn = document.getElementById("captureShutterBtn");
+    const liveCameraActionBtn = document.getElementById("liveCameraActionBtn");
     const captureCanvas = document.getElementById("captureCanvas");
-    const pickAlbumBtn = document.getElementById("pickAlbumBtn");
-    const albumFileInput = document.getElementById("albumFileInput");
-    const cameraActionButtons = document.getElementById("cameraActionButtons");
+    const primaryCameraLauncher = document.getElementById("primaryCameraLauncher");
     const scanPreviewArea = document.getElementById("scanPreviewArea");
     const scannedImagePreview = document.getElementById("scannedImagePreview");
     const scanLaserLine = document.getElementById("scanLaserLine");
@@ -997,8 +998,55 @@ document.addEventListener("DOMContentLoaded", () => {
     window.initRecordModalState = () => {
       switchRecordTab('photo');
       resetCameraView();
-      startLiveCamera();
     };
+
+    // ① スマホ直接カメラ撮影（capture="environment"）イベント
+    if (directCameraInput) {
+      directCameraInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        handleImageFileSelected(file);
+      });
+    }
+
+    // ② アルバム・写真選択イベント
+    if (albumFileInput) {
+      albumFileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        handleImageFileSelected(file);
+      });
+    }
+
+    // 画像ファイルが選択/撮影されたときの共通処理
+    function handleImageFileSelected(file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        stopLiveCamera();
+        if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
+        if (cameraContainer) cameraContainer.classList.add("hidden");
+        if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
+        startPhotoAnalysis(event.target.result, null);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ③ ライブファインダー（ブラウザ内カメラ）切り替えボタン
+    if (toggleLiveStreamBtn) {
+      toggleLiveStreamBtn.addEventListener("click", () => {
+        if (!cameraContainer) return;
+        const isHidden = cameraContainer.classList.contains("hidden");
+        if (isHidden) {
+          cameraContainer.classList.remove("hidden");
+          if (liveCameraActionBtn) liveCameraActionBtn.classList.remove("hidden");
+          startLiveCamera();
+        } else {
+          stopLiveCamera();
+          cameraContainer.classList.add("hidden");
+          if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
+        }
+      });
+    }
 
     // リアルタイムカメラ起動
     async function startLiveCamera() {
@@ -1048,13 +1096,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // カメラ再試行ボタン
-    if (cameraRetryBtn) {
-      cameraRetryBtn.addEventListener("click", () => {
-        startLiveCamera();
-      });
-    }
-
     // カメラ切り替え（イン/アウト）
     if (switchCameraBtn) {
       switchCameraBtn.addEventListener("click", () => {
@@ -1063,16 +1104,14 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // シャッターボタン（撮影）
+    // ライブカメラのシャッターボタン（撮影）
     if (captureShutterBtn) {
       captureShutterBtn.addEventListener("click", () => {
         if (!cameraVideo || !cameraVideo.videoWidth) {
-          // カメラが動いていない場合はアルバムを開く
-          if (albumFileInput) albumFileInput.click();
+          if (directCameraInput) directCameraInput.click();
           return;
         }
 
-        // キャンバスにスナップショットを取得
         captureCanvas.width = cameraVideo.videoWidth;
         captureCanvas.height = cameraVideo.videoHeight;
         const ctx = captureCanvas.getContext("2d");
@@ -1080,31 +1119,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const dataUrl = captureCanvas.toDataURL("image/jpeg", 0.88);
 
         stopLiveCamera();
+        if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
         if (cameraContainer) cameraContainer.classList.add("hidden");
-        if (cameraActionButtons) cameraActionButtons.classList.add("hidden");
+        if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
 
         startPhotoAnalysis(dataUrl, null);
-      });
-    }
-
-    // アルバム・ファイル選択ボタン
-    if (pickAlbumBtn && albumFileInput) {
-      pickAlbumBtn.addEventListener("click", () => {
-        albumFileInput.click();
-      });
-
-      albumFileInput.addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          stopLiveCamera();
-          if (cameraContainer) cameraContainer.classList.add("hidden");
-          if (cameraActionButtons) cameraActionButtons.classList.add("hidden");
-          startPhotoAnalysis(event.target.result, null);
-        };
-        reader.readAsDataURL(file);
       });
     }
 
@@ -1112,15 +1131,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (retakeCameraBtn) {
       retakeCameraBtn.addEventListener("click", () => {
         resetCameraView();
-        startLiveCamera();
       });
     }
 
     function resetCameraView() {
+      stopLiveCamera();
       if (scanPreviewArea) scanPreviewArea.classList.add("hidden");
       if (scanResultArea) scanResultArea.classList.add("hidden");
-      if (cameraContainer) cameraContainer.classList.remove("hidden");
-      if (cameraActionButtons) cameraActionButtons.classList.remove("hidden");
+      if (primaryCameraLauncher) primaryCameraLauncher.classList.remove("hidden");
+      if (cameraContainer) cameraContainer.classList.add("hidden");
+      if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
+      if (directCameraInput) directCameraInput.value = "";
+      if (albumFileInput) albumFileInput.value = "";
     }
 
     // タブ切り替え（カメラ / 手動 / 定番）
@@ -1296,8 +1318,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const preset = samplePresets[type];
         if (preset) {
           stopLiveCamera();
+          if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
           if (cameraContainer) cameraContainer.classList.add("hidden");
-          if (cameraActionButtons) cameraActionButtons.classList.add("hidden");
+          if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
           startPhotoAnalysis(preset.img, preset);
         }
       });

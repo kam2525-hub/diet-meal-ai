@@ -31,6 +31,33 @@
       }
     }
   </script>
+  <script>
+    // 即時利用可能なモーダル制御関数（JSファイル読み込み前・エラー発生時でも100%確実に開く）
+    window.openPhotoRecordModal = function(slot) {
+      var modal = document.getElementById("photoModal");
+      if (modal) {
+        if (slot) {
+          var sel = document.getElementById("recordTargetSlot");
+          if (sel) sel.value = slot;
+        }
+        modal.classList.remove("hidden");
+        modal.style.display = "flex";
+      }
+      if (window.initRecordModalState) {
+        window.initRecordModalState();
+      }
+    };
+    window.closePhotoRecordModal = function() {
+      var modal = document.getElementById("photoModal");
+      if (modal) {
+        modal.classList.add("hidden");
+        modal.style.display = "none";
+      }
+      if (window.stopCameraStream) {
+        window.stopCameraStream();
+      }
+    };
+  </script>
 </head>
 
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-24">
@@ -378,7 +405,7 @@
               <i class="fa-solid fa-utensils text-amber-500"></i>
               <span>朝ごはんを食べたら写真で記録！</span>
             </span>
-            <button onclick="window.openPhotoRecordModal && window.openPhotoRecordModal('breakfast')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="breakfast">
+            <button onclick="openPhotoRecordModal('breakfast')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="breakfast">
               <i class="fa-solid fa-camera"></i>
               <span>写真で記録</span>
             </button>
@@ -448,7 +475,7 @@
               <i class="fa-solid fa-bowl-food text-orange-500"></i>
               <span>外食やお弁当の写真を撮ろう！</span>
             </span>
-            <button onclick="window.openPhotoRecordModal && window.openPhotoRecordModal('lunch')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="lunch">
+            <button onclick="openPhotoRecordModal('lunch')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="lunch">
               <i class="fa-solid fa-camera"></i>
               <span>写真で記録</span>
             </button>
@@ -522,7 +549,7 @@
               <i class="fa-solid fa-moon text-indigo-500"></i>
               <span>夕食の写真を撮って1日を締めくくろう！</span>
             </span>
-            <button onclick="window.openPhotoRecordModal && window.openPhotoRecordModal('dinner')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="dinner">
+            <button onclick="openPhotoRecordModal('dinner')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="dinner">
               <i class="fa-solid fa-camera"></i>
               <span>写真で記録</span>
             </button>
@@ -590,7 +617,7 @@
               <i class="fa-solid fa-cookie-bite text-pink-500"></i>
               <span>スイーツやおやつの写真を記録！</span>
             </span>
-            <button onclick="window.openPhotoRecordModal && window.openPhotoRecordModal('snack')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="snack">
+            <button onclick="openPhotoRecordModal('snack')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="snack">
               <i class="fa-solid fa-camera"></i>
               <span>写真で記録</span>
             </button>
@@ -870,31 +897,52 @@
       <!-- ① カメラ撮影タブコンテンツ -->
       <div id="photoTabContent" class="space-y-3">
 
-        <!-- リアルタイムカメラファインダー領域 -->
-        <div id="cameraContainer" class="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex flex-col items-center justify-center min-h-[220px]">
+        <!-- メイン：スマホ標準カメラ直結ボタン（100%確実に即カメラが起動） -->
+        <div id="primaryCameraLauncher" class="space-y-2">
+          <label for="directCameraInput" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 active:scale-95 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center space-x-2 text-sm sm:text-base cursor-pointer transition">
+            <i class="fa-solid fa-camera text-xl"></i>
+            <span>📸 今すぐカメラを起動して撮影</span>
+          </label>
+          <input type="file" id="directCameraInput" accept="image/*" capture="environment" class="hidden">
+
+          <div class="grid grid-cols-2 gap-2">
+            <!-- アルバム選択 -->
+            <label for="albumFileInput" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition border border-slate-200">
+              <i class="fa-solid fa-images text-slate-500"></i>
+              <span>📁 写真から選ぶ</span>
+            </label>
+            <input type="file" id="albumFileInput" accept="image/*" class="hidden">
+
+            <!-- ライブカメラ切り替え -->
+            <button id="toggleLiveStreamBtn" type="button" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition border border-slate-200">
+              <i class="fa-solid fa-video text-teal-600"></i>
+              <span>📹 ライブファインダー</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- リアルタイムカメラファインダー領域 (折りたたみ表示) -->
+        <div id="cameraContainer" class="hidden relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex flex-col items-center justify-center min-h-[220px]">
           <!-- ライブビデオストリーム -->
-          <video id="cameraVideo" autoplay playsinline muted class="w-full h-56 sm:h-64 object-cover"></video>
+          <video id="cameraVideo" autoplay playsinline muted class="w-full h-52 sm:h-60 object-cover"></video>
           
           <!-- カメラファインダー枠線ガイド -->
-          <div id="cameraGuideBox" class="absolute inset-4 border-2 border-white/40 border-dashed rounded-xl pointer-events-none flex items-center justify-center">
-            <span class="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded-full font-medium">料理を中央に合わせてください</span>
+          <div id="cameraGuideBox" class="absolute inset-3 border-2 border-white/40 border-dashed rounded-xl pointer-events-none flex items-center justify-center">
+            <span class="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded-full font-medium">料理を枠内に合わせてください</span>
           </div>
 
           <!-- カメラ起動中 / 許可待ちオーバーレイ -->
           <div id="cameraLoadingOverlay" class="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center p-4 text-center text-white space-y-2 z-10">
-            <div class="w-10 h-10 rounded-full border-3 border-emerald-500 border-t-transparent animate-spin"></div>
+            <div class="w-8 h-8 rounded-full border-3 border-emerald-500 border-t-transparent animate-spin"></div>
             <p class="text-xs font-bold" id="cameraStatusText">カメラを起動中...</p>
-            <p class="text-[10px] text-slate-300">ブラウザの「カメラ使用の許可」ダイアログで「許可」を押してください</p>
+            <p class="text-[10px] text-slate-300">ブラウザの許可ダイアログで「許可」を押してください</p>
           </div>
 
           <!-- カメラ許可拒否・エラー時のメッセージ -->
           <div id="cameraErrorBox" class="hidden absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center p-4 text-center text-white space-y-2 z-20">
             <i class="fa-solid fa-camera-slash text-2xl text-rose-400"></i>
-            <p class="text-xs font-bold text-rose-300">カメラが起動できませんでした</p>
-            <p class="text-[10px] text-slate-300">カメラ許可がオフになっているか、未対応の環境です。<br>下のボタンからアルバムの写真を選択できます。</p>
-            <button id="cameraRetryBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold border border-slate-600 transition">
-              <i class="fa-solid fa-rotate-right mr-1"></i>もう一度試す
-            </button>
+            <p class="text-xs font-bold text-rose-300">ライブカメラが利用できません</p>
+            <p class="text-[10px] text-slate-300">HTTP接続やブラウザ権限で制限されています。<br>上の「今すぐカメラを起動」をお使いください。</p>
           </div>
 
           <!-- カメラ反転ボタン（イン/アウト） -->
@@ -905,20 +953,12 @@
 
         <!-- 撮影用キャンバス (非表示) -->
         <canvas id="captureCanvas" class="hidden"></canvas>
-        <input type="file" id="albumFileInput" accept="image/*" class="hidden">
 
-        <!-- 撮影操作バー -->
-        <div id="cameraActionButtons" class="space-y-2">
-          <!-- シャッターボタン -->
-          <button id="captureShutterBtn" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white font-bold rounded-2xl shadow-md transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
+        <!-- ライブカメラ用シャッター操作ボタン -->
+        <div id="liveCameraActionBtn" class="hidden">
+          <button id="captureShutterBtn" type="button" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 active:scale-95 text-white font-bold rounded-2xl shadow-md transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
             <i class="fa-solid fa-circle-dot text-lg text-emerald-200"></i>
-            <span>シャッターを切ってAI解析</span>
-          </button>
-
-          <!-- アルバムから選ぶボタン -->
-          <button id="pickAlbumBtn" class="w-full py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl text-xs transition flex items-center justify-center space-x-1.5 cursor-pointer">
-            <i class="fa-solid fa-images text-slate-500"></i>
-            <span>アルバムの写真・ファイルから選ぶ</span>
+            <span>シャッターを切る</span>
           </button>
         </div>
 
@@ -1041,9 +1081,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=2.3"></script>
-  <script src="js/calculator.js?v=2.3"></script>
-  <script src="js/app.js?v=2.3"></script>
+  <script src="js/data.js?v=2.4"></script>
+  <script src="js/calculator.js?v=2.4"></script>
+  <script src="js/app.js?v=2.4"></script>
 </body>
 
 </html>
