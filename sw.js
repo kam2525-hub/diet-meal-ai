@@ -1,11 +1,11 @@
-const CACHE_NAME = 'mealai-v3.0';
+const CACHE_NAME = 'mealai-v3.1';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './css/style.css?v=3.0',
-  './js/data.js?v=3.0',
-  './js/calculator.js?v=3.0',
-  './js/app.js?v=3.0',
+  './css/style.css?v=3.1',
+  './js/data.js?v=3.1',
+  './js/calculator.js?v=3.1',
+  './js/app.js?v=3.1',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
@@ -33,6 +33,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Network-First with fallback to cache
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
