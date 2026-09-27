@@ -806,9 +806,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // プロフィールモーダル
-    const profileModal = document.getElementById("profileModal");
     document.getElementById("openProfileBtn").addEventListener("click", () => {
-      profileModal.classList.remove("hidden");
+      if (profileModal) profileModal.classList.remove("hidden");
     });
     document.getElementById("closeProfileBtn").addEventListener("click", () => {
       profileModal.classList.add("hidden");

@@ -1,11 +1,11 @@
-const CACHE_NAME = 'mealai-v3.1';
+const CACHE_NAME = 'mealai-v3.2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './css/style.css?v=3.1',
-  './js/data.js?v=3.1',
-  './js/calculator.js?v=3.1',
-  './js/app.js?v=3.1',
+  './css/style.css?v=3.2',
+  './js/data.js?v=3.2',
+  './js/calculator.js?v=3.2',
+  './js/app.js?v=3.2',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
