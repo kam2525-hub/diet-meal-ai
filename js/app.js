@@ -112,7 +112,9 @@ document.addEventListener("DOMContentLoaded", () => {
     state.metrics.dailyDeficit = targetCalc.dailyDeficit;
     state.metrics.isLimited = targetCalc.isLimited;
     state.metrics.pfc = DietCalculator.calculatePFC(baseTarget, u.weight);
-    state.metrics.bodyIndex = DietCalculator.calculateBodyIndex(u.height, u.weight, u.age);
+    state.metrics.bodyIndex = (DietCalculator && typeof DietCalculator.calculateBodyIndex === 'function')
+      ? DietCalculator.calculateBodyIndex(u.height, u.weight, u.age)
+      : { isSmallOrYouth: false, primaryName: "BMI", primaryValue: 22, status: "普通体重", statusColor: "emerald", standardWeight: 55 };
   }
 
   // ===================== 献立生成ロジック =====================

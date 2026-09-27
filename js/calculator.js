@@ -73,5 +73,77 @@ const DietCalculator = {
       f: fGrams,
       c: cGrams
     };
+  },
+
+  /**
+   * 体型指数（ローレル指数 または BMI）の計算
+   * - 小柄・学童期 (身長 <= 145cm または 年齢 < 18歳): ローレル指数
+   * - 成人・標準以上: BMI
+   */
+  calculateBodyIndex: function (height, weight, age) {
+    const h = parseFloat(height) || 160;
+    const w = parseFloat(weight) || 55;
+    const a = parseInt(age) || 25;
+    const hM = h / 100;
+    const isSmallOrYouth = (h <= 145) || (a < 18);
+
+    if (isSmallOrYouth) {
+      // ローレル指数: (体重kg / (身長cm)^3) * 10^7
+      const rohrer = Math.round((w / Math.pow(h, 3)) * 10000000);
+      let status = "普通（標準）";
+      let statusColor = "emerald";
+      if (rohrer < 100) {
+        status = "やせすぎ";
+        statusColor = "blue";
+      } else if (rohrer < 115) {
+        status = "やせぎみ";
+        statusColor = "teal";
+      } else if (rohrer <= 145) {
+        status = "普通（適正）";
+        statusColor = "emerald";
+      } else if (rohrer <= 160) {
+        status = "太りぎみ";
+        statusColor = "amber";
+      } else {
+        status = "肥満";
+        statusColor = "rose";
+      }
+      const standardWeight = Math.round(130 * Math.pow(hM, 3) * 10) / 10;
+      return {
+        isSmallOrYouth: true,
+        primaryName: "ローレル指数",
+        primaryValue: rohrer,
+        status: status,
+        statusColor: statusColor,
+        standardWeight: standardWeight
+      };
+    } else {
+      // BMI
+      const bmi = Math.round((w / Math.pow(hM, 2)) * 10) / 10;
+      let status = "普通体重";
+      let statusColor = "emerald";
+      if (bmi < 18.5) {
+        status = "低体重（やせ）";
+        statusColor = "blue";
+      } else if (bmi < 25) {
+        status = "普通体重（適正）";
+        statusColor = "emerald";
+      } else if (bmi < 30) {
+        status = "肥満（1度）";
+        statusColor = "amber";
+      } else {
+        status = "高度肥満";
+        statusColor = "rose";
+      }
+      const standardWeight = Math.round(22 * Math.pow(hM, 2) * 10) / 10;
+      return {
+        isSmallOrYouth: false,
+        primaryName: "BMI",
+        primaryValue: bmi,
+        status: status,
+        statusColor: statusColor,
+        standardWeight: standardWeight
+      };
+    }
   }
 };
