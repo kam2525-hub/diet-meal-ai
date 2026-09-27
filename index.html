@@ -405,10 +405,19 @@
               <i class="fa-solid fa-utensils text-amber-500"></i>
               <span>朝ごはんを食べたら写真で記録！</span>
             </span>
-            <button onclick="openPhotoRecordModal('breakfast')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="breakfast">
-              <i class="fa-solid fa-camera"></i>
-              <span>写真で記録</span>
-            </button>
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <div class="relative overflow-hidden rounded-xl shadow-xs flex-1 sm:flex-initial">
+                <button type="button" class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
+                  <i class="fa-solid fa-camera"></i>
+                  <span>写真で記録</span>
+                </button>
+                <input type="file" accept="image/*" capture="environment" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="breakfast" aria-label="朝食の写真を撮影">
+              </div>
+              <button type="button" onclick="openPhotoRecordModal('breakfast')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
+                <i class="fa-solid fa-pen-to-square text-slate-500"></i>
+                <span>手動/詳細</span>
+              </button>
+            </div>
           </div>
           <!-- 記録済時（JSで挿入） -->
           <div class="record-filled-view hidden"></div>
@@ -475,10 +484,19 @@
               <i class="fa-solid fa-bowl-food text-orange-500"></i>
               <span>外食やお弁当の写真を撮ろう！</span>
             </span>
-            <button onclick="openPhotoRecordModal('lunch')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="lunch">
-              <i class="fa-solid fa-camera"></i>
-              <span>写真で記録</span>
-            </button>
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <div class="relative overflow-hidden rounded-xl shadow-xs flex-1 sm:flex-initial">
+                <button type="button" class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
+                  <i class="fa-solid fa-camera"></i>
+                  <span>写真で記録</span>
+                </button>
+                <input type="file" accept="image/*" capture="environment" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="lunch" aria-label="昼食の写真を撮影">
+              </div>
+              <button type="button" onclick="openPhotoRecordModal('lunch')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
+                <i class="fa-solid fa-pen-to-square text-slate-500"></i>
+                <span>手動/詳細</span>
+              </button>
+            </div>
           </div>
           <div class="record-filled-view hidden"></div>
         </div>
@@ -549,10 +567,19 @@
               <i class="fa-solid fa-moon text-indigo-500"></i>
               <span>夕食の写真を撮って1日を締めくくろう！</span>
             </span>
-            <button onclick="openPhotoRecordModal('dinner')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="dinner">
-              <i class="fa-solid fa-camera"></i>
-              <span>写真で記録</span>
-            </button>
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <div class="relative overflow-hidden rounded-xl shadow-xs flex-1 sm:flex-initial">
+                <button type="button" class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
+                  <i class="fa-solid fa-camera"></i>
+                  <span>写真で記録</span>
+                </button>
+                <input type="file" accept="image/*" capture="environment" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="dinner" aria-label="夕食の写真を撮影">
+              </div>
+              <button type="button" onclick="openPhotoRecordModal('dinner')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
+                <i class="fa-solid fa-pen-to-square text-slate-500"></i>
+                <span>手動/詳細</span>
+              </button>
+            </div>
           </div>
           <div class="record-filled-view hidden"></div>
         </div>
@@ -617,10 +644,19 @@
               <i class="fa-solid fa-cookie-bite text-pink-500"></i>
               <span>スイーツやおやつの写真を記録！</span>
             </span>
-            <button onclick="openPhotoRecordModal('snack')" class="trigger-photo-btn w-full sm:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer" data-meal="snack">
-              <i class="fa-solid fa-camera"></i>
-              <span>写真で記録</span>
-            </button>
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <div class="relative overflow-hidden rounded-xl shadow-xs flex-1 sm:flex-initial">
+                <button type="button" class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
+                  <i class="fa-solid fa-camera"></i>
+                  <span>写真で記録</span>
+                </button>
+                <input type="file" accept="image/*" capture="environment" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="snack" aria-label="間食の写真を撮影">
+              </div>
+              <button type="button" onclick="openPhotoRecordModal('snack')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
+                <i class="fa-solid fa-pen-to-square text-slate-500"></i>
+                <span>手動/詳細</span>
+              </button>
+            </div>
           </div>
           <div class="record-filled-view hidden"></div>
         </div>
@@ -899,19 +935,23 @@
 
         <!-- メイン：スマホ標準カメラ直結ボタン（100%確実に即カメラが起動） -->
         <div id="primaryCameraLauncher" class="space-y-2">
-          <label for="directCameraInput" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 active:scale-95 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center space-x-2 text-sm sm:text-base cursor-pointer transition">
-            <i class="fa-solid fa-camera text-xl"></i>
-            <span>📸 今すぐカメラを起動して撮影</span>
-          </label>
-          <input type="file" id="directCameraInput" accept="image/*" capture="environment" class="hidden">
+          <div class="relative w-full overflow-hidden rounded-2xl shadow-lg">
+            <div class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold flex items-center justify-center space-x-2 text-sm sm:text-base pointer-events-none">
+              <i class="fa-solid fa-camera text-xl"></i>
+              <span>📸 今すぐカメラを起動して撮影</span>
+            </div>
+            <input type="file" id="directCameraInput" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" aria-label="カメラを起動して撮影">
+          </div>
 
           <div class="grid grid-cols-2 gap-2">
             <!-- アルバム選択 -->
-            <label for="albumFileInput" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition border border-slate-200">
-              <i class="fa-solid fa-images text-slate-500"></i>
-              <span>📁 写真から選ぶ</span>
-            </label>
-            <input type="file" id="albumFileInput" accept="image/*" class="hidden">
+            <div class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 transition">
+              <div class="py-2.5 text-slate-700 font-bold text-xs flex items-center justify-center space-x-1.5 pointer-events-none">
+                <i class="fa-solid fa-images text-slate-500"></i>
+                <span>📁 写真から選ぶ</span>
+              </div>
+              <input type="file" id="albumFileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" aria-label="アルバムから選ぶ">
+            </div>
 
             <!-- ライブカメラ切り替え -->
             <button id="toggleLiveStreamBtn" type="button" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition border border-slate-200">
@@ -1081,9 +1121,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=2.4"></script>
-  <script src="js/calculator.js?v=2.4"></script>
-  <script src="js/app.js?v=2.4"></script>
+  <script src="js/data.js?v=2.5"></script>
+  <script src="js/calculator.js?v=2.5"></script>
+  <script src="js/app.js?v=2.5"></script>
 </body>
 
 </html>

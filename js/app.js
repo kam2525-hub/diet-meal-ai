@@ -1000,6 +1000,16 @@ document.addEventListener("DOMContentLoaded", () => {
       resetCameraView();
     };
 
+    // ④ 各食事カードの「写真で記録」直接カメラインプットの監視（スマホで一発カメラ起動）
+    document.addEventListener("change", (e) => {
+      if (e.target && e.target.classList.contains("slot-direct-camera")) {
+        const file = e.target.files[0];
+        const slot = e.target.dataset.meal;
+        if (!file) return;
+        handleImageFileSelected(file, slot);
+      }
+    });
+
     // ① スマホ直接カメラ撮影（capture="environment"）イベント
     if (directCameraInput) {
       directCameraInput.addEventListener("change", (e) => {
@@ -1018,15 +1028,76 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 画像ファイルが選択/撮影されたときの共通処理
-    function handleImageFileSelected(file) {
+    // 画像ファイルが選択/撮影されたときの共通処理（リサイズ圧縮・HEIC対策・iOSメモリクラッシュ対策）
+    function handleImageFileSelected(file, optionalSlot) {
+      // 1. スロット指定があれば反映
+      if (optionalSlot) {
+        const sel = document.getElementById("recordTargetSlot");
+        if (sel) sel.value = optionalSlot;
+      }
+      window.openPhotoRecordModal(optionalSlot);
+
+      // 2. iOS Safari特有の再選択不可バグ防止：inputの値を即リセット
+      if (directCameraInput) directCameraInput.value = "";
+      if (albumFileInput) albumFileInput.value = "";
+      document.querySelectorAll(".slot-direct-camera").forEach(input => {
+        try { input.value = ""; } catch (err) {}
+      });
+
+      // 3. UIを解析準備状態に
+      stopLiveCamera();
+      if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
+      if (cameraContainer) cameraContainer.classList.add("hidden");
+      if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
+
+      scanPreviewArea.classList.remove("hidden");
+      scanOverlay.classList.remove("hidden");
+      scanLaserLine.classList.remove("hidden");
+      scanResultArea.classList.add("hidden");
+      scanStatusText.textContent = "写真を最適化・解析中...";
+
+      // 4. スマホ写真（10MB〜15MB）のメモリクラッシュを防ぐため、HTML5 Canvasで長辺最大1200px・JPEG品質0.8にリサイズ圧縮
       const reader = new FileReader();
+      reader.onerror = () => {
+        alert("写真の読み込みに失敗しました。もう一度お試しください。");
+        resetCameraView();
+      };
       reader.onload = (event) => {
-        stopLiveCamera();
-        if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
-        if (cameraContainer) cameraContainer.classList.add("hidden");
-        if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
-        startPhotoAnalysis(event.target.result, null);
+        const img = new Image();
+        img.onerror = () => {
+          // デコード失敗時のフォールバック
+          startPhotoAnalysis(event.target.result, null);
+        };
+        img.onload = () => {
+          try {
+            const MAX_DIM = 1200;
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            if (w > MAX_DIM || h > MAX_DIM) {
+              if (w > h) {
+                h = Math.round((h * MAX_DIM) / w);
+                w = MAX_DIM;
+              } else {
+                w = Math.round((w * MAX_DIM) / h);
+                h = MAX_DIM;
+              }
+            }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+
+            // HEIC等のiPhoneフォーマットもcanvas経由で標準image/jpegに自動変換
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+            startPhotoAnalysis(compressedDataUrl, null);
+          } catch (err) {
+            console.warn("Canvas compression failed, falling back to original:", err);
+            startPhotoAnalysis(event.target.result, null);
+          }
+        };
+        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
     }
@@ -1165,7 +1236,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tabPhotoBtn) tabPhotoBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
         if (photoTabContent) photoTabContent.classList.remove("hidden");
         resetCameraView();
-        startLiveCamera();
       } else {
         stopLiveCamera(); // 手動・定番時はカメラ停止
         if (activeTab === 'manual') {
