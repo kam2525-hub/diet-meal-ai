@@ -1,46 +1,18 @@
-const CACHE_NAME = 'mealai-v3.2';
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './css/style.css?v=3.2',
-  './js/data.js?v=3.2',
-  './js/calculator.js?v=3.2',
-  './js/app.js?v=3.2',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
-];
-
+// MealAI - Self-destruct Service Worker to prevent caching bugs during development
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
-  );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+      return Promise.all(keys.map((key) => caches.delete(key)));
+    }).then(() => self.registration.unregister())
+      .then(() => self.clients.claim())
   );
 });
 
-// Network-First with fallback to cache
+// Always fetch directly from network without cache
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        return networkResponse;
-      })
-      .catch(() => caches.match(event.request))
-  );
+  event.respondWith(fetch(event.request));
 });

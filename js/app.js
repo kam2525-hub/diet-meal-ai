@@ -1002,8 +1002,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 外部からのカメラ制御用フック
+    // 外部からのカメラ制御・画像処理用フック
     window.stopCameraStream = stopLiveCamera;
+    window.handleImageFileSelected = handleImageFileSelected;
     window.initRecordModalState = () => {
       switchRecordTab('photo');
       resetCameraView();
@@ -1045,6 +1046,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const targetSlot = optionalSlot || document.getElementById("recordTargetSlot")?.value || "breakfast";
       const slotSelect = document.getElementById("recordTargetSlot");
       if (slotSelect) slotSelect.value = targetSlot;
+
+      // タブを写真タブに確実に合わせる
+      const pContent = document.getElementById("photoTabContent");
+      const mContent = document.getElementById("manualTabContent");
+      const prContent = document.getElementById("presetTabContent");
+      if (pContent) pContent.classList.remove("hidden");
+      if (mContent) mContent.classList.add("hidden");
+      if (prContent) prContent.classList.add("hidden");
 
       // モーダルを開く（カメラ初期化リセットは呼ばず、解析画面を直接開く）
       if (modal) {

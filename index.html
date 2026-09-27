@@ -13,19 +13,109 @@
   <link rel="icon" type="image/png" href="icon-192.png">
   <title>MealAI - ダイエット食事自動決定サービス</title>
   <script>
+    // ① 強制的にServiceWorkerを全解除し、全キャッシュストレージを完全消去（常に最新コードの読み込みを保証）
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=3.2').then((reg) => {
-          reg.update();
-        }).catch(() => {});
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var i = 0; i < registrations.length; i++) {
+          registrations[i].unregister();
+        }
       });
     }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (var i = 0; i < names.length; i++) {
+          caches.delete(names[i]);
+        }
+      });
+    }
+
+    // ② 即時利用可能なモーダル・写真ハンドラー（JS読み込み待ちでも100%確実に動作）
+    window.openPhotoRecordModal = function(slot) {
+      var modal = document.getElementById("photoModal");
+      if (modal) {
+        if (slot) {
+          var sel = document.getElementById("recordTargetSlot");
+          if (sel) sel.value = slot;
+        }
+        modal.classList.remove("hidden");
+        modal.style.display = "flex";
+      }
+      if (window.initRecordModalState) {
+        window.initRecordModalState();
+      }
+    };
+
+    window.closePhotoRecordModal = function() {
+      var modal = document.getElementById("photoModal");
+      if (modal) {
+        modal.classList.add("hidden");
+        modal.style.display = "none";
+      }
+      if (window.stopCameraStream) {
+        window.stopCameraStream();
+      }
+    };
+
+    // ③ 食事カード「写真で記録」ダイレクトハンドラー（ファイル選択時に100%即実行）
+    window.handleSlotFileChange = function(input, slot) {
+      if (!input || !input.files || !input.files.length) return;
+      var file = input.files[0];
+      console.log("Photo selected for slot:", slot, file.name);
+
+      // 食事カードに即座に「AI写真解析中...」を表示
+      var card = document.querySelector('.meal-card[data-meal="' + slot + '"]');
+      if (card) {
+        var actual = card.querySelector('.slot-actual-display');
+        if (actual) {
+          actual.innerHTML = '<span class="text-xs text-emerald-600 animate-pulse font-bold flex items-center gap-1 justify-end"><i class="fa-solid fa-spinner fa-spin"></i>AI写真解析中...</span>';
+        }
+      }
+
+      if (window.handleImageFileSelected) {
+        window.handleImageFileSelected(file, slot);
+      } else {
+        var attempts = 0;
+        var t = setInterval(function() {
+          attempts++;
+          if (window.handleImageFileSelected) {
+            clearInterval(t);
+            window.handleImageFileSelected(file, slot);
+          } else if (attempts > 30) {
+            clearInterval(t);
+            alert("システムの読み込み中です。少々お待ちの上もう一度お試しください。");
+          }
+        }, 100);
+      }
+    };
+
+    // ④ モーダル内ファイル入力用ハンドラー
+    window.handleModalFileChange = function(input) {
+      if (!input || !input.files || !input.files.length) return;
+      var slotSel = document.getElementById("recordTargetSlot");
+      var slot = (slotSel && slotSel.value) ? slotSel.value : "breakfast";
+      window.handleSlotFileChange(input, slot);
+    };
+
+    // ⑤ ドラッグ＆ドロップ対応（PCで画像をブラウザに直接落としても即時AI解析）
+    window.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('dragover', function(e) { e.preventDefault(); });
+      document.addEventListener('drop', function(e) {
+        var dt = e.dataTransfer;
+        if (!dt || !dt.files || !dt.files.length) return;
+        var file = dt.files[0];
+        if (!file.type.startsWith('image/')) return;
+        e.preventDefault();
+        var card = e.target.closest('.meal-card');
+        var slot = card ? card.dataset.meal : (document.getElementById("recordTargetSlot")?.value || 'breakfast');
+        window.handleSlotFileChange({ files: [file] }, slot);
+      });
+    });
   </script>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome / Lucide icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/style.css?v=3.2">
+  <link rel="stylesheet" href="css/style.css?v=3.5.0">
   <!-- TensorFlow.js & MobileNet (完全端末内・完全無料のAI画像認識) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
@@ -45,33 +135,6 @@
         }
       }
     }
-  </script>
-  <script>
-    // 即時利用可能なモーダル制御関数（JSファイル読み込み前・エラー発生時でも100%確実に開く）
-    window.openPhotoRecordModal = function(slot) {
-      var modal = document.getElementById("photoModal");
-      if (modal) {
-        if (slot) {
-          var sel = document.getElementById("recordTargetSlot");
-          if (sel) sel.value = slot;
-        }
-        modal.classList.remove("hidden");
-        modal.style.display = "flex";
-      }
-      if (window.initRecordModalState) {
-        window.initRecordModalState();
-      }
-    };
-    window.closePhotoRecordModal = function() {
-      var modal = document.getElementById("photoModal");
-      if (modal) {
-        modal.classList.add("hidden");
-        modal.style.display = "none";
-      }
-      if (window.stopCameraStream) {
-        window.stopCameraStream();
-      }
-    };
   </script>
 </head>
 
@@ -432,7 +495,7 @@
                   <i class="fa-solid fa-camera"></i>
                   <span>写真で記録</span>
                 </button>
-                <input type="file" accept="image/*" capture="environment" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="breakfast" aria-label="朝食の写真を撮影">
+                <input type="file" accept="image/*" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="breakfast" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'breakfast')" aria-label="朝食の写真を撮影">
               </div>
               <button type="button" onclick="openPhotoRecordModal('breakfast')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
@@ -511,7 +574,7 @@
                   <i class="fa-solid fa-camera"></i>
                   <span>写真で記録</span>
                 </button>
-                <input type="file" accept="image/*" capture="environment" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="lunch" aria-label="昼食の写真を撮影">
+                <input type="file" accept="image/*" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="lunch" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'lunch')" aria-label="昼食の写真を撮影">
               </div>
               <button type="button" onclick="openPhotoRecordModal('lunch')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
@@ -594,7 +657,7 @@
                   <i class="fa-solid fa-camera"></i>
                   <span>写真で記録</span>
                 </button>
-                <input type="file" accept="image/*" capture="environment" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="dinner" aria-label="夕食の写真を撮影">
+                <input type="file" accept="image/*" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="dinner" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'dinner')" aria-label="夕食の写真を撮影">
               </div>
               <button type="button" onclick="openPhotoRecordModal('dinner')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
@@ -671,7 +734,7 @@
                   <i class="fa-solid fa-camera"></i>
                   <span>写真で記録</span>
                 </button>
-                <input type="file" accept="image/*" capture="environment" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="snack" aria-label="間食の写真を撮影">
+                <input type="file" accept="image/*" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="snack" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'snack')" aria-label="間食の写真を撮影">
               </div>
               <button type="button" onclick="openPhotoRecordModal('snack')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
@@ -1020,7 +1083,7 @@
               <i class="fa-solid fa-camera text-xl"></i>
               <span>📸 今すぐカメラを起動して撮影</span>
             </div>
-            <input type="file" id="directCameraInput" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" aria-label="カメラを起動して撮影">
+            <input type="file" id="directCameraInput" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onclick="this.value=null;" onchange="window.handleModalFileChange(this)" aria-label="カメラを起動して撮影">
           </div>
 
           <div class="grid grid-cols-2 gap-2">
@@ -1030,7 +1093,7 @@
                 <i class="fa-solid fa-images text-slate-500"></i>
                 <span>📁 写真から選ぶ</span>
               </div>
-              <input type="file" id="albumFileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" aria-label="アルバムから選ぶ">
+              <input type="file" id="albumFileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onclick="this.value=null;" onchange="window.handleModalFileChange(this)" aria-label="アルバムから選ぶ">
             </div>
 
             <!-- ライブカメラ切り替え -->
@@ -1228,9 +1291,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=3.2"></script>
-  <script src="js/calculator.js?v=3.2"></script>
-  <script src="js/app.js?v=3.2"></script>
+  <script src="js/data.js?v=3.5.0"></script>
+  <script src="js/calculator.js?v=3.5.0"></script>
+  <script src="js/app.js?v=3.5.0"></script>
 </body>
 
 </html>
