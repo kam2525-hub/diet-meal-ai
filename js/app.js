@@ -1514,7 +1514,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ==================== 高精度AI画像認識：Canvasコンピュータビジョン ＆ 特徴量解析 ====================
+    // ==================== 高精度AI画像認識：Canvasコンピュータビジョン ＆ 色彩解析 ====================
     function analyzeFoodImageWithCanvas(img) {
       try {
         const canvas = document.createElement("canvas");
@@ -1544,6 +1544,9 @@ document.addEventListener("DOMContentLoaded", () => {
         let deepMeat = 0;
         let whiteRice = 0;
         let sweetBerry = 0;
+        let tomatoRed = 0;
+        let cheeseYellow = 0;
+        let salmonOrange = 0;
 
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i];
@@ -1565,49 +1568,82 @@ document.addEventListener("DOMContentLoaded", () => {
             if (h < 0) h += 360;
           }
 
-          // ラーメンの醤油・豚骨・味噌スープ (琥珀色〜黄金色〜茶色の液体領域)
-          if (h >= 24 && h <= 54 && s >= 0.28 && s <= 0.92 && v >= 0.30 && v <= 0.96) {
+          // ラーメンの醤油・豚骨スープ（液体の濃い琥珀〜茶色）
+          if (h >= 24 && h <= 42 && s >= 0.40 && s <= 0.88 && v >= 0.28 && v <= 0.78) {
             soupBroth++;
           }
-          // ラーメンの麺・煮卵の黄身・コーン
-          if (h >= 36 && h <= 64 && s >= 0.22 && s <= 0.75 && v >= 0.58) {
+          // ラーメンの黄色い麺・煮卵
+          if (h >= 44 && h <= 64 && s >= 0.25 && s <= 0.70 && v >= 0.60) {
             noodleYellow++;
           }
-          // カレーの濃厚なカレールー (濃い黄褐色)
-          if (h >= 20 && h <= 38 && s > 0.55 && v >= 0.22 && v <= 0.62) {
+          // カレーの濃厚なカレールー (濃い黄褐色・高彩度)
+          if (h >= 20 && h <= 36 && s > 0.58 && v >= 0.20 && v <= 0.55) {
             curryBrown++;
           }
           // サラダの鮮やかな緑色
-          if (h >= 75 && h <= 165 && s > 0.22 && v > 0.22) {
+          if (h >= 75 && h <= 165 && s > 0.25 && v > 0.25) {
             saladGreen++;
           }
           // から揚げ・フライのきつね色の揚げ衣
-          if (h >= 22 && h <= 44 && s >= 0.45 && s <= 0.88 && v >= 0.35 && v <= 0.78) {
+          if (h >= 22 && h <= 40 && s >= 0.50 && s <= 0.85 && v >= 0.35 && v <= 0.72) {
             friedCrispy++;
           }
           // 焼き肉・ハンバーグ・ステーキの濃い赤褐色
-          if (h >= 8 && h <= 25 && s >= 0.35 && s <= 0.78 && v >= 0.18 && v <= 0.58) {
+          if (h >= 8 && h <= 22 && s >= 0.40 && s <= 0.80 && v >= 0.16 && v <= 0.52) {
             deepMeat++;
           }
           // 白ご飯・トーストのクラム・生クリーム
-          if (s < 0.20 && v > 0.72) {
+          if (s < 0.18 && v > 0.75) {
             whiteRice++;
           }
+          // ピザのトマトソース・赤色
+          if ((h >= 350 || h <= 14) && s > 0.45 && v > 0.40) {
+            tomatoRed++;
+          }
+          // ピザの溶けたチーズ
+          if (h >= 40 && h <= 55 && s >= 0.35 && s <= 0.68 && v >= 0.65) {
+            cheeseYellow++;
+          }
+          // サーモン・マグロ・寿司ネタ
+          if (h >= 12 && h <= 25 && s >= 0.55 && v >= 0.45) {
+            salmonOrange++;
+          }
           // スイーツ・ベリー・洋菓子のピンク/赤
-          if ((h >= 340 || h <= 15) && s > 0.45 && v > 0.55) {
+          if ((h >= 325 && h <= 350) && s > 0.40 && v > 0.50) {
             sweetBerry++;
           }
         }
 
-        const scores = {
-          ramen: (soupBroth / total) * 2.0 + (noodleYellow / total) * 1.5,
-          curry: (curryBrown / total) * 1.8 + (whiteRice / total) * 0.9,
-          salad: (saladGreen / total) * 2.8,
-          karaage: (friedCrispy / total) * 1.5,
-          meat: (deepMeat / total) * 1.6,
-          bento: (whiteRice / total) * 0.8 + (friedCrispy / total) * 0.6 + (saladGreen / total) * 0.6,
-          cake: (sweetBerry / total) * 2.2 + (whiteRice / total) * 0.6
-        };
+        const pSalad = saladGreen / total;
+        const pCurry = curryBrown / total;
+        const pRice = whiteRice / total;
+        const pBroth = soupBroth / total;
+        const pNoodle = noodleYellow / total;
+        const pFried = friedCrispy / total;
+        const pMeat = deepMeat / total;
+        const pTomato = tomatoRed / total;
+        const pCheese = cheeseYellow / total;
+        const pSalmon = salmonOrange / total;
+        const pBerry = sweetBerry / total;
+
+        const scores = {};
+
+        // サラダ: 緑が12%以上
+        if (pSalad >= 0.12) scores.salad = pSalad * 2.0;
+        // カレー: ルー10%以上かつライス8%以上
+        if (pCurry >= 0.08 && pRice >= 0.06) scores.curry = pCurry * 1.5 + pRice * 0.8;
+        // ラーメン: 麺8%以上かつスープ8%以上の【両方】が揃っている場合のみ！
+        if (pNoodle >= 0.08 && pBroth >= 0.08) scores.ramen = pBroth * 1.0 + pNoodle * 1.0;
+        // ピザ・パスタ: トマト赤6%以上かつチーズ6%以上
+        if (pTomato >= 0.06 && pCheese >= 0.06) scores.pizza_pasta = pTomato * 1.2 + pCheese * 1.0;
+        // 寿司・海鮮: 魚ネタ6%以上かつ白米10%以上
+        if (pSalmon >= 0.06 && pRice >= 0.10) scores.sushi = pSalmon * 1.4 + pRice * 0.8;
+        // から揚げ・揚げ物: 揚げ衣16%以上
+        if (pFried >= 0.16) scores.karaage = pFried * 1.2;
+        // 肉料理: 赤褐色肉16%以上
+        if (pMeat >= 0.16) scores.meat = pMeat * 1.2;
+        // ケーキ・スイーツ: ベリー赤/ピンク4%以上かつクリーム白10%以上
+        if (pBerry >= 0.04 && pRice >= 0.10) scores.cake = pBerry * 1.5 + pRice * 0.8;
 
         console.log("Canvas Food CV Scores:", scores);
 
@@ -1620,7 +1656,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        if (maxScore >= 0.12) {
+        if (maxScore >= 0.22) {
           return { category: bestCategory, score: maxScore };
         }
         return null;
@@ -1630,12 +1666,52 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // MobileNetクラス名から多岐にわたる料理カテゴリを特定
+    function mapMobileNetPredictionToCategory(preds) {
+      if (!preds || !preds.length) return null;
+      for (const pred of preds) {
+        const name = (pred.className || "").toLowerCase();
+        const prob = pred.probability || 0;
+        if (prob < 0.04) continue; // 低信頼度のノイズは除外
+
+        // 寿司・刺身
+        if (name.includes("sushi") || name.includes("sashimi")) return "sushi";
+        // ピザ
+        if (name.includes("pizza")) return "pizza";
+        // ハンバーガー
+        if (name.includes("cheeseburger") || name.includes("hamburger") || name.includes("burger")) return "burger";
+        // サラダ・野菜
+        if (name.includes("salad") || name.includes("coleslaw") || name.includes("lettuce") || name.includes("cucumber") || name.includes("broccoli") || name.includes("cauliflower") || name.includes("zucchini")) return "salad";
+        // パスタ・スパゲッティ
+        if (name.includes("carbonara") || name.includes("spaghetti") || name.includes("pasta")) return "pasta";
+        // カレー・シチュー
+        if (name.includes("curry") || name.includes("stew")) return "curry";
+        // パン・サンドイッチ
+        if (name.includes("sandwich") || name.includes("bagel") || name.includes("croissant") || name.includes("bread") || name.includes("french loaf") || name.includes("pretzel") || name.includes("toast")) return "bread";
+        // 肉料理・ステーキ
+        if (name.includes("steak") || name.includes("meat loaf") || name.includes("roast beef") || name.includes("sirloin") || name.includes("pork chop") || name.includes("rib")) return "meat";
+        // 揚げ物・唐揚げ
+        if (name.includes("fried chicken") || name.includes("chicken wing") || name.includes("nugget") || name.includes("tempura")) return "karaage";
+        // ケーキ・洋菓子・スイーツ
+        if (name.includes("cake") || name.includes("chocolate sauce") || name.includes("ice cream") || name.includes("waffle") || name.includes("pancake") || name.includes("muffin") || name.includes("custard") || name.includes("bakery") || name.includes("doughnut") || name.includes("tart")) return "cake";
+        // フルーツ・果物
+        if (name.includes("banana") || name.includes("apple") || name.includes("orange") || name.includes("strawberry") || name.includes("grape") || name.includes("lemon") || name.includes("pineapple")) return "fruit";
+        // コーヒー・カフェ・飲み物
+        if (name.includes("espresso") || name.includes("coffee") || name.includes("cappuccino") || name.includes("cup") || name.includes("mug") || name.includes("tea") || name.includes("beverage")) return "coffee";
+        // ラーメン・麺類・スープ（明確なもの）
+        if (name.includes("ramen") || name.includes("noodle") || name.includes("soup bowl") || name.includes("consomme") || name.includes("hot pot")) return "ramen";
+        // 丼・ライスボウル
+        if (name.includes("rice bowl") || name.includes("bowl")) return "donburi";
+      }
+      return null;
+    }
+
     // ==================== MealAI 高精度料理候補TOP4生成 ====================
     function getAskenCandidates(slot, detectedCategory, fileName) {
       // カテゴリ別の専門メニューリスト（AIが特定した料理に直結）
       const categoryMenus = {
         ramen: {
-          label: "🍜 ラーメン (麺・スープ・具材をAI検出)",
+          label: "🍜 ラーメン・麺類 (麺・スープ・具材をAI検出)",
           items: [
             { rank: 1, name: "醤油チャーシュー麺 (並盛)", calories: 620, p: 25.0, f: 18.5, c: 88.0, icon: "🍜", advice: "🍜 ラーメンを高精度に特定！チャーシューでたんぱく質が摂れています。スープを残すことで脂質・塩分を約30%カット可能！" },
             { rank: 2, name: "濃厚豚骨ラーメン (並盛)", calories: 780, p: 28.0, f: 32.0, c: 94.0, icon: "🍜", advice: "🍜 コクのある濃厚豚骨！夕食の脂質を控えめにして目標内に自動調整します。" },
@@ -1659,6 +1735,69 @@ document.addEventListener("DOMContentLoaded", () => {
             { rank: 2, name: "シーザーサラダ (温玉・クルトン付)", calories: 280, p: 12.0, f: 18.5, c: 14.0, icon: "🥗", advice: "🥗 チーズと温泉卵のコク！主菜と組み合わせてバランスを整えましょう。" },
             { rank: 3, name: "蒸し鶏と豆腐の胡麻ドレサラダ", calories: 230, p: 21.0, f: 11.0, c: 10.5, icon: "🥗", advice: "✨ 大豆イソフラボンと良質なたんぱく質が摂れる美肌サラダです。" },
             { rank: 4, name: "海鮮アボカドポキサラダ", calories: 310, p: 18.0, f: 19.0, c: 15.0, icon: "🥑", advice: "🐟 アボカドと良質なオメガ3脂肪酸！美容と代謝に最適です。" }
+          ]
+        },
+        sushi: {
+          label: "🍣 寿司・海鮮料理 (新鮮な魚介とシャリをAI検出)",
+          items: [
+            { rank: 1, name: "特上にぎり寿司盛り合わせ (8貫)", calories: 520, p: 26.5, f: 6.2, c: 88.0, icon: "🍣", advice: "✨ 寿司を高精度に特定！高たんぱく・低脂質でダイエットに最適な日本食です。" },
+            { rank: 2, name: "まぐろサーモン海鮮丼 (並盛)", calories: 580, p: 32.0, f: 8.5, c: 92.0, icon: "🍣", advice: "🐟 良質なEPA・DHAが豊富！代謝を活発にし脂肪燃焼を促進します。" },
+            { rank: 3, name: "サーモンづくし握り (6貫)", calories: 460, p: 22.0, f: 14.0, c: 62.0, icon: "🍣", advice: "🍣 抗酸化作用の高いアスタキサンチンが豊富！美容にも嬉しい一皿。" },
+            { rank: 4, name: "サラダ巻き・鉄火巻きセット", calories: 410, p: 15.0, f: 5.0, c: 76.0, icon: "🍣", advice: "🍙 手軽でヘルシー！夕食の炭水化物コントロールにちょうど良い量です。" }
+          ]
+        },
+        pizza: {
+          label: "🍕 ピザ・イタリアン (チーズとクラストをAI検出)",
+          items: [
+            { rank: 1, name: "マルゲリータピザ (1/2枚 Mサイズ)", calories: 540, p: 22.0, f: 18.0, c: 72.0, icon: "🍕", advice: "🍕 ピザを特定！トマトのリコピンとモッツァレラ。夕食で主食を軽めに調整。" },
+            { rank: 2, name: "クワトロフォルマッジ (1/2枚)", calories: 620, p: 25.0, f: 28.0, c: 66.0, icon: "🍕", advice: "🧀 濃厚チーズ！カルシウムたっぷり。脂質を日中の運動でしっかり燃焼。" },
+            { rank: 3, name: "シーフードジェノベーゼピザ (1/2枚)", calories: 510, p: 24.0, f: 16.0, c: 68.0, icon: "🍕", advice: "🦐 シーフードで良質なたんぱく質補給！比較的脂質控えめで優秀。" },
+            { rank: 4, name: "ペパロニサラミピザ (1/2枚)", calories: 590, p: 23.0, f: 25.0, c: 68.0, icon: "🍕", advice: "💡 スパイシーな満足感！翌日の朝食を軽めにしてトータル管理。" }
+          ]
+        },
+        pasta: {
+          label: "🍝 パスタ・スパゲッティ (パスタ麺とソースをAI検出)",
+          items: [
+            { rank: 1, name: "濃厚カルボナーラ (普通盛り)", calories: 680, p: 24.0, f: 29.0, c: 80.0, icon: "🍝", advice: "🍝 パスタを特定！卵とベーコンの満足感。夕食の脂質を抑えめにして調整。" },
+            { rank: 2, name: "茄子とベーコンのトマトパスタ", calories: 560, p: 18.5, f: 16.0, c: 85.0, icon: "🍝", advice: "🍅 トマトソースで抗酸化！オリーブオイルの良質な脂質です。" },
+            { rank: 3, name: "海老とブロッコリーのジェノベーゼ", calories: 520, p: 22.0, f: 17.0, c: 70.0, icon: "🍝", advice: "🥦 緑黄色野菜と魚介！バランスの良いイタリアンランチです。" },
+            { rank: 4, name: "和風きのこ明太子パスタ", calories: 470, p: 19.0, f: 11.0, c: 74.0, icon: "🍝", advice: "✨ 低脂質な和風仕立て！食物繊維豊富でダイエッターに最適です。" }
+          ]
+        },
+        burger: {
+          label: "🍔 ハンバーガー (バンズとパティをAI検出)",
+          items: [
+            { rank: 1, name: "ダブルチーズバーガー (1個)", calories: 520, p: 28.0, f: 26.0, c: 44.0, icon: "🍔", advice: "🍔 ハンバーガーを特定！牛肉パティでしっかりたんぱく質を補給できます。" },
+            { rank: 2, name: "てりやきバーガー (1個)", calories: 480, p: 17.5, f: 24.0, c: 48.0, icon: "🍔", advice: "🍔 甘辛ソースの王道バーガー！サイドをポテトからサラダにするとさらに健康的。" },
+            { rank: 3, name: "アボカドビーフバーガー (1個)", calories: 560, p: 26.0, f: 30.0, c: 46.0, icon: "🥑", advice: "🥑 アボカドの良質な不飽和脂肪酸！腹持ちが良く間食を防ぎます。" },
+            { rank: 4, name: "グリルチキンバーガー (1個)", calories: 420, p: 29.0, f: 14.0, c: 44.0, icon: "🍔", advice: "✨ 高タンパク・低脂質なスマートチョイス！減量期にとてもおすすめです。" }
+          ]
+        },
+        bread: {
+          label: "🥪 サンドイッチ・パン (ブレッドと具材をAI検出)",
+          items: [
+            { rank: 1, name: "BLTサンドイッチ (レタス・トマト・ベーコン)", calories: 360, p: 14.5, f: 16.0, c: 38.0, icon: "🥪", advice: "🥪 サンドイッチを特定！手軽でバランスの良い軽食です。" },
+            { rank: 2, name: "サラダチキンとたまごのサンド", calories: 340, p: 22.0, f: 12.5, c: 35.0, icon: "🥪", advice: "✨ 高タンパクで引き締まった栄養設計！昼食にもぴったりです。" },
+            { rank: 3, name: "クロックムッシュ (ハム＆チーズトースト)", calories: 420, p: 18.0, f: 20.0, c: 42.0, icon: "🍞", advice: "🧀 とろけるチーズと香ばしいトースト！午後のエネルギー源になります。" },
+            { rank: 4, name: "チョコクロワッサン ＋ カフェラテ", calories: 390, p: 8.5, f: 19.0, c: 46.0, icon: "🥐", advice: "☕ カフェタイムの憩い！夜を野菜スープ中心にして帳尻を合わせます。" }
+          ]
+        },
+        bento: {
+          label: "🍱 幕の内・お弁当 (おかずとご飯の組み合わせをAI検出)",
+          items: [
+            { rank: 1, name: "彩り幕の内弁当 (普通盛り)", calories: 640, p: 25.0, f: 18.0, c: 94.0, icon: "🍱", advice: "🍱 お弁当を特定！様々なおかずが揃ってバランス良好。お漬物で塩分控えめに。" },
+            { rank: 2, name: "鮭西京焼き弁当 (麦飯普通盛り)", calories: 560, p: 28.0, f: 14.0, c: 80.0, icon: "🐟", advice: "✨ 理想的な和食弁当！良質な魚脂と食物繊維で代謝アップ。" },
+            { rank: 3, name: "鶏と野菜の黒酢あん弁当", calories: 620, p: 24.0, f: 16.0, c: 95.0, icon: "🍱", advice: "🥦 黒酢のアミノ酸とたっぷり根菜！クエン酸で疲労回復を促進。" },
+            { rank: 4, name: "チキンカツ弁当 (特製ソース)", calories: 790, p: 29.0, f: 31.0, c: 98.0, icon: "🍱", advice: "💡 がっつり満腹弁当！夕食は脂質を抑えて野菜中心に調整しましょう。" }
+          ]
+        },
+        donburi: {
+          label: "🍚 丼もの (具材とご飯をAI検出)",
+          items: [
+            { rank: 1, name: "特製牛丼 (並盛・紅生姜)", calories: 650, p: 20.0, f: 22.0, c: 92.0, icon: "🍚", advice: "🍚 牛丼を特定！牛肉の鉄分とビタミン補給。生姜で代謝をアップ。" },
+            { rank: 2, name: "ふわとろ親子丼 (並盛)", calories: 580, p: 28.0, f: 14.0, c: 85.0, icon: "🍚", advice: "✨ 鶏肉と卵で高タンパク・低脂質！減量中にも優秀な丼メニューです。" },
+            { rank: 3, name: "豚ロースかつ丼 (並盛)", calories: 820, p: 29.0, f: 32.0, c: 104.0, icon: "🍚", advice: "💡 パワーチャージ！トレーニングや活動量の多い日にぴったり。" },
+            { rank: 4, name: "まぐろ漬け丼 (並盛)", calories: 490, p: 30.0, f: 5.0, c: 80.0, icon: "🐟", advice: "✨ 超低脂質・超高タンパク！アスリート級の理想的な減量飯です。" }
           ]
         },
         karaage: {
@@ -1687,6 +1826,24 @@ document.addEventListener("DOMContentLoaded", () => {
             { rank: 3, name: "濃厚ガトーショコラ (1個)", calories: 380, p: 6.0, f: 25.0, c: 32.0, icon: "🍫", advice: "🍫 ポリフェノール補給！水分をしっかり摂って代謝をキープ。" },
             { rank: 4, name: "モンブラン (1個)", calories: 350, p: 4.8, f: 20.5, c: 36.0, icon: "🌰", advice: "🌰 栗の優しい甘さ！夕食を野菜スープ中心にして帳尻を合わせます。" }
           ]
+        },
+        fruit: {
+          label: "🍎 フルーツ・果物 (フレッシュな果実をAI検出)",
+          items: [
+            { rank: 1, name: "完熟バナナ (1本 中サイズ 100g)", calories: 86, p: 1.1, f: 0.2, c: 22.5, icon: "🍌", advice: "🍌 フルーツを特定！自然な果糖とカリウムでむくみ解消と素早いエネルギー補給。" },
+            { rank: 2, name: "カットりんご (1/2個 150g)", calories: 72, p: 0.2, f: 0.1, c: 18.0, icon: "🍎", advice: "🍎 アップルペクチンで腸内環境を改善！食前デザートにも最適。" },
+            { rank: 3, name: "フルーツヨーグルトボウル (ベリー・キウイ)", calories: 145, p: 8.5, f: 1.5, c: 24.0, icon: "🥣", advice: "✨ ビタミンCと乳酸菌！腸活と美肌を叶えるヘルシーボウル。" },
+            { rank: 4, name: "ミックスフルーツ盛り合わせ", calories: 110, p: 1.2, f: 0.3, c: 27.0, icon: "🍓", advice: "🍓 豊富な抗酸化成分！低カロリーで罪悪感ゼロの間食です。" }
+          ]
+        },
+        coffee: {
+          label: "☕ カフェ・ドリンク (飲料・カップをAI検出)",
+          items: [
+            { rank: 1, name: "無糖アイスカフェラテ (200ml)", calories: 78, p: 4.1, f: 4.2, c: 5.9, icon: "☕", advice: "☕ カフェドリンクを特定！ミルクの良質なたんぱく質とカルシウムを補給。" },
+            { rank: 2, name: "ドリップブラックコーヒー (HOT/ICE)", calories: 8, p: 0.5, f: 0.1, c: 1.4, icon: "☕", advice: "✨ ほぼゼロカロリー！カフェインとクロロゲン酸で脂肪燃焼を活性化。" },
+            { rank: 3, name: "抹茶ラテ (甘さ控えめ 200ml)", calories: 160, p: 5.2, f: 4.8, c: 24.0, icon: "🍵", advice: "🍵 カテキンたっぷり！リフレッシュしながら集中力をキープ。" },
+            { rank: 4, name: "キャラメルマキアート (HOT 250ml)", calories: 210, p: 6.0, f: 7.5, c: 29.5, icon: "☕", advice: "💡 ご褒美ビバレッジ！夕食の糖質を少し抑えて調整しましょう。" }
+          ]
         }
       };
 
@@ -1704,21 +1861,51 @@ document.addEventListener("DOMContentLoaded", () => {
         if (fn.includes("ramen") || fn.includes("ラーメン") || fn.includes("麺") || fn.includes("拉麺")) {
           return { label: categoryMenus.ramen.label, candidates: categoryMenus.ramen.items };
         }
+        if (fn.includes("sushi") || fn.includes("寿司") || fn.includes("鮨") || fn.includes("刺身")) {
+          return { label: categoryMenus.sushi.label, candidates: categoryMenus.sushi.items };
+        }
+        if (fn.includes("pizza") || fn.includes("ピザ")) {
+          return { label: categoryMenus.pizza.label, candidates: categoryMenus.pizza.items };
+        }
+        if (fn.includes("pasta") || fn.includes("パスタ") || fn.includes("スパゲッティ") || fn.includes("カルボナーラ")) {
+          return { label: categoryMenus.pasta.label, candidates: categoryMenus.pasta.items };
+        }
+        if (fn.includes("burger") || fn.includes("バーガー") || fn.includes("ハンバーガー")) {
+          return { label: categoryMenus.burger.label, candidates: categoryMenus.burger.items };
+        }
+        if (fn.includes("sandwich") || fn.includes("サンドイッチ") || fn.includes("パン") || fn.includes("トースト") || fn.includes("bread")) {
+          return { label: categoryMenus.bread.label, candidates: categoryMenus.bread.items };
+        }
+        if (fn.includes("bento") || fn.includes("弁当") || fn.includes("幕の内")) {
+          return { label: categoryMenus.bento.label, candidates: categoryMenus.bento.items };
+        }
+        if (fn.includes("don") || fn.includes("丼") || fn.includes("牛丼") || fn.includes("親子丼") || fn.includes("かつ丼")) {
+          return { label: categoryMenus.donburi.label, candidates: categoryMenus.donburi.items };
+        }
         if (fn.includes("curry") || fn.includes("カレー")) {
           return { label: categoryMenus.curry.label, candidates: categoryMenus.curry.items };
         }
         if (fn.includes("salad") || fn.includes("サラダ")) {
           return { label: categoryMenus.salad.label, candidates: categoryMenus.salad.items };
         }
-        if (fn.includes("karaage") || fn.includes("からあげ") || fn.includes("唐揚")) {
+        if (fn.includes("karaage") || fn.includes("からあげ") || fn.includes("唐揚") || fn.includes("揚げ") || fn.includes("フライ")) {
           return { label: categoryMenus.karaage.label, candidates: categoryMenus.karaage.items };
         }
-        if (fn.includes("cake") || fn.includes("ケーキ") || fn.includes("スイーツ")) {
+        if (fn.includes("meat") || fn.includes("ステーキ") || fn.includes("肉") || fn.includes("ハンバーグ") || fn.includes("生姜焼き")) {
+          return { label: categoryMenus.meat.label, candidates: categoryMenus.meat.items };
+        }
+        if (fn.includes("cake") || fn.includes("ケーキ") || fn.includes("スイーツ") || fn.includes("チョコ") || fn.includes("パフェ")) {
           return { label: categoryMenus.cake.label, candidates: categoryMenus.cake.items };
+        }
+        if (fn.includes("fruit") || fn.includes("フルーツ") || fn.includes("バナナ") || fn.includes("りんご") || fn.includes("果物")) {
+          return { label: categoryMenus.fruit.label, candidates: categoryMenus.fruit.items };
+        }
+        if (fn.includes("coffee") || fn.includes("カフェ") || fn.includes("コーヒー") || fn.includes("ラテ") || fn.includes("珈琲")) {
+          return { label: categoryMenus.coffee.label, candidates: categoryMenus.coffee.items };
         }
       }
 
-      // 3. 通常の時間帯・スロット別標準メニュー
+      // 3. 通常の時間帯・スロット別標準メニュー（特定不能時の自然なフォールバック）
       const candidatesBySlot = {
         breakfast: [
           { rank: 1, name: "白ご飯 (150g) ＋ 目玉焼き ＋ 味噌汁", calories: 384, p: 14.1, f: 9.5, c: 58.8, icon: "🍚", advice: "✨ 朝の王道和定食！良質なたんぱく質とエネルギーをチャージ。" },
@@ -1729,13 +1916,13 @@ document.addEventListener("DOMContentLoaded", () => {
         lunch: [
           { rank: 1, name: "チキンカレーライス (普通盛り)", calories: 680, p: 18.5, f: 20.0, c: 105.0, icon: "🍛", advice: "💡 スパイスで代謝アップ！夕食の炭水化物を少し控えめに調整します。" },
           { rank: 2, name: "特製からあげ弁当 (ご飯普通盛り)", calories: 780, p: 27.0, f: 29.5, c: 94.0, icon: "🍱", advice: "🍗 たんぱく質しっかり！夕食は脂質を抑えた魚メニューがおすすめ。" },
-          { rank: 3, name: "醤油ラーメン (チャーシュー・メンマ)", calories: 520, p: 21.0, f: 16.5, c: 72.0, icon: "🍜", advice: "🍜 定番麺類！スープを少し残すとさらに塩分と脂質をカット可能。" },
-          { rank: 4, name: "ミックスサンド ＋ サラダチキン", calories: 400, p: 34.7, f: 14.7, c: 30.0, icon: "🥪", advice: "✨ 理想的な高たんぱく・適正カロリーのスマートランチです！" }
+          { rank: 3, name: "ミックスサンド ＋ サラダチキン", calories: 400, p: 34.7, f: 14.7, c: 30.0, icon: "🥪", advice: "✨ 理想的な高たんぱく・適正カロリーのスマートランチです！" },
+          { rank: 4, name: "特上にぎり寿司盛り合わせ (8貫)", calories: 520, p: 26.5, f: 6.2, c: 88.0, icon: "🍣", advice: "🍣 高たんぱく・低脂質な和食ランチ！午後の眠気を防ぎます。" }
         ],
         dinner: [
           { rank: 1, name: "焼き鮭・塩鮭定食 (ご飯普通・味噌汁付)", calories: 484, p: 30.0, f: 13.3, c: 58.7, icon: "🐟", advice: "✨ 理想の夕食！高タンパク・低脂質で睡眠中の脂肪燃焼をサポート。" },
           { rank: 2, name: "デミグラスハンバーグ定食 (ご飯普通)", calories: 714, p: 29.8, f: 29.0, c: 77.4, icon: "🥩", advice: "💡 しっかり肉料理！日中の活動量と相殺して目標内に収めます。" },
-          { rank: 3, name: "豚ロースとんかつ定食 (普通盛り)", calories: 749, p: 31.6, f: 36.3, c: 70.6, icon: "🍱", advice: "💡 食べごたえ抜群！翌日の朝食を少し軽めにしてバランスを取ります。" },
+          { rank: 3, name: "豚ロース生姜焼き定食 (普通盛り)", calories: 680, p: 28.0, f: 24.0, c: 85.0, icon: "🐷", advice: "🐷 ビタミンB1豊富で疲労回復！糖質の代謝をスムーズにします。" },
           { rank: 4, name: "サラダチキン ＋ 豆腐とわかめの味噌汁 ＋ ゆで卵", calories: 235, p: 34.3, f: 7.4, c: 6.3, icon: "🥗", advice: "🔥 超強力な減量ディナー！体脂肪がぐんぐん燃焼するペースです。" }
         ],
         snack: [
@@ -1747,10 +1934,15 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       return {
-        label: "AI高精度判定（定番メニュー）",
+        label: "AI高精度判定（時間帯レコメンド）",
         candidates: candidatesBySlot[slot] || candidatesBySlot.lunch
       };
     }
+
+    // グローバルアクセス・テスト用エクスポート
+    window.analyzeFoodImageWithCanvas = analyzeFoodImageWithCanvas;
+    window.mapMobileNetPredictionToCategory = mapMobileNetPredictionToCategory;
+    window.getAskenCandidates = getAskenCandidates;
 
     // 解析開始演出 ＆ AI画像認識・候補自動特定
     async function startPhotoAnalysis(imageSrc, presetData, fileName, sourceImg) {
@@ -1769,7 +1961,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const slot = document.getElementById("recordTargetSlot")?.value || "breakfast";
 
-      // 1. 高速Canvasコンピュータビジョンによる料理カテゴリ・特徴量の自動検出
       let detectedCategory = null;
       let imgForAnalysis = sourceImg;
       if (!imgForAnalysis) {
@@ -1780,29 +1971,27 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      if (imgForAnalysis && imgForAnalysis.naturalWidth) {
+      // 1. TensorFlow.js MobileNet (機械学習モデルによる物体・料理認識を最優先実行)
+      if (window.mobilenetModel && imgForAnalysis && imgForAnalysis.naturalWidth) {
+        try {
+          const preds = await window.mobilenetModel.classify(imgForAnalysis, 5);
+          console.log("MobileNet predictions:", preds);
+          const mlCat = mapMobileNetPredictionToCategory(preds);
+          if (mlCat) {
+            detectedCategory = mlCat;
+            console.log("Detected category by MobileNet ML:", detectedCategory);
+          }
+        } catch (e) {
+          console.warn("MobileNet inference exception:", e);
+        }
+      }
+
+      // 2. もしMobileNetで特定できなかった場合、Canvasコンピュータビジョンで色彩・特徴量検出
+      if (!detectedCategory && imgForAnalysis && imgForAnalysis.naturalWidth) {
         const cvRes = analyzeFoodImageWithCanvas(imgForAnalysis);
         if (cvRes) {
           detectedCategory = cvRes.category;
           console.log("Detected food category by Canvas CV:", detectedCategory);
-        }
-      }
-
-      // 2. TensorFlow.js MobileNet (もしロード完了していれば機械学習で補強)
-      if (window.mobilenetModel && imgForAnalysis && imgForAnalysis.naturalWidth) {
-        try {
-          const preds = await window.mobilenetModel.classify(imgForAnalysis);
-          console.log("MobileNet predictions:", preds);
-          if (preds && preds.length > 0) {
-            const top = preds[0].className.toLowerCase();
-            if (top.includes("ramen") || top.includes("soup bowl") || top.includes("consomme")) {
-              detectedCategory = "ramen";
-            } else if (top.includes("pizza")) {
-              detectedCategory = "pizza";
-            }
-          }
-        } catch (e) {
-          console.warn("MobileNet inference exception:", e);
         }
       }
 
