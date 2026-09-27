@@ -680,6 +680,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     modal.classList.remove("hidden");
     modal.style.display = "flex";
+
+    // モーダルを開いた時にカメラ撮影タブをアクティブにしてカメラを起動
+    if (window.initRecordModalState) {
+      window.initRecordModalState();
+    }
   };
 
   window.closePhotoRecordModal = function() {
@@ -687,6 +692,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!modal) return;
     modal.classList.add("hidden");
     modal.style.display = "none";
+
+    // カメラ停止してリソース解放
+    if (window.stopCameraStream) {
+      window.stopCameraStream();
+    }
   };
 
   function setupEventListeners() {
@@ -946,13 +956,22 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) { }
   }
 
-  // ===================== 写真スキャン & AI解析ロジック =====================
+  // ===================== 写真スキャン & リアルタイムカメラAI解析 =====================
   function setupPhotoScanner() {
     const photoModal = document.getElementById("photoModal");
-    const photoScanBtn = document.getElementById("photoScanBtn");
     const closePhotoBtn = document.getElementById("closePhotoBtn");
-    const photoInput = document.getElementById("photoInput");
-    const photoDropArea = document.getElementById("photoDropArea");
+    const cameraVideo = document.getElementById("cameraVideo");
+    const cameraContainer = document.getElementById("cameraContainer");
+    const cameraLoadingOverlay = document.getElementById("cameraLoadingOverlay");
+    const cameraErrorBox = document.getElementById("cameraErrorBox");
+    const cameraStatusText = document.getElementById("cameraStatusText");
+    const cameraRetryBtn = document.getElementById("cameraRetryBtn");
+    const switchCameraBtn = document.getElementById("switchCameraBtn");
+    const captureShutterBtn = document.getElementById("captureShutterBtn");
+    const captureCanvas = document.getElementById("captureCanvas");
+    const pickAlbumBtn = document.getElementById("pickAlbumBtn");
+    const albumFileInput = document.getElementById("albumFileInput");
+    const cameraActionButtons = document.getElementById("cameraActionButtons");
     const scanPreviewArea = document.getElementById("scanPreviewArea");
     const scannedImagePreview = document.getElementById("scannedImagePreview");
     const scanLaserLine = document.getElementById("scanLaserLine");
@@ -960,22 +979,151 @@ document.addEventListener("DOMContentLoaded", () => {
     const scanStatusText = document.getElementById("scanStatusText");
     const scanResultArea = document.getElementById("scanResultArea");
     const applyPhotoMealBtn = document.getElementById("applyPhotoMealBtn");
+    const retakeCameraBtn = document.getElementById("retakeCameraBtn");
 
+    let mediaStream = null;
+    let currentFacingMode = "environment"; // 背面カメラを優先
     let currentScanItem = null;
 
-    // モーダル開閉
-    if (photoScanBtn) {
-      photoScanBtn.addEventListener("click", () => {
-        window.openPhotoRecordModal();
-      });
-    }
+    // モーダル閉じるボタン
     if (closePhotoBtn) {
       closePhotoBtn.addEventListener("click", () => {
         window.closePhotoRecordModal();
       });
     }
 
-    // タブ切り替え（写真 / 手動 / 定番）
+    // 外部からのカメラ制御用フック
+    window.stopCameraStream = stopLiveCamera;
+    window.initRecordModalState = () => {
+      switchRecordTab('photo');
+      resetCameraView();
+      startLiveCamera();
+    };
+
+    // リアルタイムカメラ起動
+    async function startLiveCamera() {
+      stopLiveCamera();
+      if (cameraLoadingOverlay) cameraLoadingOverlay.classList.remove("hidden");
+      if (cameraErrorBox) cameraErrorBox.classList.add("hidden");
+      if (cameraStatusText) cameraStatusText.textContent = "カメラを起動中...";
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        if (cameraLoadingOverlay) cameraLoadingOverlay.classList.add("hidden");
+        if (cameraErrorBox) cameraErrorBox.classList.remove("hidden");
+        return;
+      }
+
+      try {
+        const constraints = {
+          video: {
+            facingMode: { ideal: currentFacingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        };
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (cameraVideo) {
+          cameraVideo.srcObject = mediaStream;
+          await cameraVideo.play();
+        }
+        if (cameraLoadingOverlay) cameraLoadingOverlay.classList.add("hidden");
+      } catch (err) {
+        console.warn("Live camera access failed or denied:", err);
+        if (cameraLoadingOverlay) cameraLoadingOverlay.classList.add("hidden");
+        if (cameraErrorBox) cameraErrorBox.classList.remove("hidden");
+      }
+    }
+
+    // カメラ停止
+    function stopLiveCamera() {
+      if (mediaStream) {
+        try {
+          mediaStream.getTracks().forEach(track => track.stop());
+        } catch (e) {}
+        mediaStream = null;
+      }
+      if (cameraVideo) {
+        cameraVideo.srcObject = null;
+      }
+    }
+
+    // カメラ再試行ボタン
+    if (cameraRetryBtn) {
+      cameraRetryBtn.addEventListener("click", () => {
+        startLiveCamera();
+      });
+    }
+
+    // カメラ切り替え（イン/アウト）
+    if (switchCameraBtn) {
+      switchCameraBtn.addEventListener("click", () => {
+        currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+        startLiveCamera();
+      });
+    }
+
+    // シャッターボタン（撮影）
+    if (captureShutterBtn) {
+      captureShutterBtn.addEventListener("click", () => {
+        if (!cameraVideo || !cameraVideo.videoWidth) {
+          // カメラが動いていない場合はアルバムを開く
+          if (albumFileInput) albumFileInput.click();
+          return;
+        }
+
+        // キャンバスにスナップショットを取得
+        captureCanvas.width = cameraVideo.videoWidth;
+        captureCanvas.height = cameraVideo.videoHeight;
+        const ctx = captureCanvas.getContext("2d");
+        ctx.drawImage(cameraVideo, 0, 0, captureCanvas.width, captureCanvas.height);
+        const dataUrl = captureCanvas.toDataURL("image/jpeg", 0.88);
+
+        stopLiveCamera();
+        if (cameraContainer) cameraContainer.classList.add("hidden");
+        if (cameraActionButtons) cameraActionButtons.classList.add("hidden");
+
+        startPhotoAnalysis(dataUrl, null);
+      });
+    }
+
+    // アルバム・ファイル選択ボタン
+    if (pickAlbumBtn && albumFileInput) {
+      pickAlbumBtn.addEventListener("click", () => {
+        albumFileInput.click();
+      });
+
+      albumFileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          stopLiveCamera();
+          if (cameraContainer) cameraContainer.classList.add("hidden");
+          if (cameraActionButtons) cameraActionButtons.classList.add("hidden");
+          startPhotoAnalysis(event.target.result, null);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // 撮り直しボタン
+    if (retakeCameraBtn) {
+      retakeCameraBtn.addEventListener("click", () => {
+        resetCameraView();
+        startLiveCamera();
+      });
+    }
+
+    function resetCameraView() {
+      if (scanPreviewArea) scanPreviewArea.classList.add("hidden");
+      if (scanResultArea) scanResultArea.classList.add("hidden");
+      if (cameraContainer) cameraContainer.classList.remove("hidden");
+      if (cameraActionButtons) cameraActionButtons.classList.remove("hidden");
+    }
+
+    // タブ切り替え（カメラ / 手動 / 定番）
     const tabPhotoBtn = document.getElementById("tabPhotoBtn");
     const tabManualBtn = document.getElementById("tabManualBtn");
     const tabPresetBtn = document.getElementById("tabPresetBtn");
@@ -985,20 +1133,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function switchRecordTab(activeTab) {
       [tabPhotoBtn, tabManualBtn, tabPresetBtn].forEach(b => {
-        b.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 flex items-center justify-center gap-1 transition";
+        if (b) b.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 flex items-center justify-center gap-1 transition";
       });
-      [photoTabContent, manualTabContent, presetTabContent].forEach(c => c.classList.add("hidden"));
+      [photoTabContent, manualTabContent, presetTabContent].forEach(c => {
+        if (c) c.classList.add("hidden");
+      });
 
       if (activeTab === 'photo') {
-        tabPhotoBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
-        photoTabContent.classList.remove("hidden");
-      } else if (activeTab === 'manual') {
-        tabManualBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
-        manualTabContent.classList.remove("hidden");
-      } else if (activeTab === 'preset') {
-        tabPresetBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
-        presetTabContent.classList.remove("hidden");
-        renderPresetMenuList();
+        if (tabPhotoBtn) tabPhotoBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
+        if (photoTabContent) photoTabContent.classList.remove("hidden");
+        resetCameraView();
+        startLiveCamera();
+      } else {
+        stopLiveCamera(); // 手動・定番時はカメラ停止
+        if (activeTab === 'manual') {
+          if (tabManualBtn) tabManualBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
+          if (manualTabContent) manualTabContent.classList.remove("hidden");
+        } else if (activeTab === 'preset') {
+          if (tabPresetBtn) tabPresetBtn.className = "flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition font-bold";
+          if (presetTabContent) presetTabContent.classList.remove("hidden");
+          renderPresetMenuList();
+        }
       }
     }
 
@@ -1087,22 +1242,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 写真クリック / ファイル選択
-    photoDropArea.addEventListener("click", () => {
-      photoInput.click();
-    });
-
-    photoInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        startPhotoAnalysis(event.target.result, null);
-      };
-      reader.readAsDataURL(file);
-    });
-
     // サンプル写真ボタン
     const samplePresets = {
       ramen: {
@@ -1156,6 +1295,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const type = btn.dataset.type;
         const preset = samplePresets[type];
         if (preset) {
+          stopLiveCamera();
+          if (cameraContainer) cameraContainer.classList.add("hidden");
+          if (cameraActionButtons) cameraActionButtons.classList.add("hidden");
           startPhotoAnalysis(preset.img, preset);
         }
       });
