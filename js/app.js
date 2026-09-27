@@ -483,8 +483,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
               ${record.img ? `<img src="${record.img}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-emerald-300 shadow-xs shrink-0">` : `<span class="text-xl sm:text-2xl shrink-0">${record.icon || '🍽️'}</span>`}
               <div class="min-w-0">
-                <div class="font-bold text-slate-800 text-xs sm:text-sm truncate">
-                  ${record.name}
+                <div class="font-bold text-slate-800 text-xs sm:text-sm truncate flex items-center gap-1.5 flex-wrap">
+                  <span>${record.name}</span>
+                  ${record.soupLevel === 'half' ? '<span class="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-md font-bold">🍜 スープ半分残し</span>' : ''}
+                  ${record.soupLevel === 'none' ? '<span class="text-[9px] bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.2 rounded-md font-bold">🍜 麺・具のみ完食</span>' : ''}
                 </div>
                 <div class="text-[10px] sm:text-[11px] text-slate-600 mt-0.5 flex flex-wrap gap-1 items-center">
                   <span class="font-mono font-bold text-emerald-800">${record.calories} kcal</span>
@@ -1628,7 +1630,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ==================== あすけん方式：高精度な料理候補TOP4生成 ====================
+    // ==================== MealAI 高精度料理候補TOP4生成 ====================
     function getAskenCandidates(slot, detectedCategory, fileName) {
       // カテゴリ別の専門メニューリスト（AIが特定した料理に直結）
       const categoryMenus = {
@@ -1745,12 +1747,12 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       return {
-        label: "あすけん方式（定番候補）",
+        label: "AI高精度判定（定番メニュー）",
         candidates: candidatesBySlot[slot] || candidatesBySlot.lunch
       };
     }
 
-    // 解析開始演出 ＆ AI画像認識・あすけん方式の候補自動特定
+    // 解析開始演出 ＆ AI画像認識・候補自動特定
     async function startPhotoAnalysis(imageSrc, presetData, fileName, sourceImg) {
       if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
       if (cameraContainer) cameraContainer.classList.add("hidden");
@@ -1839,7 +1841,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 50);
     }
 
-    // あすけん方式の候補リストUI生成（ワンタップ決定ボタン付き ＆ AI検出バッジ）
+    // AI料理候補リストUI生成（ワンタップ決定ボタン付き ＆ AI検出バッジ）
     function renderAskenCandidates(candidates, imageSrc, detectedLabel) {
       const container = document.getElementById("aiCandidatesList");
       if (!container) return;
@@ -1906,8 +1908,105 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // スープ・汁物系料理の判定（ラーメン、うどん、そば、スープ、鍋、味噌汁等）
+    function isSoupOrNoodleDish(name) {
+      if (!name) return false;
+      const n = name.toLowerCase();
+      const keywords = [
+        'ラーメン', 'らーめん', '拉麺', '麺', 'ramen',
+        'うどん', 'そば', '蕎麦', 'ちゃんぽん', 'タンメン', 'フォー', '担々麺',
+        'スープ', '味噌汁', 'みそ汁', '豚汁', '鍋', '雑炊', 'ポトフ', 'シチュー', 'ワンタン', '春雨'
+      ];
+      return keywords.some(k => n.includes(k));
+    }
+
+    function applySoupAdjustment(level) {
+      if (!currentScanItem) return;
+      currentScanItem.soupLevel = level;
+
+      const baseName = currentScanItem.baseName || currentScanItem.name;
+      const baseCal = currentScanItem.baseCalories !== undefined ? currentScanItem.baseCalories : currentScanItem.calories;
+      const baseF = currentScanItem.baseF !== undefined ? currentScanItem.baseF : currentScanItem.f;
+      const isNoodle = (baseName.includes('ラーメン') || baseName.includes('らーめん') || baseName.includes('麺') || baseName.includes('うどん') || baseName.includes('そば') || baseName.includes('ちゃんぽん') || baseName.includes('ramen'));
+
+      let dedCal = 0;
+      let dedF = 0;
+      let badgeText = "全飲み（通常）";
+      let adviceText = currentScanItem.baseAdvice || "✨ 食品標準データベースに基づき正確に算出しました。";
+
+      if (level === 'half') {
+        dedCal = isNoodle ? 75 : 20;
+        dedF = isNoodle ? 4 : 1;
+        badgeText = `半分残し (-${dedCal} kcal)`;
+        adviceText = isNoodle 
+          ? "💡 スープを半分残して約75kcal＆塩分カット！満足感をキープしながら賢くカロリーオフできました。" 
+          : "💡 汁物を半分残して塩分・余分な脂質をカットしました。";
+      } else if (level === 'none') {
+        dedCal = isNoodle ? 150 : 35;
+        dedF = isNoodle ? 8 : 2;
+        badgeText = `麺・具のみ (-${dedCal} kcal)`;
+        adviceText = isNoodle 
+          ? "✨ スープを飲まずに麺と具のみ完食！約150kcal＆余分な脂質・塩分を大幅カットし、ダイエット効果抜群です！" 
+          : "✨ 具材のみ食べて汁を残し、塩分と余分なカロリーをしっかり抑えました！";
+      }
+
+      const finalCal = Math.max(50, baseCal - dedCal);
+      const finalF = Math.max(0, Math.round((baseF - dedF) * 10) / 10);
+      const finalName = level === 'all' ? baseName : `${baseName} [${level === 'half' ? 'スープ半分' : 'スープ残し'}]`;
+
+      currentScanItem.calories = finalCal;
+      currentScanItem.f = finalF;
+      currentScanItem.name = finalName;
+
+      const nameInput = document.getElementById("resultDishNameInput");
+      const calInput = document.getElementById("resultCaloriesInput");
+      const fEl = document.getElementById("resultF");
+      const badgeEl = document.getElementById("soupSavingsBadge");
+      const adviceEl = document.getElementById("resultAdvice");
+      const soupAdviceEl = document.getElementById("soupAdviceText");
+
+      if (nameInput) nameInput.value = finalName;
+      if (calInput) calInput.value = finalCal;
+      if (fEl) fEl.textContent = `${finalF}g`;
+      if (badgeEl) badgeEl.textContent = badgeText;
+      if (adviceEl) adviceEl.textContent = adviceText;
+      if (soupAdviceEl) soupAdviceEl.textContent = adviceText;
+
+      // 記録ボタンの文言も動的に更新
+      const targetSlot = document.getElementById("recordTargetSlot")?.value || "breakfast";
+      const slotJp = getSlotJpName(targetSlot);
+      const applyBtnLabel = document.getElementById("applyPhotoBtnLabel");
+      if (applyBtnLabel) {
+        applyBtnLabel.textContent = `この料理 (${finalCal} kcal) を【${slotJp}】に記録する`;
+      }
+
+      // ボタンのスタイル更新
+      document.querySelectorAll(".soup-level-btn").forEach(btn => {
+        const bl = btn.dataset.level;
+        if (bl === level) {
+          btn.className = "soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-amber-500 text-white shadow-2xs border-amber-500 cursor-pointer";
+          const sub = btn.querySelector("div:last-child");
+          if (sub) sub.className = "text-[9px] opacity-90 font-normal mt-0.5 text-white";
+        } else {
+          btn.className = "soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer";
+          const sub = btn.querySelector("div:last-child");
+          if (sub) sub.className = bl === 'all' ? "text-[9px] text-slate-500 font-normal mt-0.5" : "text-[9px] text-emerald-600 font-bold mt-0.5";
+        }
+      });
+    }
+
     function selectCandidate(data, imageSrc) {
-      currentScanItem = { ...data, img: imageSrc || data.img || null };
+      currentScanItem = {
+        ...data,
+        img: imageSrc || data.img || null,
+        baseName: data.name,
+        baseCalories: data.calories,
+        baseP: data.p,
+        baseF: data.f,
+        baseC: data.c,
+        baseAdvice: data.advice,
+        soupLevel: 'all'
+      };
       const nameInput = document.getElementById("resultDishNameInput");
       const calInput = document.getElementById("resultCaloriesInput");
       if (nameInput) nameInput.value = data.name;
@@ -1918,6 +2017,18 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("resultC").textContent = `${data.c}g`;
       document.getElementById("resultAdvice").textContent = data.advice || "✨ 食品標準データベースに基づき正確に算出しました。";
 
+      // スープ系料理判定とUI表示
+      const isSoup = isSoupOrNoodleDish(data.name);
+      const soupContainer = document.getElementById("soupOptionContainer");
+      if (soupContainer) {
+        if (isSoup) {
+          soupContainer.classList.remove("hidden");
+          applySoupAdjustment('all');
+        } else {
+          soupContainer.classList.add("hidden");
+        }
+      }
+
       // 記録ボタンの文言も動的に更新
       const targetSlot = document.getElementById("recordTargetSlot")?.value || "breakfast";
       const slotJp = getSlotJpName(targetSlot);
@@ -1926,6 +2037,14 @@ document.addEventListener("DOMContentLoaded", () => {
         applyBtnLabel.textContent = `この料理 (${data.calories} kcal) を【${slotJp}】に記録する`;
       }
     }
+
+    // スープ量調整ボタンのクリックイベント接続
+    document.querySelectorAll(".soup-level-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const level = btn.dataset.level || 'all';
+        applySoupAdjustment(level);
+      });
+    });
 
     // クイック微調整（-50 / +50）
     const minus50 = document.getElementById("calMinus50Btn");
@@ -2182,11 +2301,12 @@ document.addEventListener("DOMContentLoaded", () => {
       state.records[slot] = {
         name: finalName,
         calories: finalCal,
-        p: mealData.p || Math.round(finalCal * 0.05),
-        f: mealData.f || Math.round((finalCal * 0.2) / 9),
-        c: mealData.c || Math.round((finalCal * 0.6) / 4),
+        p: mealData.p !== undefined ? mealData.p : Math.round(finalCal * 0.05),
+        f: mealData.f !== undefined ? mealData.f : Math.round((finalCal * 0.2) / 9),
+        c: mealData.c !== undefined ? mealData.c : Math.round((finalCal * 0.6) / 4),
         img: photoImg || mealData.img || (currentScanItem && currentScanItem.img) || null,
-        icon: mealData.icon || "🍽️"
+        icon: mealData.icon || "🍽️",
+        soupLevel: mealData.soupLevel || (currentScanItem && currentScanItem.soupLevel) || null
       };
 
       saveRecordsToStorage();

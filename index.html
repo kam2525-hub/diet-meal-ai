@@ -115,7 +115,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome / Lucide icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/style.css?v=4.0.0">
+  <link rel="stylesheet" href="css/style.css?v=4.1.0">
   <!-- TensorFlow.js & MobileNet (完全端末内・完全無料のAI画像認識) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
@@ -1178,17 +1178,17 @@
           </div>
         </div>
 
-        <!-- 解析結果カード（あすけん方式：候補リスト ＆ 確定） -->
+        <!-- 解析結果カード（AI高精度判定：候補リスト ＆ 確定） -->
         <div id="scanResultArea" class="hidden space-y-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 sm:p-3.5 text-xs shadow-xs">
           
-          <!-- ① AI候補リスト（あすけん方式） -->
+          <!-- ① AI候補リスト -->
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
                 <i class="fa-solid fa-wand-magic-sparkles text-emerald-600"></i>
                 <span>写真から検出した料理（「決定」で即記録）：</span>
               </span>
-              <span class="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">あすけん方式</span>
+              <span class="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">AI高精度判定</span>
             </div>
             <div id="aiCandidatesList" class="space-y-1.5">
               <!-- JSで写真・時間帯から判定したTOP4候補を動的表示 -->
@@ -1219,6 +1219,34 @@
               <div><span class="text-amber-800">たんぱく</span> <span class="font-bold font-mono text-slate-800" id="resultP">18.5g</span></div>
               <div><span class="text-rose-800">脂質</span> <span class="font-bold font-mono text-slate-800" id="resultF">20.0g</span></div>
               <div><span class="text-blue-800">炭水化物</span> <span class="font-bold font-mono text-slate-800" id="resultC">105.0g</span></div>
+            </div>
+
+            <!-- スープ・汁物の摂取量選択（ラーメン・うどん・汁物等の時に動的表示） -->
+            <div id="soupOptionContainer" class="hidden rounded-xl p-2.5 bg-amber-50/90 border border-amber-200 space-y-2 transition mt-2">
+              <div class="flex items-center justify-between text-[11px] font-bold text-amber-950">
+                <span class="flex items-center gap-1.5">
+                  <span class="text-sm">🍜</span>
+                  <span>スープ・汁物の飲み干し具合：</span>
+                </span>
+                <span id="soupSavingsBadge" class="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full font-bold">全飲み（通常）</span>
+              </div>
+              <div class="grid grid-cols-3 gap-1.5 text-center text-xs">
+                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-amber-500 text-white shadow-2xs border-amber-500 cursor-pointer" data-level="all">
+                  <div>全部飲んだ</div>
+                  <div class="text-[9px] opacity-80 font-normal mt-0.5">±0 kcal</div>
+                </button>
+                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer" data-level="half">
+                  <div>半分残した</div>
+                  <div class="text-[9px] text-emerald-600 font-bold mt-0.5">-75 kcal</div>
+                </button>
+                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer" data-level="none">
+                  <div>麺・具のみ</div>
+                  <div class="text-[9px] text-emerald-600 font-bold mt-0.5">-150 kcal</div>
+                </button>
+              </div>
+              <div class="text-[10px] text-amber-800 font-medium leading-relaxed" id="soupAdviceText">
+                💡 スープを残すと、約75〜150kcal＆余分な塩分・脂質を大幅カットできます！
+              </div>
             </div>
           </div>
 
@@ -1291,9 +1319,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=4.0.0"></script>
-  <script src="js/calculator.js?v=4.0.0"></script>
-  <script src="js/app.js?v=4.0.0"></script>
+  <script src="js/data.js?v=4.1.0"></script>
+  <script src="js/calculator.js?v=4.1.0"></script>
+  <script src="js/app.js?v=4.1.0"></script>
 </body>
 
 </html>
