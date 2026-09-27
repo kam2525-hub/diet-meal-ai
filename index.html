@@ -161,6 +161,31 @@
           </div>
         </div>
       </div>
+
+      <!-- 体型判定：ローレル指数 (低身長・高校生適応) ＆ 適正体重 -->
+      <div id="bodyIndexCard" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs space-y-2">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs">
+              <i class="fa-solid fa-weight-scale"></i>
+            </span>
+            <span class="font-bold text-slate-700" id="bodyIndexTitle">体型指数：ローレル指数</span>
+            <span class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800" id="bodyIndexBadge">標準</span>
+          </div>
+          <div class="text-right flex items-center space-x-3 text-slate-600">
+            <div>数値: <strong class="text-slate-800 font-mono" id="bodyIndexValue">128.5</strong></div>
+            <div>適正体重目安: <strong class="text-emerald-700 font-mono" id="standardWeightDisplay">32.5 kg</strong></div>
+          </div>
+        </div>
+
+        <!-- 小柄・高校生検知時の納得ガイド -->
+        <div id="rohrerNote" class="text-[11px] text-teal-900 bg-teal-50/80 p-2 rounded-xl border border-teal-200/60 leading-relaxed flex items-start gap-1.5">
+          <i class="fa-solid fa-circle-check text-teal-600 mt-0.5 shrink-0"></i>
+          <span>
+            <strong>小柄・成長期適応モード適用中：</strong>身長が小柄な方（145cm以下）や高校生の場合、成人用BMIだと数学的な歪みで肥満度や代謝がおかしくなるため、体積比で正確に測れる<strong>「ローレル指数（体重÷身長³）」</strong>と厚生労働省基準を自動適用しています。
+          </span>
+        </div>
+      </div>
     </section>
 
     <!-- 1日の総目標カロリー & 栄養量ガイド -->

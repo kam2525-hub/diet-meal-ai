@@ -91,6 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.metrics.dailyDeficit = targetCalc.dailyDeficit;
     state.metrics.isLimited = targetCalc.isLimited;
     state.metrics.pfc = DietCalculator.calculatePFC(baseTarget, u.weight);
+    state.metrics.bodyIndex = DietCalculator.calculateBodyIndex(u.height, u.weight, u.age);
   }
 
   // ===================== 献立生成ロジック =====================
@@ -218,6 +219,40 @@ document.addEventListener("DOMContentLoaded", () => {
     // TDEE表示
     const tdeeEl = document.getElementById("mainTdeeDisplay");
     if (tdeeEl) tdeeEl.textContent = m.tdee.toLocaleString();
+
+    // 体型指数（ローレル指数 / BMI）の表示
+    if (m.bodyIndex) {
+      const b = m.bodyIndex;
+      const titleEl = document.getElementById("bodyIndexTitle");
+      if (titleEl) titleEl.textContent = `体型指数：${b.primaryName}`;
+
+      const valEl = document.getElementById("bodyIndexValue");
+      if (valEl) valEl.textContent = b.primaryValue;
+
+      const badgeEl = document.getElementById("bodyIndexBadge");
+      if (badgeEl) {
+        badgeEl.textContent = b.status;
+        if (b.statusColor === 'emerald') {
+          badgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800";
+        } else if (b.statusColor === 'blue' || b.statusColor === 'teal') {
+          badgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800";
+        } else {
+          badgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800";
+        }
+      }
+
+      const stdWeightEl = document.getElementById("standardWeightDisplay");
+      if (stdWeightEl) stdWeightEl.textContent = `${b.standardWeight} kg`;
+
+      const noteEl = document.getElementById("rohrerNote");
+      if (noteEl) {
+        if (b.isSmallOrYouth) {
+          noteEl.classList.remove("hidden");
+        } else {
+          noteEl.classList.add("hidden");
+        }
+      }
+    }
   }
 
   function renderPlanSummary() {
