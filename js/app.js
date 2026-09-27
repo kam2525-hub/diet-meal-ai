@@ -1541,7 +1541,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let curryBrown = 0;
         let saladGreen = 0;
         let friedCrispy = 0;
-        let deepMeat = 0;
+        let redMeat = 0;
         let whiteRice = 0;
         let sweetBerry = 0;
         let tomatoRed = 0;
@@ -1576,8 +1576,8 @@ document.addEventListener("DOMContentLoaded", () => {
           if (h >= 44 && h <= 64 && s >= 0.25 && s <= 0.70 && v >= 0.60) {
             noodleYellow++;
           }
-          // カレーの濃厚なカレールー (濃い黄褐色・高彩度)
-          if (h >= 20 && h <= 36 && s > 0.58 && v >= 0.20 && v <= 0.55) {
+          // 本物のカレールー (非常に濃厚な黄褐色・高彩度・低明度 ※木製トレーや影との混同を防止)
+          if (h >= 18 && h <= 35 && s >= 0.65 && v >= 0.15 && v <= 0.42) {
             curryBrown++;
           }
           // サラダの鮮やかな緑色
@@ -1588,12 +1588,12 @@ document.addEventListener("DOMContentLoaded", () => {
           if (h >= 22 && h <= 40 && s >= 0.50 && s <= 0.85 && v >= 0.35 && v <= 0.72) {
             friedCrispy++;
           }
-          // 焼き肉・ハンバーグ・ステーキの濃い赤褐色
-          if (h >= 8 && h <= 22 && s >= 0.40 && s <= 0.80 && v >= 0.16 && v <= 0.52) {
-            deepMeat++;
+          // 焼肉（カルビ・ロース・ハラミの生肉赤色＆焼き色）・牛肉・豚肉・赤身肉
+          if (((h >= 340 || h <= 18) && s >= 0.22 && v >= 0.28) || (h >= 10 && h <= 28 && s >= 0.35 && v >= 0.18 && v <= 0.58)) {
+            redMeat++;
           }
           // 白ご飯・トーストのクラム・生クリーム
-          if (s < 0.18 && v > 0.75) {
+          if (s < 0.18 && v > 0.72) {
             whiteRice++;
           }
           // ピザのトマトソース・赤色
@@ -1620,7 +1620,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const pBroth = soupBroth / total;
         const pNoodle = noodleYellow / total;
         const pFried = friedCrispy / total;
-        const pMeat = deepMeat / total;
+        const pMeat = redMeat / total;
         const pTomato = tomatoRed / total;
         const pCheese = cheeseYellow / total;
         const pSalmon = salmonOrange / total;
@@ -1628,10 +1628,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const scores = {};
 
+        // 焼肉定食・肉料理: お肉8%以上 (白ご飯があればさらに定食スコア加算)
+        if (pMeat >= 0.08) {
+          scores.yakiniku = pMeat * 2.2 + (pRice >= 0.05 ? pRice * 1.2 : 0);
+        }
         // サラダ: 緑が12%以上
         if (pSalad >= 0.12) scores.salad = pSalad * 2.0;
-        // カレー: ルー10%以上かつライス8%以上
-        if (pCurry >= 0.08 && pRice >= 0.06) scores.curry = pCurry * 1.5 + pRice * 0.8;
+        // カレー: ルー10%以上かつライス8%以上 (※お肉プレートがある場合は焼肉定食を優先)
+        if (pCurry >= 0.10 && pRice >= 0.08 && pMeat < 0.08) {
+          scores.curry = pCurry * 1.5 + pRice * 0.8;
+        }
         // ラーメン: 麺8%以上かつスープ8%以上の【両方】が揃っている場合のみ！
         if (pNoodle >= 0.08 && pBroth >= 0.08) scores.ramen = pBroth * 1.0 + pNoodle * 1.0;
         // ピザ・パスタ: トマト赤6%以上かつチーズ6%以上
@@ -1640,8 +1646,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (pSalmon >= 0.06 && pRice >= 0.10) scores.sushi = pSalmon * 1.4 + pRice * 0.8;
         // から揚げ・揚げ物: 揚げ衣16%以上
         if (pFried >= 0.16) scores.karaage = pFried * 1.2;
-        // 肉料理: 赤褐色肉16%以上
-        if (pMeat >= 0.16) scores.meat = pMeat * 1.2;
         // ケーキ・スイーツ: ベリー赤/ピンク4%以上かつクリーム白10%以上
         if (pBerry >= 0.04 && pRice >= 0.10) scores.cake = pBerry * 1.5 + pRice * 0.8;
 
@@ -1669,11 +1673,31 @@ document.addEventListener("DOMContentLoaded", () => {
     // MobileNetクラス名から多岐にわたる料理カテゴリを特定
     function mapMobileNetPredictionToCategory(preds) {
       if (!preds || !preds.length) return null;
+      const classNames = preds.map(p => (p.className || "").toLowerCase());
+
+      // 1. お盆 (tray) やお皿 (dish/plate) + お肉関連クラスが上位にある場合は日本の「定食・焼肉定食」
+      const hasTray = classNames.some(c => c.includes("tray") || c.includes("dish") || c.includes("plate"));
+      const hasMeatInTop = classNames.some(c => 
+        c.includes("meat loaf") || c.includes("steak") || c.includes("beef") || 
+        c.includes("pork") || c.includes("rib") || c.includes("chop") || 
+        c.includes("roast") || c.includes("grill") || c.includes("barbecue")
+      );
+      if (hasTray && hasMeatInTop) {
+        return "yakiniku";
+      }
+
       for (const pred of preds) {
         const name = (pred.className || "").toLowerCase();
         const prob = pred.probability || 0;
-        if (prob < 0.04) continue; // 低信頼度のノイズは除外
+        if (prob < 0.02) continue; // 低信頼度のノイズは除外
 
+        // 焼肉・ステーキ・肉料理定食
+        if (name.includes("meat loaf") || name.includes("steak") || name.includes("beefsteak") || 
+            name.includes("sirloin") || name.includes("pork chop") || name.includes("rib") || 
+            name.includes("barbecue") || name.includes("grill") || name.includes("pot roast") || 
+            name.includes("tenderloin") || name.includes("cutlet")) {
+          return "yakiniku";
+        }
         // 寿司・刺身
         if (name.includes("sushi") || name.includes("sashimi")) return "sushi";
         // ピザ
@@ -1688,8 +1712,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (name.includes("curry") || name.includes("stew")) return "curry";
         // パン・サンドイッチ
         if (name.includes("sandwich") || name.includes("bagel") || name.includes("croissant") || name.includes("bread") || name.includes("french loaf") || name.includes("pretzel") || name.includes("toast")) return "bread";
-        // 肉料理・ステーキ
-        if (name.includes("steak") || name.includes("meat loaf") || name.includes("roast beef") || name.includes("sirloin") || name.includes("pork chop") || name.includes("rib")) return "meat";
         // 揚げ物・唐揚げ
         if (name.includes("fried chicken") || name.includes("chicken wing") || name.includes("nugget") || name.includes("tempura")) return "karaage";
         // ケーキ・洋菓子・スイーツ
@@ -1710,6 +1732,15 @@ document.addEventListener("DOMContentLoaded", () => {
     function getAskenCandidates(slot, detectedCategory, fileName) {
       // カテゴリ別の専門メニューリスト（AIが特定した料理に直結）
       const categoryMenus = {
+        yakiniku: {
+          label: "🥩 焼肉定食・牛カルビ (お肉とご飯のバランスをAI検出)",
+          items: [
+            { rank: 1, name: "牛カルビ焼肉定食 (ご飯普通・スープ・キムチ付)", calories: 780, p: 32.0, f: 34.0, c: 84.0, icon: "🥩", advice: "🥩 焼肉定食を高精度に特定！牛肉の良質なたんぱく質と鉄分をしっかり補給。ご飯を適量に抑えればダイエット中も大活躍！" },
+            { rank: 2, name: "牛ハラミ＆ロース定食 (普通盛り)", calories: 650, p: 38.0, f: 22.0, c: 78.0, icon: "🥩", advice: "✨ 低脂質・超高タンパクなハラミ！脂肪燃焼を促すL-カルニチンが豊富で引き締めに最適です。" },
+            { rank: 3, name: "特選豚カルビ＆ホルモン定食", calories: 820, p: 29.0, f: 38.0, c: 86.0, icon: "🐷", advice: "🐷 ビタミンB1で疲労回復！夕食の脂質を控えめにして1日の目標カロリー内に収めます。" },
+            { rank: 4, name: "ねぎ塩牛タン定食 (麦飯普通盛り)", calories: 590, p: 31.0, f: 20.0, c: 72.0, icon: "🥩", advice: "✨ レモンとねぎ塩でさっぱり高タンパク！代謝をスムーズにする優秀な選択です。" }
+          ]
+        },
         ramen: {
           label: "🍜 ラーメン・麺類 (麺・スープ・具材をAI検出)",
           items: [
@@ -1858,6 +1889,9 @@ document.addEventListener("DOMContentLoaded", () => {
       // 2. ファイル名にキーワードが含まれる場合のフォールバック特定
       if (fileName) {
         const fn = fileName.toLowerCase();
+        if (fn.includes("焼肉") || fn.includes("カルビ") || fn.includes("ロース") || fn.includes("ハラミ") || fn.includes("牛タン") || fn.includes("ホルモン") || fn.includes("yakiniku") || fn.includes("bbq")) {
+          return { label: categoryMenus.yakiniku.label, candidates: categoryMenus.yakiniku.items };
+        }
         if (fn.includes("ramen") || fn.includes("ラーメン") || fn.includes("麺") || fn.includes("拉麺")) {
           return { label: categoryMenus.ramen.label, candidates: categoryMenus.ramen.items };
         }
@@ -1971,10 +2005,21 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // 1. TensorFlow.js MobileNet (機械学習モデルによる物体・料理認識を最優先実行)
+      // 1. TensorFlow.js MobileNet (機械学習モデルのロード待ち＆物体認識を最優先実行)
+      if (!window.mobilenetModel && window.mobilenet) {
+        scanStatusText.textContent = "AI深層学習エンジンを初期化中...";
+        try {
+          const loadPromise = window.mobilenet.load({ version: 2, alpha: 1.0 });
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
+          window.mobilenetModel = await Promise.race([loadPromise, timeoutPromise]);
+        } catch (e) {
+          console.warn("MobileNet await timeout or error:", e);
+        }
+      }
+
       if (window.mobilenetModel && imgForAnalysis && imgForAnalysis.naturalWidth) {
         try {
-          const preds = await window.mobilenetModel.classify(imgForAnalysis, 5);
+          const preds = await window.mobilenetModel.classify(imgForAnalysis, 10);
           console.log("MobileNet predictions:", preds);
           const mlCat = mapMobileNetPredictionToCategory(preds);
           if (mlCat) {
@@ -2019,7 +2064,7 @@ document.addEventListener("DOMContentLoaded", () => {
         label = "🤖 Google Gemini AI特定";
       }
 
-      renderAskenCandidates(candidates, imageSrc, label);
+      renderAskenCandidates(candidates, imageSrc, label, detectedCategory, slot);
       selectCandidate(candidates[0], imageSrc);
 
       scanResultArea.classList.remove("hidden");
@@ -2030,8 +2075,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 50);
     }
 
-    // AI料理候補リストUI生成（ワンタップ決定ボタン付き ＆ AI検出バッジ）
-    function renderAskenCandidates(candidates, imageSrc, detectedLabel) {
+    // AI料理候補リストUI生成（ワンタップ決定ボタン付き ＆ AI検出バッジ ＆ ジャンル即時切替チップ）
+    function renderAskenCandidates(candidates, imageSrc, detectedLabel, detectedCategory, slot) {
       const container = document.getElementById("aiCandidatesList");
       if (!container) return;
       container.innerHTML = "";
@@ -2045,6 +2090,46 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         container.appendChild(headerBadge);
       }
+
+      // ジャンル即時切り替えバー（別の料理を選びたい場合もワンタップで即候補再生成！）
+      const quickCategories = [
+        { key: "yakiniku", label: "🥩 焼肉定食" },
+        { key: "curry", label: "🍛 カレー" },
+        { key: "ramen", label: "🍜 ラーメン" },
+        { key: "sushi", label: "🍣 寿司・海鮮" },
+        { key: "salad", label: "🥗 サラダ" },
+        { key: "meat", label: "🥩 ハンバーグ" },
+        { key: "burger", label: "🍔 バーガー" },
+        { key: "pasta", label: "🍝 パスタ" },
+        { key: "pizza", label: "🍕 ピザ" },
+        { key: "donburi", label: "🍚 丼もの" },
+        { key: "bento", label: "🍱 幕の内弁当" },
+        { key: "karaage", label: "🍗 から揚げ" },
+        { key: "bread", label: "🥪 サンドイッチ" },
+        { key: "cake", label: "🍰 スイーツ" }
+      ];
+
+      const chipContainer = document.createElement("div");
+      chipContainer.className = "flex items-center gap-1.5 overflow-x-auto py-1 px-0.5 mb-2 no-scrollbar";
+      chipContainer.innerHTML = `
+        <span class="text-[10px] text-slate-500 font-bold shrink-0 flex items-center gap-1">
+          <i class="fa-solid fa-arrows-rotate text-[9px]"></i>切替:
+        </span>
+      `;
+      quickCategories.forEach(cat => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        const isActive = (cat.key === detectedCategory);
+        btn.className = `px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition cursor-pointer border ${isActive ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'}`;
+        btn.textContent = cat.label;
+        btn.addEventListener("click", () => {
+          const res = getAskenCandidates(slot || "lunch", cat.key);
+          renderAskenCandidates(res.candidates, imageSrc, res.label, cat.key, slot);
+          selectCandidate(res.candidates[0], imageSrc);
+        });
+        chipContainer.appendChild(btn);
+      });
+      container.appendChild(chipContainer);
 
       candidates.forEach((cand, idx) => {
         const row = document.createElement("div");
