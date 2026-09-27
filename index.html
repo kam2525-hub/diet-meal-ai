@@ -73,6 +73,96 @@
     <div id="statusBanner"
       class="hidden rounded-xl p-3.5 flex items-center justify-between text-xs font-medium border shadow-sm"></div>
 
+    <!-- 基礎代謝 ＆ 減量目標 設定パネル（常時表示） -->
+    <section class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold shadow-xs">
+            <i class="fa-solid fa-calculator"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-sm text-slate-800">身体データ ＆ 基礎代謝の設定</h2>
+            <p class="text-[11px] text-slate-600">あなたの体に合わせた正確なカロリーと栄養量を算出します</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2 text-xs">
+          <label class="flex items-center space-x-1.5 cursor-pointer text-slate-600 font-medium bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 hover:bg-slate-100 transition">
+            <input type="checkbox" id="manualBmrToggle" class="rounded text-emerald-600 focus:ring-emerald-500">
+            <span>体組成計の数値を直接入力</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 入力グリッド -->
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+        <div>
+          <label class="block text-slate-600 mb-1 font-semibold">性別</label>
+          <select id="mainGender" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+            <option value="male" selected>男性</option>
+            <option value="female">女性</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-600 mb-1 font-semibold">年齢</label>
+          <input type="number" id="mainAge" value="28" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+        </div>
+        <div>
+          <label class="block text-slate-600 mb-1 font-semibold">身長 (cm)</label>
+          <input type="number" id="mainHeight" value="172" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+        </div>
+        <div>
+          <label class="block text-slate-600 mb-1 font-semibold">現在の体重 (kg)</label>
+          <input type="number" id="mainWeight" value="70" step="0.5" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+        </div>
+        <div class="col-span-2 sm:col-span-1">
+          <label class="block text-slate-600 mb-1 font-semibold">月間の減量目標</label>
+          <select id="mainPace" class="w-full p-2 bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl outline-none font-bold">
+            <option value="0">現状維持 (±0kg)</option>
+            <option value="1">月 -1.0 kg 減量</option>
+            <option value="2" selected>月 -2.0 kg 減量</option>
+            <option value="3">月 -3.0 kg 減量</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 活動レベル & 基礎代謝の計算結果バー -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+        <div>
+          <label class="block text-slate-600 mb-1 font-semibold">日常の活動レベル</label>
+          <select id="mainActivity" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-medium">
+            <option value="1.2">ほぼ座り仕事・デスクワーク</option>
+            <option value="1.375" selected>通勤・軽い立ち仕事・日常歩行</option>
+            <option value="1.55">立ち仕事・週2〜3回の運動</option>
+            <option value="1.725">肉体労働・ハードな筋トレ</option>
+          </select>
+        </div>
+
+        <!-- 基礎代謝 (BMR) 表示 / 直接入力 -->
+        <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
+          <div class="flex justify-between items-center text-slate-600 font-semibold">
+            <span>あなたの基礎代謝 (BMR)</span>
+            <span class="text-[10px] text-emerald-600" id="bmrCalcMethodBadge">自動計算</span>
+          </div>
+          <div class="flex items-center space-x-1.5 mt-1">
+            <input type="number" id="mainBmrInput" value="1620" disabled class="w-full text-base font-black text-slate-800 bg-transparent font-mono outline-none">
+            <span class="text-xs font-bold text-slate-600">kcal</span>
+          </div>
+        </div>
+
+        <!-- 総消費カロリー (TDEE) -->
+        <div class="bg-emerald-50/70 p-2.5 rounded-2xl border border-emerald-200 flex flex-col justify-between">
+          <div class="flex justify-between items-center text-emerald-900 font-semibold">
+            <span>1日の総消費カロリー (TDEE)</span>
+            <i class="fa-solid fa-fire text-orange-500"></i>
+          </div>
+          <div class="flex items-baseline space-x-1.5 mt-1">
+            <span id="mainTdeeDisplay" class="text-base font-black text-emerald-700 font-mono">2,228</span>
+            <span class="text-xs font-bold text-slate-600">kcal / 日</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 1日の総目標カロリー & 栄養量ガイド -->
     <section class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">

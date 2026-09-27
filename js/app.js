@@ -14,7 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
       pace: 2, // 月-2kg
       budget: 1500,
       cheatDay: "sun",
-      favorites: "チョコ, からあげ, カレー"
+      favorites: "チョコ, からあげ, カレー",
+      isManualBmr: false,
+      manualBmr: 1600
     },
     // 計算結果
     metrics: {
@@ -66,7 +68,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===================== 計算・メトリクス =====================
   function calculateAllMetrics() {
     const u = state.user;
-    state.metrics.bmr = DietCalculator.calculateBMR(u.gender, u.age, u.height, u.weight);
+    if (u.isManualBmr && u.manualBmr > 500) {
+      state.metrics.bmr = Math.round(u.manualBmr);
+    } else {
+      state.metrics.bmr = DietCalculator.calculateBMR(u.gender, u.age, u.height, u.weight);
+    }
     state.metrics.tdee = DietCalculator.calculateTDEE(state.metrics.bmr, u.activity);
 
     let pace = parseFloat(u.pace);
@@ -162,11 +168,56 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===================== UI レンダリング =====================
   function updateUI() {
+    renderTopBmrPanel();
     renderProfileModalValues();
     renderPlanSummary();
     renderMealSlots();
     renderShoppingBadge();
     renderStatusBanner();
+  }
+
+  function renderTopBmrPanel() {
+    const u = state.user;
+    const m = state.metrics;
+
+    // トップ入力フォームの同期
+    const genderEl = document.getElementById("mainGender");
+    if (genderEl) genderEl.value = u.gender;
+    const ageEl = document.getElementById("mainAge");
+    if (ageEl) ageEl.value = u.age;
+    const heightEl = document.getElementById("mainHeight");
+    if (heightEl) heightEl.value = u.height;
+    const weightEl = document.getElementById("mainWeight");
+    if (weightEl) weightEl.value = u.weight;
+    const paceEl = document.getElementById("mainPace");
+    if (paceEl) paceEl.value = u.pace;
+    const actEl = document.getElementById("mainActivity");
+    if (actEl) actEl.value = u.activity;
+
+    // BMRと直接入力チェックボックス
+    const manualToggle = document.getElementById("manualBmrToggle");
+    const bmrInput = document.getElementById("mainBmrInput");
+    const badge = document.getElementById("bmrCalcMethodBadge");
+
+    if (manualToggle && bmrInput && badge) {
+      manualToggle.checked = u.isManualBmr;
+      bmrInput.disabled = !u.isManualBmr;
+      bmrInput.value = m.bmr;
+
+      if (u.isManualBmr) {
+        badge.textContent = "手動入力中";
+        badge.className = "text-[10px] text-amber-600 font-bold";
+        bmrInput.classList.add("bg-white", "border", "border-amber-300", "px-1", "rounded");
+      } else {
+        badge.textContent = "自動計算";
+        badge.className = "text-[10px] text-emerald-600 font-semibold";
+        bmrInput.classList.remove("bg-white", "border", "border-amber-300", "px-1", "rounded");
+      }
+    }
+
+    // TDEE表示
+    const tdeeEl = document.getElementById("mainTdeeDisplay");
+    if (tdeeEl) tdeeEl.textContent = m.tdee.toLocaleString();
   }
 
   function renderPlanSummary() {
@@ -439,6 +490,52 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===================== イベントリスナー =====================
   function setupEventListeners() {
+    // 画面トップの基礎代謝 ＆ 減量目標 パネルのリアルタイム連動
+    const topInputs = ['mainGender', 'mainAge', 'mainHeight', 'mainWeight', 'mainPace', 'mainActivity'];
+    topInputs.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("input", () => {
+        state.user.gender = document.getElementById("mainGender").value;
+        state.user.age = parseInt(document.getElementById("mainAge").value) || 28;
+        state.user.height = parseFloat(document.getElementById("mainHeight").value) || 170;
+        state.user.weight = parseFloat(document.getElementById("mainWeight").value) || 65;
+        state.user.pace = parseFloat(document.getElementById("mainPace").value) || 2;
+        state.user.activity = parseFloat(document.getElementById("mainActivity").value) || 1.375;
+
+        calculateAllMetrics();
+        saveUserToStorage();
+        updateUI();
+      });
+    });
+
+    // 体組成計 BMR 手動トグル
+    const manualToggle = document.getElementById("manualBmrToggle");
+    const bmrInput = document.getElementById("mainBmrInput");
+    if (manualToggle && bmrInput) {
+      manualToggle.addEventListener("change", (e) => {
+        state.user.isManualBmr = e.target.checked;
+        if (state.user.isManualBmr) {
+          state.user.manualBmr = parseFloat(bmrInput.value) || state.metrics.bmr;
+        }
+        calculateAllMetrics();
+        saveUserToStorage();
+        updateUI();
+      });
+
+      bmrInput.addEventListener("input", (e) => {
+        if (state.user.isManualBmr) {
+          const val = parseFloat(e.target.value);
+          if (val > 500) {
+            state.user.manualBmr = val;
+            calculateAllMetrics();
+            saveUserToStorage();
+            updateUI();
+          }
+        }
+      });
+    }
+
     // 買い物モーダル
     document.getElementById("shoppingListBtn").addEventListener("click", openShoppingModal);
     document.getElementById("closeShoppingBtn").addEventListener("click", () => {
