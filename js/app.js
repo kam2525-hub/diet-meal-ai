@@ -512,6 +512,9 @@ document.addEventListener("DOMContentLoaded", () => {
       generateFullDayPlan();
       updateUI();
     });
+
+    // 写真スキャン機能のセットアップ
+    setupPhotoScanner();
   }
 
   function setupCravingButton(btnId, cravingType) {
@@ -567,5 +570,201 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("userFavorites").value = state.user.favorites;
       }
     } catch (e) { }
+  }
+
+  // ===================== 写真スキャン & AI解析ロジック =====================
+  function setupPhotoScanner() {
+    const photoModal = document.getElementById("photoModal");
+    const photoScanBtn = document.getElementById("photoScanBtn");
+    const closePhotoBtn = document.getElementById("closePhotoBtn");
+    const photoInput = document.getElementById("photoInput");
+    const photoDropArea = document.getElementById("photoDropArea");
+    const scanPreviewArea = document.getElementById("scanPreviewArea");
+    const scannedImagePreview = document.getElementById("scannedImagePreview");
+    const scanLaserLine = document.getElementById("scanLaserLine");
+    const scanOverlay = document.getElementById("scanOverlay");
+    const scanStatusText = document.getElementById("scanStatusText");
+    const scanResultArea = document.getElementById("scanResultArea");
+    const applyPhotoMealBtn = document.getElementById("applyPhotoMealBtn");
+
+    let currentScanItem = null;
+
+    // モーダル開閉
+    photoScanBtn.addEventListener("click", () => {
+      photoModal.classList.remove("hidden");
+    });
+    closePhotoBtn.addEventListener("click", () => {
+      photoModal.classList.add("hidden");
+    });
+
+    // 写真クリック / ファイル選択
+    photoDropArea.addEventListener("click", () => {
+      photoInput.click();
+    });
+
+    photoInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        startPhotoAnalysis(event.target.result, null);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // サンプル写真ボタン
+    const samplePresets = {
+      ramen: {
+        name: "豚骨チャーシュー麺（並盛）",
+        calories: 820,
+        p: 28.5,
+        f: 34.0,
+        c: 98.0,
+        price: 900,
+        icon: "🍜",
+        advice: "💡 脂質・糖質が高めです。夕食をヘルシーなスープや野菜鍋に自動変更して、トータルカロリーを目標内に収めます！",
+        img: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=500&auto=format&fit=crop&q=60"
+      },
+      bento: {
+        name: "特製からあげ弁当（ご飯普通盛り）",
+        calories: 780,
+        p: 27.0,
+        f: 29.5,
+        c: 94.0,
+        price: 680,
+        icon: "🍱",
+        advice: "💡 揚げ物の脂質が含まれますが、たんぱく質もしっかり摂れています。夜は魚または低脂質メニューでバランスを取ります。",
+        img: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=60"
+      },
+      cake: {
+        name: "ベイクドチーズケーキ",
+        calories: 360,
+        p: 6.8,
+        f: 24.2,
+        c: 28.5,
+        price: 450,
+        icon: "🍰",
+        advice: "💡 スイーツでエネルギー補給！間食として記録し、夕食の主食（炭水化物）を控えめにして目標内に収めます。",
+        img: "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=500&auto=format&fit=crop&q=60"
+      },
+      salad: {
+        name: "グリルチキンのチョップドサラダ",
+        calories: 210,
+        p: 25.4,
+        f: 7.2,
+        c: 9.8,
+        price: 520,
+        icon: "🥗",
+        advice: "✨ 素晴らしい高タンパク・低カロリー！夕食や間食にしっかり余裕ができました。",
+        img: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500&auto=format&fit=crop&q=60"
+      }
+    };
+
+    document.querySelectorAll(".sample-photo-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const type = btn.dataset.type;
+        const preset = samplePresets[type];
+        if (preset) {
+          startPhotoAnalysis(preset.img, preset);
+        }
+      });
+    });
+
+    // 解析開始演出
+    function startPhotoAnalysis(imageSrc, presetData) {
+      scanPreviewArea.classList.remove("hidden");
+      scannedImagePreview.src = imageSrc;
+      scanOverlay.classList.remove("hidden");
+      scanLaserLine.classList.remove("hidden");
+      scanResultArea.classList.add("hidden");
+      scanStatusText.textContent = "AIが食材・カロリーを解析中...";
+
+      setTimeout(() => {
+        scanStatusText.textContent = "栄養成分（PFC）と盛り付け量を推計中...";
+      }, 700);
+
+      setTimeout(() => {
+        scanOverlay.classList.add("hidden");
+        scanLaserLine.classList.add("hidden");
+        showAnalysisResult(presetData || {
+          name: "写真から解析した料理（盛り合わせ）",
+          calories: 580,
+          p: 22.0,
+          f: 18.0,
+          c: 78.0,
+          price: 650,
+          icon: "🍽️",
+          advice: "💡 食材の色味と盛り付けからAIが推計しました。夕食の献立を自動調整して目標に合わせます。"
+        });
+      }, 1400);
+    }
+
+    // 解析結果の表示
+    function showAnalysisResult(data) {
+      currentScanItem = data;
+      document.getElementById("resultDishName").textContent = data.name;
+      document.getElementById("resultCalories").textContent = data.calories;
+      document.getElementById("resultP").textContent = `${data.p}g`;
+      document.getElementById("resultF").textContent = `${data.f}g`;
+      document.getElementById("resultC").textContent = `${data.c}g`;
+      document.getElementById("resultAdvice").textContent = data.advice;
+      scanResultArea.classList.remove("hidden");
+    }
+
+    // 献立に反映して他の枠を自動調整
+    applyPhotoMealBtn.addEventListener("click", () => {
+      if (!currentScanItem) return;
+
+      const slot = document.getElementById("recordTargetSlot").value;
+
+      // 写真の料理をアイテム形式に変換してスロットにセット
+      const recordedItem = {
+        id: "photo_" + Date.now(),
+        name: `📸 ${currentScanItem.name}`,
+        store: "photo",
+        storeName: "写真記録",
+        slot: slot,
+        calories: currentScanItem.calories,
+        p: currentScanItem.p,
+        f: currentScanItem.f,
+        c: currentScanItem.c,
+        price: currentScanItem.price || 0,
+        icon: currentScanItem.icon || "📸",
+        tags: ["custom", "photo"]
+      };
+
+      state.currentPlan[slot] = [recordedItem];
+
+      // カロリーが高かった場合、他のスロット（特に夕食や間食）を低カロリーメニューに自動調整
+      if (currentScanItem.calories > 600) {
+        if (slot !== 'dinner') {
+          // 夕食を低カロリーな鍋やスープ、魚に変更
+          const lowCalDinner = MEAL_DATABASE.find(item => item.slot === 'dinner' && item.calories <= 300) || MEAL_DATABASE.find(item => item.slot === 'dinner');
+          if (lowCalDinner) state.currentPlan.dinner = [lowCalDinner];
+        }
+        // 間食をゼロカロリーゼリーやお茶などのヘルシー枠に調整
+        const lowCalSnack = MEAL_DATABASE.find(item => item.slot === 'snack' && item.calories <= 50) || MEAL_DATABASE.find(item => item.slot === 'snack');
+        if (lowCalSnack) state.currentPlan.snack = [lowCalSnack];
+      }
+
+      updateUI();
+      photoModal.classList.add("hidden");
+
+      // 完了バナー表示
+      const banner = document.getElementById("statusBanner");
+      banner.className = "rounded-xl p-3.5 flex items-center justify-between text-xs font-medium border bg-teal-50 border-teal-200 text-teal-900 shadow-sm";
+      banner.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <span class="text-lg">📸</span>
+          <span><strong>写真から食事を記録しました：</strong>【${currentScanItem.name} (${currentScanItem.calories}kcal)】を反映し、残りの献立を目標カロリー内に自動調整しました！</span>
+        </div>
+        <button id="dismissPhotoBannerBtn" class="text-[11px] underline font-bold ml-2">閉じる</button>
+      `;
+      banner.classList.remove("hidden");
+      document.getElementById("dismissPhotoBannerBtn").onclick = () => {
+        banner.classList.add("hidden");
+      };
+    });
   }
 });

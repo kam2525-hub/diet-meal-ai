@@ -42,3 +42,23 @@ body {
   text-decoration: line-through;
   opacity: 0.5;
 }
+
+/* スキャンレーザー */
+.scan-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #2dd4bf, #14b8a6, transparent);
+  box-shadow: 0 0 12px #2dd4bf;
+  animation: scanMove 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes scanMove {
+  0% {
+    top: 5%;
+  }
+  100% {
+    top: 95%;
+  }
+}
