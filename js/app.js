@@ -476,32 +476,35 @@ document.addEventListener("DOMContentLoaded", () => {
         if (emptyView) emptyView.classList.add("hidden");
         if (filledView) {
           filledView.classList.remove("hidden");
-          filledView.className = "record-filled-view p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs flex items-center justify-between flex-wrap gap-2";
+          filledView.className = "record-filled-view p-2.5 sm:p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs flex items-center justify-between gap-2";
           filledView.innerHTML = `
-            <div class="flex items-center space-x-2.5">
-              ${record.img ? `<img src="${record.img}" class="w-12 h-12 rounded-xl object-cover border border-emerald-300 shadow-xs shrink-0">` : `<span class="text-2xl">${record.icon || '🍽️'}</span>`}
-              <div>
-                <div class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                  <span>${record.name}</span>
+            <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
+              ${record.img ? `<img src="${record.img}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-emerald-300 shadow-xs shrink-0">` : `<span class="text-xl sm:text-2xl shrink-0">${record.icon || '🍽️'}</span>`}
+              <div class="min-w-0">
+                <div class="font-bold text-slate-800 text-xs sm:text-sm truncate">
+                  ${record.name}
                 </div>
-                <div class="text-[11px] text-slate-600 mt-0.5">
+                <div class="text-[10px] sm:text-[11px] text-slate-600 mt-0.5 flex flex-wrap gap-1 items-center">
                   <span class="font-mono font-bold text-emerald-800">${record.calories} kcal</span>
-                  <span>(P:${record.p}g · F:${record.f}g · C:${record.c}g)</span>
+                  <span class="text-slate-500">(P:${record.p}g · F:${record.f}g · C:${record.c}g)</span>
                 </div>
               </div>
             </div>
-            <button class="delete-record-btn text-xs text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition" data-slot="${slot}">
+            <button class="delete-record-btn text-[11px] text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition shrink-0 cursor-pointer" data-slot="${slot}">
               <i class="fa-solid fa-trash-can mr-1"></i>取り消す
             </button>
           `;
 
           // 削除ボタンイベント
-          filledView.querySelector(".delete-record-btn").onclick = (e) => {
-            const s = e.currentTarget.dataset.slot;
-            state.records[s] = null;
-            saveRecordsToStorage();
-            updateUI();
-          };
+          const delBtn = filledView.querySelector(".delete-record-btn");
+          if (delBtn) {
+            delBtn.onclick = (e) => {
+              const s = e.currentTarget.dataset.slot;
+              state.records[s] = null;
+              saveRecordsToStorage();
+              updateUI();
+            };
+          }
         }
       } else {
         // 未記録の場合
@@ -667,6 +670,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===================== イベントリスナー =====================
+  // グローバルモーダル開閉（HTMLのonclickからも直接呼べるようにwindowに公開）
+  window.openPhotoRecordModal = function(slot) {
+    const modal = document.getElementById("photoModal");
+    if (!modal) return;
+    if (slot) {
+      const slotSelect = document.getElementById("recordTargetSlot");
+      if (slotSelect) slotSelect.value = slot;
+    }
+    modal.classList.remove("hidden");
+    modal.style.display = "flex";
+  };
+
+  window.closePhotoRecordModal = function() {
+    const modal = document.getElementById("photoModal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+  };
+
   function setupEventListeners() {
     // 日付切り替えナビゲーション
     const prevDateBtn = document.getElementById("prevDateBtn");
@@ -686,17 +708,40 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // イベント委任（Event Delegation）：各カードの「写真で記録」ボタンが確実に開くようにする
+    // イベント委任（Event Delegation）：各カードの「写真で記録」ボタンを確実に開く
     document.addEventListener("click", (e) => {
       const triggerBtn = e.target.closest(".trigger-photo-btn");
       if (triggerBtn) {
         const slot = triggerBtn.dataset.meal;
-        const modal = document.getElementById("photoModal");
-        const slotSelect = document.getElementById("recordTargetSlot");
-        if (slotSelect) slotSelect.value = slot;
-        if (modal) modal.classList.remove("hidden");
+        window.openPhotoRecordModal(slot);
       }
     });
+
+    // モーダルの背景（backdrop）タップで閉じる
+    const photoModal = document.getElementById("photoModal");
+    if (photoModal) {
+      photoModal.addEventListener("click", (e) => {
+        if (e.target === photoModal) {
+          window.closePhotoRecordModal();
+        }
+      });
+    }
+    const shoppingModal = document.getElementById("shoppingModal");
+    if (shoppingModal) {
+      shoppingModal.addEventListener("click", (e) => {
+        if (e.target === shoppingModal) {
+          shoppingModal.classList.add("hidden");
+        }
+      });
+    }
+    const profileModal = document.getElementById("profileModal");
+    if (profileModal) {
+      profileModal.addEventListener("click", (e) => {
+        if (e.target === profileModal) {
+          profileModal.classList.add("hidden");
+        }
+      });
+    }
 
     // 画面トップの基礎代謝 ＆ 減量目標 パネルのリアルタイム連動
     const topInputs = ['mainGender', 'mainAge', 'mainHeight', 'mainWeight', 'mainPace', 'mainActivity'];
@@ -919,12 +964,16 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentScanItem = null;
 
     // モーダル開閉
-    photoScanBtn.addEventListener("click", () => {
-      photoModal.classList.remove("hidden");
-    });
-    closePhotoBtn.addEventListener("click", () => {
-      photoModal.classList.add("hidden");
-    });
+    if (photoScanBtn) {
+      photoScanBtn.addEventListener("click", () => {
+        window.openPhotoRecordModal();
+      });
+    }
+    if (closePhotoBtn) {
+      closePhotoBtn.addEventListener("click", () => {
+        window.closePhotoRecordModal();
+      });
+    }
 
     // タブ切り替え（写真 / 手動 / 定番）
     const tabPhotoBtn = document.getElementById("tabPhotoBtn");
@@ -985,7 +1034,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         saveRecordsToStorage();
         updateUI();
-        photoModal.classList.add("hidden");
+        window.closePhotoRecordModal();
 
         // フォームクリア
         document.getElementById("manualDishName").value = "";
@@ -1031,7 +1080,7 @@ document.addEventListener("DOMContentLoaded", () => {
           };
           saveRecordsToStorage();
           updateUI();
-          photoModal.classList.add("hidden");
+          window.closePhotoRecordModal();
         });
 
         container.appendChild(itemEl);
@@ -1171,7 +1220,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       saveRecordsToStorage();
       updateUI();
-      photoModal.classList.add("hidden");
+      window.closePhotoRecordModal();
 
       // 完了バナー表示
       const banner = document.getElementById("statusBanner");
