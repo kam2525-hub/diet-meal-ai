@@ -1128,8 +1128,8 @@
             <button type="button" id="saveGeminiModalKeyBtn"
               onclick="window.saveGeminiApiKeyFromModal && window.saveGeminiApiKeyFromModal()"
               class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer">
-              <i class="fa-solid fa-check"></i>
-              <span>設定を保存する</span>
+              <i class="fa-solid fa-plug text-xs"></i>
+              <span id="saveGeminiBtnLabel">設定を保存して接続テスト</span>
             </button>
             <button type="button" id="clearGeminiModalKeyBtn"
               onclick="window.clearGeminiApiKey && window.clearGeminiApiKey()"
@@ -1139,10 +1139,22 @@
             </button>
           </div>
 
+          <!-- 接続成功メッセージ -->
           <div id="geminiModalSaveSuccessMsg"
-            class="hidden text-[11px] text-emerald-600 font-bold flex items-center gap-1.5 p-2 bg-emerald-50 rounded-xl border border-emerald-200">
-            <i class="fa-solid fa-circle-check text-emerald-600"></i>
-            <span>設定を保存しました！次回からの食事撮影でGoogle最先端AIが自動適用されます。</span>
+            class="hidden text-[11px] text-emerald-800 font-bold flex items-center gap-1.5 p-2.5 bg-emerald-50 rounded-xl border border-emerald-300">
+            <i class="fa-solid fa-circle-check text-emerald-600 text-sm shrink-0"></i>
+            <span>✅ Google AIとの通信テストに成功しました！次回から本物のAIが料理・具材・カロリーを自動推論します。</span>
+          </div>
+
+          <!-- 接続エラーメッセージ -->
+          <div id="geminiModalSaveErrorMsg"
+            class="hidden text-[11px] text-rose-900 bg-rose-50 p-2.5 rounded-xl border border-rose-300 space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-rose-700">
+              <i class="fa-solid fa-triangle-exclamation text-sm shrink-0"></i>
+              <span>❌ Googleとの通信テストに失敗しました</span>
+            </div>
+            <p id="geminiModalSaveErrorDetail" class="font-mono text-[10px] bg-white/80 p-1.5 rounded border border-rose-200 break-all text-slate-800"></p>
+            <p id="geminiModalSaveErrorHelp" class="text-[10px] leading-relaxed text-rose-800 pt-0.5"></p>
           </div>
         </div>
       </div>

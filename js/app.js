@@ -1341,8 +1341,38 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==================== Gemini API設定 ＆ 状態管理（BYOK無料方式） ====================
     let geminiApiKey = localStorage.getItem("mealai_gemini_key") || "";
 
+    // Google Gemini APIキー接続テスト関数（軽量テスト呼び出し）
+    async function testGeminiApiKeyConnection(apiKey) {
+      if (!apiKey) return { success: false, message: "APIキーが入力されていません" };
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [{ parts: [{ text: "ping" }] }],
+        generationConfig: { maxOutputTokens: 2 }
+      };
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const msg = errData.error?.message || `HTTP ${res.status}`;
+          const reason = errData.error?.details?.[0]?.reason || "";
+          return { success: false, message: msg, reason: reason, status: res.status };
+        }
+        return { success: true };
+      } catch (err) {
+        return { success: false, message: err.message, status: 0 };
+      }
+    }
+    window.testGeminiApiKeyConnection = testGeminiApiKeyConnection;
+
     function updateGeminiStatusUI() {
       geminiApiKey = localStorage.getItem("mealai_gemini_key") || "";
+      const isVerified = localStorage.getItem("mealai_gemini_verified");
+      const lastError = localStorage.getItem("mealai_gemini_last_error") || "";
+
       const modalInput = document.getElementById("geminiModalApiKeyInput");
       const modalBadge = document.getElementById("geminiModalStatusBadge");
       const modalDesc = document.getElementById("geminiModalStatusDesc");
@@ -1351,12 +1381,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const photoDesc = document.getElementById("geminiStatusBarDesc");
       const photoBtnText = document.getElementById("geminiStatusActionBtnText");
 
-      if (modalInput) modalInput.value = geminiApiKey;
+      if (modalInput && !modalInput.value) modalInput.value = geminiApiKey;
 
       if (headerBadge) {
-        if (geminiApiKey) {
+        if (geminiApiKey && isVerified === "true") {
           headerBadge.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-xs inline-block";
-          headerBadge.title = "Google AI有効";
+          headerBadge.title = "Google AI接続中";
+        } else if (geminiApiKey && isVerified === "false") {
+          headerBadge.className = "w-2 h-2 rounded-full bg-amber-500 shadow-xs inline-block";
+          headerBadge.title = "Google AI要確認（通信エラー）";
         } else {
           headerBadge.className = "w-2 h-2 rounded-full bg-slate-300 inline-block";
           headerBadge.title = "Google AI未設定";
@@ -1364,9 +1397,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (photoBadge) {
-        if (geminiApiKey) {
-          photoBadge.textContent = "✨ 超高精度AI有効";
+        if (geminiApiKey && isVerified === "true") {
+          photoBadge.textContent = "✨ 超高精度AI有効（接続確認済）";
           photoBadge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
+        } else if (geminiApiKey && isVerified === "false") {
+          photoBadge.textContent = "⚠️ API要確認（通信エラー）";
+          photoBadge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-900 border border-amber-300";
+        } else if (geminiApiKey) {
+          photoBadge.textContent = "⚡ AIキー設定済";
+          photoBadge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-800 border border-indigo-300";
         } else {
           photoBadge.textContent = "未設定（標準）";
           photoBadge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600";
@@ -1374,8 +1413,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (photoDesc) {
-        if (geminiApiKey) {
-          photoDesc.textContent = "自分専用の無料AI枠が稼働中。写真を撮るだけで料理を自動特定します";
+        if (geminiApiKey && isVerified === "true") {
+          photoDesc.textContent = "自分専用の無料AI枠が稼働中。写真を撮るだけで料理・具材・カロリーを自動特定します";
+        } else if (geminiApiKey && isVerified === "false") {
+          photoDesc.textContent = `Google APIエラー発生中（${lastError.slice(0, 30)}...）。「設定変更」からキーを再確認してください`;
         } else {
           photoDesc.textContent = "写真を撮るだけで料理・副菜を95%以上の精度で特定";
         }
@@ -1386,9 +1427,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (modalBadge) {
-        if (geminiApiKey) {
-          modalBadge.textContent = "✨ 超高精度AIが有効です";
+        if (geminiApiKey && isVerified === "true") {
+          modalBadge.textContent = "✨ Google AI 接続確認完了";
           modalBadge.className = "text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
+        } else if (geminiApiKey && isVerified === "false") {
+          modalBadge.textContent = "⚠️ 通信エラー（キー要再確認）";
+          modalBadge.className = "text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800 border border-rose-300";
+        } else if (geminiApiKey) {
+          modalBadge.textContent = "設定保存済（未テスト）";
+          modalBadge.className = "text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-800 border border-indigo-300";
         } else {
           modalBadge.textContent = "未設定（標準モード）";
           modalBadge.className = "text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600";
@@ -1396,8 +1443,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (modalDesc) {
-        if (geminiApiKey) {
-          modalDesc.textContent = "自分専用のGoogle無料APIキーが設定されています。食事の写真を撮影すると、Google Geminiが自動で料理や副菜を高精度に特定します。";
+        if (geminiApiKey && isVerified === "true") {
+          modalDesc.textContent = "Google AI（Gemini）と正常に接続テストが完了しています！食事の写真を撮影すると本物のGoogle AIが自動で料理や副菜を高精度に特定します。";
+        } else if (geminiApiKey && isVerified === "false") {
+          modalDesc.textContent = `Google APIからエラーが返されました: 「${lastError}」。下の枠で正しいAPIキーを入力し「設定を保存して接続テスト」を押してください。`;
         } else {
           modalDesc.textContent = "Google公式の無料APIキーを設定すると、写真を撮るだけで焼肉定食や副菜、スープまで超高精度に料理を自動特定します。";
         }
@@ -1435,10 +1484,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    // モーダルからのAPIキー保存
-    window.saveGeminiApiKeyFromModal = function () {
+    // モーダルからのAPIキー保存 ＆ リアルタイム通信テスト
+    window.saveGeminiApiKeyFromModal = async function () {
       const input = document.getElementById("geminiModalApiKeyInput");
+      const btn = document.getElementById("saveGeminiModalKeyBtn");
+      const btnLabel = document.getElementById("saveGeminiBtnLabel");
       const successMsg = document.getElementById("geminiModalSaveSuccessMsg");
+      const errorMsg = document.getElementById("geminiModalSaveErrorMsg");
+      const errorDetail = document.getElementById("geminiModalSaveErrorDetail");
+      const errorHelp = document.getElementById("geminiModalSaveErrorHelp");
+
       if (!input) return;
       const keyVal = input.value.trim();
 
@@ -1447,15 +1502,77 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      geminiApiKey = keyVal;
-      localStorage.setItem("mealai_gemini_key", geminiApiKey);
-      updateGeminiStatusUI();
-
-      if (successMsg) {
-        successMsg.classList.remove("hidden");
-        setTimeout(() => successMsg.classList.add("hidden"), 4000);
+      // 簡易形式バリデーションチェック
+      if (!keyVal.startsWith("AIzaSy") && keyVal.length < 30) {
+        if (!confirm("⚠️ 入力されたキーが通常と異なります。\nGoogle AI StudioのAPIキーは『AIzaSy...』から始まる約39文字の英数字です。\n\nこのままテストしますか？")) {
+          return;
+        }
       }
-      alert("✨ Google最先端AI（Gemini）超高精度モードが有効になりました！\n\n1日1,500回の無料枠で、食事撮影時に95%以上の精度で定食や副菜・カロリーを特定します。");
+
+      // UIをテスト中状態に変更
+      if (btn) btn.disabled = true;
+      if (btnLabel) btnLabel.textContent = "Googleと通信テスト中...";
+      if (successMsg) successMsg.classList.add("hidden");
+      if (errorMsg) errorMsg.classList.add("hidden");
+
+      try {
+        const testRes = await testGeminiApiKeyConnection(keyVal);
+
+        if (testRes.success) {
+          geminiApiKey = keyVal;
+          localStorage.setItem("mealai_gemini_key", geminiApiKey);
+          localStorage.setItem("mealai_gemini_verified", "true");
+          localStorage.removeItem("mealai_gemini_last_error");
+          updateGeminiStatusUI();
+
+          if (successMsg) successMsg.classList.remove("hidden");
+          if (btnLabel) btnLabel.textContent = "設定を保存して接続テスト";
+          if (btn) btn.disabled = false;
+
+          alert("✨ Google最先端AI（Gemini）接続テスト成功！\n\nGoogle APIと正常に通信が成立しました。食事写真の撮影時に本物のAIが料理・具材・カロリーを直接判定します！");
+        } else {
+          geminiApiKey = keyVal;
+          localStorage.setItem("mealai_gemini_key", geminiApiKey);
+          localStorage.setItem("mealai_gemini_verified", "false");
+          localStorage.setItem("mealai_gemini_last_error", testRes.message);
+          updateGeminiStatusUI();
+
+          let helpText = "Google AI Studio (https://aistudio.google.com/app/apikey) を開き、青い「Create API key」から発行した「AIzaSy...」から始まるキーをコピーして貼り付けてください。";
+          if (testRes.message.includes("API_KEY_INVALID") || testRes.reason === "API_KEY_INVALID") {
+            helpText = "💡 【原因: APIキーが無効】キーの文字列にコピー漏れや余分な文字があるか、プロジェクト名などを誤って入力している可能性があります。Google AI Studioで再コピーしてください。";
+          } else if (testRes.message.includes("PERMISSION_DENIED") || testRes.status === 403) {
+            helpText = "💡 【原因: 権限エラー】18歳未満のアカウント、学校・保護者管理アカウントではAPIが許可されていません。18歳以上の通常Googleアカウントで作成してください。";
+          } else if (testRes.status === 429) {
+            helpText = "💡 【原因: 利用制限】一時的にリクエスト枠を超過しています。数分お待ちください。";
+          }
+
+          if (errorDetail) errorDetail.textContent = `Google APIエラー: ${testRes.message}`;
+          if (errorHelp) errorHelp.textContent = helpText;
+          if (errorMsg) errorMsg.classList.remove("hidden");
+          if (btnLabel) btnLabel.textContent = "設定を保存して接続テスト";
+          if (btn) btn.disabled = false;
+
+          alert(`❌ Googleとの通信テストに失敗しました。\n\n【エラー内容】\n${testRes.message}\n\n【対処法】\n${helpText}`);
+        }
+      } catch (e) {
+        if (btnLabel) btnLabel.textContent = "設定を保存して接続テスト";
+        if (btn) btn.disabled = false;
+        alert(`通信テスト中に予期せぬエラーが発生しました: ${e.message}`);
+      }
+    };
+
+    // エラー詳細表示用ポップアップ
+    window.showGeminiErrorDetail = function () {
+      const lastError = localStorage.getItem("mealai_gemini_last_error") || "APIキーが無効またはGenerative Language APIが有効化されていません";
+      alert(
+        `【Google API通信エラーの詳細】\n\n` +
+        `Googleからのエラー内容:\n${lastError}\n\n` +
+        `【考えられる原因と対処法】\n` +
+        `1. 入力されたキーがGoogle AI Studio発行の『AIzaSy...』キーでない（プロジェクト名や別サービスのキーを入れていませんか？）\n` +
+        `2. 18歳未満または学校・保護者管理のGoogleアカウントである（Googleの規約上、18歳以上のアカウントが必要です）\n\n` +
+        `【修正手順】\n` +
+        `画面上部の「⚙️設定変更」を押し、「Google AI Studio APIキー作成画面を開く」から発行したキーを貼り付けてテストしてください。`
+      );
     };
 
     // APIキーの解除（標準モードへ復帰）
@@ -1467,6 +1584,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (confirm("APIキーの登録を解除して標準モードに戻しますか？")) {
         geminiApiKey = "";
         localStorage.removeItem("mealai_gemini_key");
+        localStorage.removeItem("mealai_gemini_verified");
+        localStorage.removeItem("mealai_gemini_last_error");
         const input = document.getElementById("geminiModalApiKeyInput");
         if (input) input.value = "";
         updateGeminiStatusUI();
@@ -2301,6 +2420,10 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         } else {
           // Gemini失敗時：画像ピクセル色彩分析＆ファイル名から料理をスマート特定（ヤンニョムチキン・唐揚げ等）
+          localStorage.setItem("mealai_gemini_verified", "false");
+          localStorage.setItem("mealai_gemini_last_error", geminiRes?.message || "通信エラー");
+          updateGeminiStatusUI();
+
           const visualMeal = await detectDishFromImageVisuals(imageSrc, fileName);
           currentScanItem = {
             ...visualMeal,
@@ -2374,7 +2497,7 @@ document.addEventListener("DOMContentLoaded", () => {
             badgeText.parentElement.className = "text-[10px] text-slate-800 font-bold bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-300 flex items-center gap-1";
           }
         } else if (geminiErrorMsg) {
-          badgeText.textContent = "⚡ オフライン色彩解析（API通信エラー）";
+          badgeText.innerHTML = `⚡ オフライン色彩解析（APIエラー: <button type="button" onclick="window.showGeminiErrorDetail && window.showGeminiErrorDetail()" class="underline font-bold text-amber-900 hover:text-black cursor-pointer">原因と対策を確認</button>）`;
           if (badgeText.parentElement) {
             badgeText.parentElement.className = "text-[10px] text-amber-800 font-bold bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 flex items-center gap-1";
           }
