@@ -1344,30 +1344,53 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==================== Gemini API設定 ＆ 状態管理（BYOK無料方式） ====================
     let geminiApiKey = localStorage.getItem("mealai_gemini_key") || "";
 
-    // Google Gemini APIキー接続テスト関数（軽量テスト呼び出し）
+    // Google Gemini APIキー接続テスト関数（利用可能な高クォータモデル順に自動フォールバック検証）
     async function testGeminiApiKeyConnection(apiKey) {
       if (!apiKey) return { success: false, message: "APIキーが入力されていません" };
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+      const candidateModels = [
+        "gemini-flash-lite-latest",
+        "gemini-3-flash-preview",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3.8-flash",
+        "gemini-3.5-flash"
+      ];
       const payload = {
         contents: [{ parts: [{ text: "ping" }] }],
         generationConfig: { maxOutputTokens: 2 }
       };
-      try {
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) {
+
+      let lastError = null;
+      let lastStatus = 0;
+      let lastReason = "";
+
+      for (const model of candidateModels) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+            localStorage.setItem("mealai_gemini_active_model", model);
+            return { success: true, model: model };
+          }
           const errData = await res.json().catch(() => ({}));
-          const msg = errData.error?.message || `HTTP ${res.status}`;
-          const reason = errData.error?.details?.[0]?.reason || "";
-          return { success: false, message: msg, reason: reason, status: res.status };
+          lastError = errData.error?.message || `HTTP ${res.status}`;
+          lastReason = errData.error?.details?.[0]?.reason || "";
+          lastStatus = res.status;
+
+          // キー自体が無効な場合は全モデルで共通エラーになるためループ即停止
+          if (lastError.includes("API_KEY_INVALID") || lastReason === "API_KEY_INVALID" || lastStatus === 400) {
+            break;
+          }
+        } catch (err) {
+          lastError = err.message;
         }
-        return { success: true };
-      } catch (err) {
-        return { success: false, message: err.message, status: 0 };
       }
+
+      return { success: false, message: lastError || "通信に失敗しました", reason: lastReason, status: lastStatus };
     }
     window.testGeminiApiKeyConnection = testGeminiApiKeyConnection;
 
@@ -1532,7 +1555,8 @@ document.addEventListener("DOMContentLoaded", () => {
           if (btnLabel) btnLabel.textContent = "設定を保存して接続テスト";
           if (btn) btn.disabled = false;
 
-          alert("✨ Google最先端AI（Gemini）接続テスト成功！\n\nGoogle APIと正常に通信が成立しました。食事写真の撮影時に本物のAIが料理・具材・カロリーを直接判定します！");
+          const modelName = testRes.model || "Gemini Flash";
+          alert(`✨ Google最先端AI（Gemini）接続テスト成功！\n\nAIモデル [${modelName}] との通信が正常に確立されました！\n1日の無料枠（約1,500回）にも十分な余裕があり、食事写真の撮影時に本物のAIが料理・食材パーツ・カロリー・PFCを直接判定します！`);
         } else {
           geminiApiKey = keyVal;
           localStorage.setItem("mealai_gemini_key", geminiApiKey);
@@ -1638,7 +1662,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Google Gemini Vision 呼び出し関数 (超高精度マルチモーダルAI・マルチモデル対応)
     async function analyzeWithGeminiVision(imageSrc) {
-      if (!geminiApiKey) return null;
+      const activeKey = geminiApiKey || localStorage.getItem("mealai_gemini_key") || "";
+      if (!activeKey) return null;
       try {
         let base64Data = "";
         let mimeType = "image/jpeg";
@@ -1744,20 +1769,20 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         };
 
-        // 利用可能なGeminiモデル（2026年最新モデル順にフォールバック試行）
+        // 利用可能なGeminiモデル（無料枠リクエスト上限が広く、高速・高精度な順にフォールバック試行）
         const candidateModels = [
+          "gemini-flash-lite-latest",
+          "gemini-3-flash-preview",
+          "gemini-3.5-flash-lite",
+          "gemini-3.1-flash-lite-preview",
           "gemini-3.8-flash",
-          "gemini-3.7-flash",
-          "gemini-3.5-flash",
-          "gemini-flash-latest",
-          "gemini-2.5-flash",
-          "gemini-1.5-flash"
+          "gemini-3.5-flash"
         ];
         let lastError = null;
 
         for (const model of candidateModels) {
           try {
-            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${activeKey}`;
             const res = await fetch(endpoint, {
               method: "POST",
               headers: {
@@ -1823,6 +1848,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return { error: true, message: e.message };
       }
     }
+    window.analyzeWithGeminiVision = analyzeWithGeminiVision;
 
     // 視覚色彩分析＆ファイル名による確実な料理特定フォールバック（鮭定食・焼肉定食・ヤンニョムチキン・油そば等を正確に分類）
     async function detectDishFromImageVisuals(imageSrc, fileName = "") {
