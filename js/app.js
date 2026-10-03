@@ -1344,7 +1344,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Google Gemini APIキー接続テスト関数（軽量テスト呼び出し）
     async function testGeminiApiKeyConnection(apiKey) {
       if (!apiKey) return { success: false, message: "APIキーが入力されていません" };
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
       const payload = {
         contents: [{ parts: [{ text: "ping" }] }],
         generationConfig: { maxOutputTokens: 2 }
@@ -1503,8 +1503,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // 簡易形式バリデーションチェック
-      if (!keyVal.startsWith("AIzaSy") && keyVal.length < 30) {
-        if (!confirm("⚠️ 入力されたキーが通常と異なります。\nGoogle AI StudioのAPIキーは『AIzaSy...』から始まる約39文字の英数字です。\n\nこのままテストしますか？")) {
+      if (!keyVal.startsWith("AIza") && !keyVal.startsWith("AQ.") && keyVal.length < 25) {
+        if (!confirm("⚠️ 入力されたキーが通常と異なります。\nGoogle APIキーは通常『AIzaSy...』または『AQ....』から始まる英数字です。\n\nこのままテストしますか？")) {
           return;
         }
       }
@@ -1730,8 +1730,15 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         };
 
-        // 利用可能なGeminiモデル（最新順にフォールバック試行）
-        const candidateModels = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"];
+        // 利用可能なGeminiモデル（2026年最新モデル順にフォールバック試行）
+        const candidateModels = [
+          "gemini-3.8-flash",
+          "gemini-3.7-flash",
+          "gemini-3.5-flash",
+          "gemini-flash-latest",
+          "gemini-2.5-flash",
+          "gemini-1.5-flash"
+        ];
         let lastError = null;
 
         for (const model of candidateModels) {
