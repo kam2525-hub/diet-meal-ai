@@ -9,26 +9,21 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="MealAI">
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 16 C32 16, 20 34, 20 58 C20 80, 32 91, 50 91 C68 91, 80 80, 80 58 C80 34, 68 16, 50 16 Z' fill='%2334d399' stroke='%23047857' stroke-width='4'/><ellipse cx='50' cy='65' rx='20' ry='18' fill='%23ecfdf5'/><circle cx='30' cy='56' r='5' fill='%23fb7185'/><circle cx='70' cy='56' r='5' fill='%23fb7185'/><circle cx='37' cy='47' r='5' fill='%23064e3b'/><circle cx='35' cy='45' r='1.8' fill='%23ffffff'/><circle cx='63' cy='47' r='5' fill='%23064e3b'/><circle cx='61' cy='45' r='1.8' fill='%23ffffff'/><path d='M45 53 Q50 58, 55 53' fill='none' stroke='%23064e3b' stroke-width='3' stroke-linecap='round'/><path d='M50 16 Q50 6, 45 4' stroke='%23047857' stroke-width='4' fill='none'/><circle cx='45' cy='4' r='4' fill='%2386efac'/></svg>">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/icon-192.png">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>MealAI - ダイエット食事自動決定サービス</title>
   <script>
-    // ① 強制的にServiceWorkerを全解除し、全キャッシュストレージを完全消去（常に最新コードの読み込みを保証）
+    // ① PWA Service Worker 登録
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function (registrations) {
-        for (var i = 0; i < registrations.length; i++) {
-          registrations[i].unregister();
-        }
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function (names) {
-        for (var i = 0; i < names.length; i++) {
-          caches.delete(names[i]);
-        }
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').then(function (reg) {
+          console.log('MealAI PWA Service Worker ready:', reg.scope);
+        }).catch(function (err) {
+          console.log('MealAI PWA registration error:', err);
+        });
       });
     }
 
@@ -176,6 +171,13 @@
           <i class="fa-solid fa-calendar-check text-teal-600"></i>
           <span>今月の成果</span>
         </button>
+        <button id="openBadgesBtn"
+          class="flex items-center space-x-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold border border-amber-200 transition active:scale-95 cursor-pointer"
+          title="モグ丸の称号・実績バッジ図鑑">
+          <i class="fa-solid fa-medal text-amber-500"></i>
+          <span>図鑑</span>
+          <span id="badgeUnlockedCountBadge" class="bg-amber-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold ml-0.5">0</span>
+        </button>
         <button id="openGeminiModalBtn" onclick="window.openGeminiModal && window.openGeminiModal()"
           class="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold border border-indigo-200 transition active:scale-95 cursor-pointer"
           title="Google AI（Gemini）超高精度設定">
@@ -243,6 +245,34 @@
       <div class="flex items-center space-x-1 text-slate-400 group-hover:text-emerald-600 text-xs font-semibold shrink-0 transition pl-1">
         <span>設定</span>
         <i class="fa-solid fa-chevron-right text-[10px]"></i>
+      </div>
+    </div>
+
+    <!-- 毎日の体重記録 ＆ ミニ推移グラフ -->
+    <div class="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs flex items-center justify-between gap-2.5">
+      <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm shrink-0">
+          <i class="fa-solid fa-weight-scale"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="font-bold text-xs sm:text-sm text-slate-800">今日の体重記録</span>
+            <span id="weightDiffBadge" class="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">未記録</span>
+          </div>
+          <p id="weightHistorySummary" class="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5">記録するとモグ丸が反応するよ🌱</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1.5 shrink-0">
+        <div class="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
+          <input type="number" id="quickWeightInput" step="0.1" class="w-14 sm:w-16 bg-transparent text-right font-black font-mono text-xs sm:text-sm text-slate-800 outline-none" placeholder="70.0">
+          <span class="text-[10px] text-slate-400 ml-1 font-bold">kg</span>
+        </div>
+        <button id="saveQuickWeightBtn" class="bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-xs px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-xs cursor-pointer">
+          記録
+        </button>
+        <button id="openWeightChartBtn" class="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition cursor-pointer" title="体重推移グラフを見る">
+          <i class="fa-solid fa-chart-line text-sm"></i>
+        </button>
       </div>
     </div>
 
@@ -428,6 +458,27 @@
         </div>
       </div>
     </section>
+
+    <!-- 1日の終わりのAI総評レビュー（今日の通知表）ボタン -->
+    <button id="openDailyReviewBtn"
+      class="w-full py-2.5 sm:py-3 px-3.5 sm:px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold text-xs sm:text-sm flex items-center justify-between shadow-md hover:shadow-lg transition active:scale-[0.99] cursor-pointer group">
+      <div class="flex items-center space-x-2.5 sm:space-x-3 text-left">
+        <div class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-amber-300 text-base shrink-0">
+          <i class="fa-solid fa-award"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span>本日のAI総評レビュー ＆ 今日の通知表</span>
+            <span id="dailyReviewBadge" class="bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">未確認</span>
+          </div>
+          <p class="text-[10px] text-white/80 font-normal">1日の食事バランスをモグ丸とAIが採点＆アドバイス！</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1 text-white/80 group-hover:text-white transition shrink-0 pl-2">
+        <span class="text-xs">開く</span>
+        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+      </div>
+    </button>
 
     <!-- 食事ごとの目標カロリー ＆ 栄養量ガイド（目標 vs 実績 比較） -->
     <section class="space-y-3" id="mealSlotsContainer">
@@ -1045,6 +1096,202 @@
       <div class="text-[10px] text-slate-400 border-t pt-2 space-y-0.5">
         <p>🔒 <strong>プライバシー保護:</strong> 入力されたAPIキーは外部サーバーには送信されず、お使いの端末（ブラウザ）内でのみ直接Google APIと通信するために使われます。</p>
         <p>💰 <strong>料金について:</strong> Google AI Studioの無料枠（1日1,500リクエスト・1分15回まで）内で動作するため、個人利用で費用が発生することはありません。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📈 体重推移グラフ モーダル -->
+  <div id="weightChartModal"
+    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center text-sm font-bold shrink-0">
+            <i class="fa-solid fa-chart-line"></i>
+          </div>
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">体重推移グラフ</h2>
+            <p class="text-[10px] sm:text-[11px] text-slate-500">毎日の記録で成果を可視化</p>
+          </div>
+        </div>
+        <button id="closeWeightChartBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- 体重サマリーカード -->
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-slate-50 border rounded-xl p-2">
+          <span class="text-[10px] text-slate-400 block font-medium">現在体重</span>
+          <span id="chartCurrentWeight" class="text-sm sm:text-base font-black text-slate-800 font-mono">--.- kg</span>
+        </div>
+        <div class="bg-teal-50 border border-teal-100 rounded-xl p-2">
+          <span class="text-[10px] text-teal-600 block font-medium">昨日比 / 変化</span>
+          <span id="chartWeightDiff" class="text-sm sm:text-base font-black text-teal-700 font-mono">--.- kg</span>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-2">
+          <span class="text-[10px] text-emerald-600 block font-medium">目標ペース</span>
+          <span id="chartTargetPace" class="text-sm sm:text-base font-black text-emerald-700 font-mono">月 -2.0kg</span>
+        </div>
+      </div>
+
+      <!-- SVG グラフ描画エリア -->
+      <div class="bg-slate-900 rounded-2xl p-3 sm:p-4 text-white space-y-2 shadow-inner">
+        <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+          <span class="flex items-center gap-1.5 font-bold text-slate-200">
+            <span class="w-2 h-2 rounded-full bg-teal-400 inline-block"></span>
+            体重の推移 (kg)
+          </span>
+          <span id="chartDateRangeLabel" class="text-[10px]">直近 14 日間</span>
+        </div>
+        <div id="weightSvgChartContainer" class="w-full h-44 sm:h-52 flex items-center justify-center">
+          <!-- 動的SVGグラフがここに挿入されます -->
+        </div>
+      </div>
+
+      <!-- 過去の記録リスト（簡易一覧） -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1">
+            <i class="fa-solid fa-clock-rotate-left text-slate-400 text-[10px]"></i>
+            直近の記録履歴
+          </h3>
+          <span class="text-[10px] text-slate-400">最新7件</span>
+        </div>
+        <div id="weightHistoryList" class="space-y-1 max-h-36 overflow-y-auto text-xs">
+          <!-- JSで履歴一覧が生成されます -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🎖️ モグ丸の実績バッジ ＆ 称号図鑑 モーダル -->
+  <div id="badgesModal"
+    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold shrink-0">
+            <i class="fa-solid fa-medal"></i>
+          </div>
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">モグ丸の実績バッジ ＆ 称号図鑑</h2>
+            <p class="text-[10px] sm:text-[11px] text-slate-500">ミッションをクリアしてモグ丸を育てよう！</p>
+          </div>
+        </div>
+        <button id="closeBadgesBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- モグ丸現在のステータスカード -->
+      <div class="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 border border-emerald-200 flex items-center justify-between gap-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-12 h-12 rounded-2xl bg-white shadow-xs p-1 flex items-center justify-center shrink-0 border border-emerald-100">
+            <img id="badgesModalMascotImg" src="icons/icon-192.png" class="w-10 h-10 object-contain rounded-xl" alt="モグ丸">
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span id="badgesModalMascotLevel" class="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">Lv.1 ぽよ丸</span>
+              <span class="font-bold text-xs sm:text-sm text-slate-800">相棒モグ丸</span>
+            </div>
+            <p id="badgesModalMascotNext" class="text-[10px] text-slate-500 mt-0.5">累計3回の食事記録で「はな丸🌸」に進化！</p>
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <span class="text-[10px] text-slate-400 block font-semibold">獲得バッジ</span>
+          <span class="text-base sm:text-lg font-black text-amber-600 font-mono"><span id="badgesUnlockedCount">0</span> / 8</span>
+        </div>
+      </div>
+
+      <!-- バッジグリッド一覧 -->
+      <div class="space-y-2">
+        <h3 class="text-xs font-bold text-slate-700">実績バッジコレクション</h3>
+        <div id="badgesGridContainer" class="grid grid-cols-2 gap-2 sm:gap-2.5">
+          <!-- JSで動的にバッジカードが展開されます -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📝 1日の終わりのAI総評レビュー（今日の通知表） モーダル -->
+  <div id="dailyReviewModal"
+    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-rose-400 text-white flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
+            <i class="fa-solid fa-award"></i>
+          </div>
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">本日のAI総評レビュー（今日の通知表）</h2>
+            <p class="text-[10px] sm:text-[11px] text-slate-500" id="dailyReviewDateLabel">2026年10月3日のまとめ</p>
+          </div>
+        </div>
+        <button id="closeDailyReviewBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- スコア ＆ スタンプ枠 -->
+      <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-700/60">
+        <!-- 💮 たいへんよくできました風スタンプ -->
+        <div class="absolute right-3 top-3 rotate-12 pointer-events-none opacity-90">
+          <div id="reviewStampEl" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-3 sm:border-4 border-rose-400 text-rose-300 flex flex-col items-center justify-center font-black shadow-md select-none text-[11px] sm:text-xs">
+            <span>💮</span>
+            <span id="reviewStampText" class="text-[9px] sm:text-[10px] font-bold">たいへん<br>よくできました</span>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <span class="text-[11px] text-emerald-300 font-bold uppercase tracking-wider">Today's Diet Score</span>
+          <div class="flex items-baseline gap-2">
+            <span id="reviewScoreNum" class="text-4xl sm:text-5xl font-black font-mono text-white tracking-tight">95</span>
+            <span class="text-base text-slate-300 font-bold">/ 100 点</span>
+            <span id="reviewRankBadge" class="bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 text-xs font-black px-2 py-0.5 rounded-full ml-1">S ランク</span>
+          </div>
+          <p id="reviewScoreVerdict" class="text-xs text-slate-300 font-medium pt-1">
+            目標カロリーもPFCバランスもほぼ満点の素晴らしい一日でした！
+          </p>
+        </div>
+      </div>
+
+      <!-- 3大評価項目 -->
+      <div class="grid grid-cols-3 gap-2 text-center text-xs">
+        <div class="bg-slate-50 border rounded-xl p-2.5 space-y-1">
+          <span class="text-[10px] text-slate-400 block font-semibold">① カロリー収支</span>
+          <div id="reviewCalScore" class="font-bold text-emerald-600 text-xs sm:text-sm">◎ 適正ペース</div>
+          <p id="reviewCalDetail" class="text-[9px] text-slate-400">目標比 +35kcal</p>
+        </div>
+        <div class="bg-slate-50 border rounded-xl p-2.5 space-y-1">
+          <span class="text-[10px] text-slate-400 block font-semibold">② たんぱく質</span>
+          <div id="reviewProteinScore" class="font-bold text-teal-600 text-xs sm:text-sm">◎ 目標達成</div>
+          <p id="reviewProteinDetail" class="text-[9px] text-slate-400">達成率 102%</p>
+        </div>
+        <div class="bg-slate-50 border rounded-xl p-2.5 space-y-1">
+          <span class="text-[10px] text-slate-400 block font-semibold">③ 脂質コントロール</span>
+          <div id="reviewFatScore" class="font-bold text-emerald-600 text-xs sm:text-sm">○ 良好</div>
+          <p id="reviewFatDetail" class="text-[9px] text-slate-400">適正範囲内</p>
+        </div>
+      </div>
+
+      <!-- モグ丸 ＆ AIからの総評アドバイス -->
+      <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 space-y-2">
+        <div class="flex items-center space-x-2">
+          <div class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs">
+            🌱
+          </div>
+          <h4 class="font-bold text-xs text-emerald-950">モグ丸＆AIからのひとことアドバイス</h4>
+        </div>
+        <p id="reviewAdviceText" class="text-xs text-emerald-900 leading-relaxed font-medium">
+          朝・昼・晩とバランスよく記録できて素晴らしい一日でした！明日は水分をもう少しこまめに補給すると、代謝がさらにブーストされますよ。今日も1日お疲れ様でした✨
+        </p>
+      </div>
+
+      <div class="pt-1">
+        <button id="closeDailyReviewFooterBtn" class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs transition cursor-pointer">
+          閉じる
+        </button>
       </div>
     </div>
   </div>
