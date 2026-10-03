@@ -15,14 +15,14 @@
   <script>
     // ① 強制的にServiceWorkerを全解除し、全キャッシュストレージを完全消去（常に最新コードの読み込みを保証）
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
         for (var i = 0; i < registrations.length; i++) {
           registrations[i].unregister();
         }
       });
     }
     if ('caches' in window) {
-      caches.keys().then(function(names) {
+      caches.keys().then(function (names) {
         for (var i = 0; i < names.length; i++) {
           caches.delete(names[i]);
         }
@@ -30,7 +30,7 @@
     }
 
     // ② 即時利用可能なモーダル・写真ハンドラー（JS読み込み待ちでも100%確実に動作）
-    window.openPhotoRecordModal = function(slot) {
+    window.openPhotoRecordModal = function (slot) {
       var modal = document.getElementById("photoModal");
       if (modal) {
         if (slot) {
@@ -45,7 +45,7 @@
       }
     };
 
-    window.closePhotoRecordModal = function() {
+    window.closePhotoRecordModal = function () {
       var modal = document.getElementById("photoModal");
       if (modal) {
         modal.classList.add("hidden");
@@ -57,7 +57,7 @@
     };
 
     // ③ 食事カード「写真で記録」ダイレクトハンドラー（ファイル選択時に100%即実行）
-    window.handleSlotFileChange = function(input, slot) {
+    window.handleSlotFileChange = function (input, slot) {
       if (!input || !input.files || !input.files.length) return;
       var file = input.files[0];
       console.log("Photo selected for slot:", slot, file.name);
@@ -75,7 +75,7 @@
         window.handleImageFileSelected(file, slot);
       } else {
         var attempts = 0;
-        var t = setInterval(function() {
+        var t = setInterval(function () {
           attempts++;
           if (window.handleImageFileSelected) {
             clearInterval(t);
@@ -89,7 +89,7 @@
     };
 
     // ④ モーダル内ファイル入力用ハンドラー
-    window.handleModalFileChange = function(input) {
+    window.handleModalFileChange = function (input) {
       if (!input || !input.files || !input.files.length) return;
       var slotSel = document.getElementById("recordTargetSlot");
       var slot = (slotSel && slotSel.value) ? slotSel.value : "breakfast";
@@ -97,9 +97,9 @@
     };
 
     // ⑤ ドラッグ＆ドロップ対応（PCで画像をブラウザに直接落としても即時AI解析）
-    window.addEventListener('DOMContentLoaded', function() {
-      document.addEventListener('dragover', function(e) { e.preventDefault(); });
-      document.addEventListener('drop', function(e) {
+    window.addEventListener('DOMContentLoaded', function () {
+      document.addEventListener('dragover', function (e) { e.preventDefault(); });
+      document.addEventListener('drop', function (e) {
         var dt = e.dataTransfer;
         if (!dt || !dt.files || !dt.files.length) return;
         var file = dt.files[0];
@@ -116,9 +116,7 @@
   <!-- FontAwesome / Lucide icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css?v=4.1.0">
-  <!-- TensorFlow.js & MobileNet (完全端末内・完全無料のAI画像認識) -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
+  <!-- Google Gemini AI Vision (最先端高精度画像認識エンジン) -->
   <script>
     tailwind.config = {
       theme: {
@@ -180,19 +178,24 @@
   <main class="max-w-4xl mx-auto px-3 sm:px-4 pt-3 sm:pt-4 space-y-3 sm:space-y-4 overflow-x-hidden">
 
     <!-- 日付ナビゲーションバー（1日ごとの記録とカレンダー切り替え） -->
-    <div class="bg-white rounded-2xl p-2 sm:p-2.5 border border-slate-200 shadow-sm flex items-center justify-between text-xs font-semibold">
-      <button id="prevDateBtn" class="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer">
+    <div
+      class="bg-white rounded-2xl p-2 sm:p-2.5 border border-slate-200 shadow-sm flex items-center justify-between text-xs font-semibold">
+      <button id="prevDateBtn"
+        class="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer">
         <i class="fa-solid fa-chevron-left text-[10px]"></i>
         <span>前の日</span>
       </button>
 
       <div class="flex items-center space-x-1 sm:space-x-2">
         <i class="fa-solid fa-calendar-day text-emerald-600 text-xs sm:text-sm"></i>
-        <input type="date" id="datePickerInput" class="bg-transparent border-none text-slate-800 font-bold outline-none cursor-pointer text-xs sm:text-sm">
-        <span id="dateLabelBadge" class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">今日</span>
+        <input type="date" id="datePickerInput"
+          class="bg-transparent border-none text-slate-800 font-bold outline-none cursor-pointer text-xs sm:text-sm">
+        <span id="dateLabelBadge"
+          class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">今日</span>
       </div>
 
-      <button id="nextDateBtn" class="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer">
+      <button id="nextDateBtn"
+        class="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer">
         <span>次の日</span>
         <i class="fa-solid fa-chevron-right text-[10px]"></i>
       </button>
@@ -200,13 +203,16 @@
 
     <!-- アラートバナー（リカバリーやチートデイ時） -->
     <div id="statusBanner"
-      class="hidden rounded-xl p-3 sm:p-3.5 flex items-center justify-between text-xs font-medium border shadow-sm"></div>
+      class="hidden rounded-xl p-3 sm:p-3.5 flex items-center justify-between text-xs font-medium border shadow-sm">
+    </div>
 
     <!-- 基礎代謝 ＆ 減量目標 設定パネル（常時表示） -->
-    <section class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3 sm:space-y-4">
+    <section
+      class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3 sm:space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
         <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold shadow-xs">
+          <div
+            class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold shadow-xs">
             <i class="fa-solid fa-calculator"></i>
           </div>
           <div>
@@ -215,7 +221,8 @@
           </div>
         </div>
         <div class="flex items-center space-x-2 text-xs">
-          <label class="flex items-center space-x-1.5 cursor-pointer text-slate-600 font-medium bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 hover:bg-slate-100 transition">
+          <label
+            class="flex items-center space-x-1.5 cursor-pointer text-slate-600 font-medium bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 hover:bg-slate-100 transition">
             <input type="checkbox" id="manualBmrToggle" class="rounded text-emerald-600 focus:ring-emerald-500">
             <span>体組成計の数値を直接入力</span>
           </label>
@@ -226,26 +233,31 @@
       <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
         <div>
           <label class="block text-slate-600 mb-1 font-semibold">性別</label>
-          <select id="mainGender" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+          <select id="mainGender"
+            class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
             <option value="male" selected>男性</option>
             <option value="female">女性</option>
           </select>
         </div>
         <div>
           <label class="block text-slate-600 mb-1 font-semibold">年齢</label>
-          <input type="number" id="mainAge" value="28" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+          <input type="number" id="mainAge" value="28"
+            class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
         </div>
         <div>
           <label class="block text-slate-600 mb-1 font-semibold">身長 (cm)</label>
-          <input type="number" id="mainHeight" value="172" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+          <input type="number" id="mainHeight" value="172"
+            class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
         </div>
         <div>
           <label class="block text-slate-600 mb-1 font-semibold">現在の体重 (kg)</label>
-          <input type="number" id="mainWeight" value="70" step="0.5" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+          <input type="number" id="mainWeight" value="70" step="0.5"
+            class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
         </div>
         <div class="col-span-2 sm:col-span-1">
           <label class="block text-slate-600 mb-1 font-semibold">月間の減量目標</label>
-          <select id="mainPace" class="w-full p-2 bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl outline-none font-bold">
+          <select id="mainPace"
+            class="w-full p-2 bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl outline-none font-bold">
             <option value="0">現状維持 (±0kg)</option>
             <option value="1">月 -1.0 kg 減量</option>
             <option value="2" selected>月 -2.0 kg 減量</option>
@@ -258,7 +270,8 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
         <div>
           <label class="block text-slate-600 mb-1 font-semibold">日常の活動レベル</label>
-          <select id="mainActivity" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-medium">
+          <select id="mainActivity"
+            class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-medium">
             <option value="1.2">ほぼ座り仕事・デスクワーク</option>
             <option value="1.375" selected>通勤・軽い立ち仕事・日常歩行</option>
             <option value="1.55">立ち仕事・週2〜3回の運動</option>
@@ -273,7 +286,8 @@
             <span class="text-[10px] text-emerald-600" id="bmrCalcMethodBadge">自動計算</span>
           </div>
           <div class="flex items-center space-x-1.5 mt-1">
-            <input type="number" id="mainBmrInput" value="1620" disabled class="w-full text-base font-black text-slate-800 bg-transparent font-mono outline-none">
+            <input type="number" id="mainBmrInput" value="1620" disabled
+              class="w-full text-base font-black text-slate-800 bg-transparent font-mono outline-none">
             <span class="text-xs font-bold text-slate-600">kcal</span>
           </div>
         </div>
@@ -295,11 +309,14 @@
       <div id="bodyIndexCard" class="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 sm:p-3 text-xs space-y-2">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center space-x-1.5 sm:space-x-2">
-            <span class="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0">
+            <span
+              class="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0">
               <i class="fa-solid fa-weight-scale"></i>
             </span>
             <span class="font-bold text-slate-700 text-xs sm:text-sm" id="bodyIndexTitle">体型指数：ローレル指数</span>
-            <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 shrink-0" id="bodyIndexBadge">標準</span>
+            <span
+              class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 shrink-0"
+              id="bodyIndexBadge">標準</span>
           </div>
           <div class="flex items-center space-x-2 sm:space-x-3 text-slate-600 text-xs">
             <div>数値: <strong class="text-slate-800 font-mono" id="bodyIndexValue">128.5</strong></div>
@@ -308,7 +325,8 @@
         </div>
 
         <!-- 小柄・高校生検知時の納得ガイド -->
-        <div id="rohrerNote" class="text-[10px] sm:text-[11px] text-teal-900 bg-teal-50/80 p-2 rounded-xl border border-teal-200/60 leading-relaxed flex items-start gap-1.5">
+        <div id="rohrerNote"
+          class="text-[10px] sm:text-[11px] text-teal-900 bg-teal-50/80 p-2 rounded-xl border border-teal-200/60 leading-relaxed flex items-start gap-1.5">
           <i class="fa-solid fa-circle-check text-teal-600 mt-0.5 shrink-0"></i>
           <span>
             <strong>小柄・成長期適応モード適用中：</strong>身長が小柄な方（145cm以下）や高校生の場合、成人用BMIだと数学的な歪みで肥満度や代謝がおかしくなるため、体積比で正確に測れる<strong>「ローレル指数（体重÷身長³）」</strong>と厚生労働省基準を自動適用しています。
@@ -318,10 +336,12 @@
     </section>
 
     <!-- 1日の総目標カロリー & 栄養量ガイド -->
-    <section class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3 sm:space-y-4">
+    <section
+      class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3 sm:space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3 gap-2">
         <div>
-          <span class="text-[11px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+          <span
+            class="text-[11px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
             <i class="fa-solid fa-bullseye text-emerald-500"></i>
             今日の1日目標摂取量
           </span>
@@ -332,11 +352,13 @@
           </div>
         </div>
         <div class="flex items-center space-x-2 text-xs">
-          <div class="bg-blue-50 text-blue-800 px-2.5 py-1 rounded-xl border border-blue-100 font-medium flex items-center gap-1 text-[11px]">
+          <div
+            class="bg-blue-50 text-blue-800 px-2.5 py-1 rounded-xl border border-blue-100 font-medium flex items-center gap-1 text-[11px]">
             <i class="fa-solid fa-droplet text-blue-500 text-[10px]"></i>
             <span>水分: <strong>約 2.0 L</strong></span>
           </div>
-          <div class="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-xl border border-emerald-100 font-medium flex items-center gap-1 text-[11px]">
+          <div
+            class="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-xl border border-emerald-100 font-medium flex items-center gap-1 text-[11px]">
             <i class="fa-solid fa-leaf text-emerald-500 text-[10px]"></i>
             <span>食物繊維: <strong>20g+</strong></span>
           </div>
@@ -352,7 +374,8 @@
           </div>
           <p class="text-[9px] sm:text-[10px] text-amber-700 truncate">筋肉・代謝UP</p>
           <div class="w-full bg-amber-100 rounded-full h-1.5 mt-1">
-            <div id="barP" class="bg-amber-500 h-1.5 rounded-full transition-all duration-300" style="width: 100%"></div>
+            <div id="barP" class="bg-amber-500 h-1.5 rounded-full transition-all duration-300" style="width: 100%">
+            </div>
           </div>
         </div>
 
@@ -388,14 +411,17 @@
             <span class="text-slate-600">/ 目標 <span id="targetTotalCalRef">1,650</span> kcal</span>
           </div>
           <div class="text-right">
-            <span id="remainingCalBadge" class="text-xs px-3 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800">
+            <span id="remainingCalBadge"
+              class="text-xs px-3 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800">
               残りあと 1,650 kcal
             </span>
           </div>
         </div>
 
         <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
-          <div id="eatenProgressBar" class="bg-gradient-to-r from-teal-400 to-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+          <div id="eatenProgressBar"
+            class="bg-gradient-to-r from-teal-400 to-emerald-500 h-full transition-all duration-300" style="width: 0%">
+          </div>
         </div>
       </div>
     </section>
@@ -457,14 +483,18 @@
       </div>
 
       <!-- 朝食スロット -->
-      <div class="meal-card bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm transition space-y-3" data-meal="breakfast">
+      <div class="meal-card bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm transition space-y-3"
+        data-meal="breakfast">
         <div class="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
           <div class="flex items-center space-x-2 sm:space-x-2.5">
-            <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold shadow-xs shrink-0">🌅</span>
+            <span
+              class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold shadow-xs shrink-0">🌅</span>
             <div>
               <div class="flex items-center space-x-1.5 sm:space-x-2">
                 <h3 class="font-bold text-sm sm:text-base text-slate-800">朝食</h3>
-                <span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">目安 7:00〜9:00</span>
+                <span
+                  class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">目安
+                  7:00〜9:00</span>
               </div>
             </div>
           </div>
@@ -472,7 +502,8 @@
           <div class="flex items-center space-x-2.5 sm:space-x-3 text-right">
             <div>
               <span class="text-[9px] sm:text-[10px] text-slate-500 font-semibold block">目標</span>
-              <span class="text-base sm:text-lg font-black text-amber-600 font-mono slot-cal-target">410 <span class="text-[9px] sm:text-[10px] text-slate-500 font-normal">kcal</span></span>
+              <span class="text-base sm:text-lg font-black text-amber-600 font-mono slot-cal-target">410 <span
+                  class="text-[9px] sm:text-[10px] text-slate-500 font-normal">kcal</span></span>
             </div>
             <div class="border-l border-slate-200 pl-2.5 sm:pl-3">
               <span class="text-[9px] sm:text-[10px] text-slate-500 font-semibold block">実際</span>
@@ -484,20 +515,27 @@
         <!-- 記録エリア（未記録 vs 記録済み） -->
         <div class="slot-record-box">
           <!-- 未記録時 -->
-          <div class="record-empty-view flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-amber-50/50 border border-dashed border-amber-200 gap-2 text-xs">
+          <div
+            class="record-empty-view flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-amber-50/50 border border-dashed border-amber-200 gap-2 text-xs">
             <span class="text-slate-600 flex items-center gap-1.5 text-xs">
               <i class="fa-solid fa-utensils text-amber-500"></i>
               <span>朝ごはんを食べたら写真で記録！</span>
             </span>
             <div class="flex items-center gap-1.5 w-full sm:w-auto">
               <div class="relative overflow-hidden rounded-xl shadow-xs flex-1 sm:flex-initial">
-                <button type="button" class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
+                <button type="button"
+                  class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
                   <i class="fa-solid fa-camera"></i>
                   <span>写真で記録</span>
                 </button>
-                <input type="file" accept="image/*" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="breakfast" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'breakfast')" aria-label="朝食の写真を撮影">
+                <input type="file" accept="image/*"
+                  class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  data-meal="breakfast" onclick="this.value=null;"
+                  onchange="window.handleSlotFileChange(this, 'breakfast')" aria-label="朝食の写真を撮影">
               </div>
-              <button type="button" onclick="openPhotoRecordModal('breakfast')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
+              <button type="button" onclick="openPhotoRecordModal('breakfast')"
+                class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0"
+                title="手動入力やアルバムから選ぶ">
                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
                 <span>手動/詳細</span>
               </button>
@@ -525,7 +563,8 @@
 
         <!-- 折りたたみ：参考メニュー例 -->
         <details class="group border-t border-slate-100 pt-1.5 text-xs">
-          <summary class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-500 hover:text-emerald-600 transition">
+          <summary
+            class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-500 hover:text-emerald-600 transition">
             <span class="flex items-center gap-1 font-semibold text-[11px]">
               <i class="fa-solid fa-lightbulb text-amber-500"></i>
               おすすめコンビニ例を見る
@@ -537,14 +576,18 @@
       </div>
 
       <!-- 昼食スロット -->
-      <div class="meal-card bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm transition space-y-3" data-meal="lunch">
+      <div class="meal-card bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm transition space-y-3"
+        data-meal="lunch">
         <div class="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
           <div class="flex items-center space-x-2 sm:space-x-2.5">
-            <span class="w-8 h-8 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center text-sm font-bold shadow-xs shrink-0">☀️</span>
+            <span
+              class="w-8 h-8 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center text-sm font-bold shadow-xs shrink-0">☀️</span>
             <div>
               <div class="flex items-center space-x-1.5 sm:space-x-2">
                 <h3 class="font-bold text-sm sm:text-base text-slate-800">昼食</h3>
-                <span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">目安 12:00〜13:30</span>
+                <span
+                  class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">目安
+                  12:00〜13:30</span>
               </div>
             </div>
           </div>
@@ -552,7 +595,8 @@
           <div class="flex items-center space-x-2.5 sm:space-x-3 text-right">
             <div>
               <span class="text-[9px] sm:text-[10px] text-slate-500 font-semibold block">目標</span>
-              <span class="text-base sm:text-lg font-black text-orange-600 font-mono slot-cal-target">620 <span class="text-[9px] sm:text-[10px] text-slate-500 font-normal">kcal</span></span>
+              <span class="text-base sm:text-lg font-black text-orange-600 font-mono slot-cal-target">620 <span
+                  class="text-[9px] sm:text-[10px] text-slate-500 font-normal">kcal</span></span>
             </div>
             <div class="border-l border-slate-200 pl-2.5 sm:pl-3">
               <span class="text-[9px] sm:text-[10px] text-slate-500 font-semibold block">実際</span>
@@ -563,20 +607,27 @@
 
         <!-- 記録エリア -->
         <div class="slot-record-box">
-          <div class="record-empty-view flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-orange-50/50 border border-dashed border-orange-200 gap-2 text-xs">
+          <div
+            class="record-empty-view flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-orange-50/50 border border-dashed border-orange-200 gap-2 text-xs">
             <span class="text-slate-600 flex items-center gap-1.5 text-xs">
               <i class="fa-solid fa-bowl-food text-orange-500"></i>
               <span>外食やお弁当の写真を撮ろう！</span>
             </span>
             <div class="flex items-center gap-1.5 w-full sm:w-auto">
               <div class="relative overflow-hidden rounded-xl shadow-xs flex-1 sm:flex-initial">
-                <button type="button" class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
+                <button type="button"
+                  class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
                   <i class="fa-solid fa-camera"></i>
                   <span>写真で記録</span>
                 </button>
-                <input type="file" accept="image/*" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="lunch" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'lunch')" aria-label="昼食の写真を撮影">
+                <input type="file" accept="image/*"
+                  class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  data-meal="lunch" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'lunch')"
+                  aria-label="昼食の写真を撮影">
               </div>
-              <button type="button" onclick="openPhotoRecordModal('lunch')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
+              <button type="button" onclick="openPhotoRecordModal('lunch')"
+                class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0"
+                title="手動入力やアルバムから選ぶ">
                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
                 <span>手動/詳細</span>
               </button>
@@ -602,7 +653,8 @@
         </div>
 
         <details class="group border-t border-slate-100 pt-1.5 text-xs">
-          <summary class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-500 hover:text-emerald-600 transition">
+          <summary
+            class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-500 hover:text-emerald-600 transition">
             <span class="flex items-center gap-1 font-semibold text-[11px]">
               <i class="fa-solid fa-lightbulb text-orange-500"></i>
               おすすめコンビニ・外食例を見る
@@ -614,14 +666,18 @@
       </div>
 
       <!-- 夕食スロット -->
-      <div class="meal-card bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm transition space-y-3" data-meal="dinner">
+      <div class="meal-card bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm transition space-y-3"
+        data-meal="dinner">
         <div class="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
           <div class="flex items-center space-x-2 sm:space-x-2.5">
-            <span class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center text-sm font-bold shadow-xs shrink-0">🌙</span>
+            <span
+              class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center text-sm font-bold shadow-xs shrink-0">🌙</span>
             <div>
               <div class="flex items-center space-x-1.5 sm:space-x-2">
                 <h3 class="font-bold text-sm sm:text-base text-slate-800">夕食</h3>
-                <span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">目安 18:30〜20:30</span>
+                <span
+                  class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">目安
+                  18:30〜20:30</span>
               </div>
             </div>
           </div>
@@ -629,7 +685,8 @@
           <div class="flex items-center space-x-2.5 sm:space-x-3 text-right">
             <div>
               <span class="text-[9px] sm:text-[10px] text-slate-500 font-semibold block">目標</span>
-              <span class="text-base sm:text-lg font-black text-indigo-600 font-mono slot-cal-target">480 <span class="text-[9px] sm:text-[10px] text-slate-500 font-normal">kcal</span></span>
+              <span class="text-base sm:text-lg font-black text-indigo-600 font-mono slot-cal-target">480 <span
+                  class="text-[9px] sm:text-[10px] text-slate-500 font-normal">kcal</span></span>
             </div>
             <div class="border-l border-slate-200 pl-2.5 sm:pl-3">
               <span class="text-[9px] sm:text-[10px] text-slate-500 font-semibold block">実際</span>
@@ -639,27 +696,35 @@
         </div>
 
         <!-- 昼食べすぎ等のAI自動調整バナー（動的表示） -->
-        <div class="dinner-auto-adjust-note hidden text-[11px] p-2 rounded-xl border bg-purple-50 text-purple-900 border-purple-200 leading-relaxed flex items-center gap-1.5">
+        <div
+          class="dinner-auto-adjust-note hidden text-[11px] p-2 rounded-xl border bg-purple-50 text-purple-900 border-purple-200 leading-relaxed flex items-center gap-1.5">
           <i class="fa-solid fa-wand-magic-sparkles text-purple-600 shrink-0"></i>
           <span class="adjust-text">昼食の超過分を相殺するため、夕食の目標を自動で控えめに再計算しました！</span>
         </div>
 
         <!-- 記録エリア -->
         <div class="slot-record-box">
-          <div class="record-empty-view flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-indigo-50/50 border border-dashed border-indigo-200 gap-2 text-xs">
+          <div
+            class="record-empty-view flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-indigo-50/50 border border-dashed border-indigo-200 gap-2 text-xs">
             <span class="text-slate-600 flex items-center gap-1.5 text-xs">
               <i class="fa-solid fa-moon text-indigo-500"></i>
               <span>夕食の写真を撮って1日を締めくくろう！</span>
             </span>
             <div class="flex items-center gap-1.5 w-full sm:w-auto">
               <div class="relative overflow-hidden rounded-xl shadow-xs flex-1 sm:flex-initial">
-                <button type="button" class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
+                <button type="button"
+                  class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
                   <i class="fa-solid fa-camera"></i>
                   <span>写真で記録</span>
                 </button>
-                <input type="file" accept="image/*" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="dinner" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'dinner')" aria-label="夕食の写真を撮影">
+                <input type="file" accept="image/*"
+                  class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  data-meal="dinner" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'dinner')"
+                  aria-label="夕食の写真を撮影">
               </div>
-              <button type="button" onclick="openPhotoRecordModal('dinner')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
+              <button type="button" onclick="openPhotoRecordModal('dinner')"
+                class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0"
+                title="手動入力やアルバムから選ぶ">
                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
                 <span>手動/詳細</span>
               </button>
@@ -685,7 +750,8 @@
         </div>
 
         <details class="group border-t border-slate-100 pt-1.5 text-xs">
-          <summary class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-500 hover:text-emerald-600 transition">
+          <summary
+            class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-500 hover:text-emerald-600 transition">
             <span class="flex items-center gap-1 font-semibold text-[11px]">
               <i class="fa-solid fa-lightbulb text-indigo-500"></i>
               おすすめ低カロリー夜ご飯例を見る
@@ -697,14 +763,17 @@
       </div>
 
       <!-- 間食・ドリンクスロット -->
-      <div class="meal-card bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm transition space-y-3" data-meal="snack">
+      <div class="meal-card bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-sm transition space-y-3"
+        data-meal="snack">
         <div class="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
           <div class="flex items-center space-x-2 sm:space-x-2.5">
-            <span class="w-8 h-8 rounded-xl bg-pink-100 text-pink-800 flex items-center justify-center text-sm font-bold shadow-xs shrink-0">☕</span>
+            <span
+              class="w-8 h-8 rounded-xl bg-pink-100 text-pink-800 flex items-center justify-center text-sm font-bold shadow-xs shrink-0">☕</span>
             <div>
               <div class="flex items-center space-x-1.5 sm:space-x-2">
                 <h3 class="font-bold text-sm sm:text-base text-slate-800">間食・ドリンク</h3>
-                <span class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">息抜き</span>
+                <span
+                  class="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">息抜き</span>
               </div>
             </div>
           </div>
@@ -712,7 +781,8 @@
           <div class="flex items-center space-x-2.5 sm:space-x-3 text-right">
             <div>
               <span class="text-[9px] sm:text-[10px] text-slate-500 font-semibold block">目標</span>
-              <span class="text-base sm:text-lg font-black text-pink-600 font-mono slot-cal-target">140 <span class="text-[9px] sm:text-[10px] text-slate-500 font-normal">kcal</span></span>
+              <span class="text-base sm:text-lg font-black text-pink-600 font-mono slot-cal-target">140 <span
+                  class="text-[9px] sm:text-[10px] text-slate-500 font-normal">kcal</span></span>
             </div>
             <div class="border-l border-slate-200 pl-2.5 sm:pl-3">
               <span class="text-[9px] sm:text-[10px] text-slate-500 font-semibold block">実際</span>
@@ -723,20 +793,27 @@
 
         <!-- 記録エリア -->
         <div class="slot-record-box">
-          <div class="record-empty-view flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-pink-50/50 border border-dashed border-pink-200 gap-2 text-xs">
+          <div
+            class="record-empty-view flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-pink-50/50 border border-dashed border-pink-200 gap-2 text-xs">
             <span class="text-slate-600 flex items-center gap-1.5 text-xs">
               <i class="fa-solid fa-cookie-bite text-pink-500"></i>
               <span>スイーツやおやつの写真を記録！</span>
             </span>
             <div class="flex items-center gap-1.5 w-full sm:w-auto">
               <div class="relative overflow-hidden rounded-xl shadow-xs flex-1 sm:flex-initial">
-                <button type="button" class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
+                <button type="button"
+                  class="w-full px-3 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 pointer-events-none">
                   <i class="fa-solid fa-camera"></i>
                   <span>写真で記録</span>
                 </button>
-                <input type="file" accept="image/*" class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" data-meal="snack" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'snack')" aria-label="間食の写真を撮影">
+                <input type="file" accept="image/*"
+                  class="slot-direct-camera absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  data-meal="snack" onclick="this.value=null;" onchange="window.handleSlotFileChange(this, 'snack')"
+                  aria-label="間食の写真を撮影">
               </div>
-              <button type="button" onclick="openPhotoRecordModal('snack')" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0" title="手動入力やアルバムから選ぶ">
+              <button type="button" onclick="openPhotoRecordModal('snack')"
+                class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-medium rounded-xl text-xs transition flex items-center justify-center gap-1 border border-slate-200 shrink-0"
+                title="手動入力やアルバムから選ぶ">
                 <i class="fa-solid fa-pen-to-square text-slate-500"></i>
                 <span>手動/詳細</span>
               </button>
@@ -762,7 +839,8 @@
         </div>
 
         <details class="group border-t border-slate-100 pt-1.5 text-xs">
-          <summary class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-500 hover:text-emerald-600 transition">
+          <summary
+            class="flex items-center justify-between cursor-pointer list-none py-1 text-slate-500 hover:text-emerald-600 transition">
             <span class="flex items-center gap-1 font-semibold text-[11px]">
               <i class="fa-solid fa-lightbulb text-pink-500"></i>
               おすすめ低糖質おやつ例を見る
@@ -970,8 +1048,10 @@
   </div>
 
   <!-- 今月の成果 ＆ 減量進捗ダッシュボード モーダル -->
-  <div id="monthlyModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
+  <div id="monthlyModal"
+    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div
+      class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
       <div class="flex items-center justify-between border-b pb-3">
         <div class="flex items-center space-x-2">
           <div class="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center text-sm font-bold">
@@ -982,7 +1062,8 @@
             <p class="text-[10px] sm:text-[11px] text-slate-500">1か月のカロリー収支と脂肪燃焼の成果</p>
           </div>
         </div>
-        <button id="closeMonthlyBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
+        <button id="closeMonthlyBtn"
+          class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -991,12 +1072,14 @@
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
         <div class="bg-teal-50 p-3 rounded-2xl border border-teal-200">
           <div class="text-[10px] font-bold text-teal-800">🔥 累積カット量</div>
-          <div class="text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5" id="monthlyDeficitTotal">-0 kcal</div>
+          <div class="text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5" id="monthlyDeficitTotal">-0 kcal
+          </div>
           <div class="text-[9px] text-teal-600">目標に対する赤字分</div>
         </div>
         <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
           <div class="text-[10px] font-bold text-emerald-800">⚖️ 推定脂肪燃焼</div>
-          <div class="text-base sm:text-lg font-black text-emerald-700 font-mono mt-0.5" id="monthlyFatLost">-0.0 kg</div>
+          <div class="text-base sm:text-lg font-black text-emerald-700 font-mono mt-0.5" id="monthlyFatLost">-0.0 kg
+          </div>
           <div class="text-[9px] text-emerald-600">約7,200kcalで1kg減</div>
         </div>
         <div class="col-span-2 sm:col-span-1 bg-amber-50 p-3 rounded-2xl border border-amber-200">
@@ -1019,9 +1102,12 @@
 
       <div class="border-t pt-2 flex items-center justify-between text-[11px] text-slate-500">
         <div class="flex items-center gap-2">
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>達成</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span>超過</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-200 inline-block"></span>未記録</span>
+          <span class="flex items-center gap-1"><span
+              class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>達成</span>
+          <span class="flex items-center gap-1"><span
+              class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span>超過</span>
+          <span class="flex items-center gap-1"><span
+              class="w-2 h-2 rounded-full bg-slate-200 inline-block"></span>未記録</span>
         </div>
         <span class="text-[10px]">※データはスマホ内に永続保存されます</span>
       </div>
@@ -1029,8 +1115,10 @@
   </div>
 
   <!-- 食事記録（写真 ＆ 手動入力 ＆ 定番選択） モーダル -->
-  <div id="photoModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-5 space-y-3 sm:space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
+  <div id="photoModal"
+    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div
+      class="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-5 space-y-3 sm:space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
       <div class="flex items-center justify-between border-b pb-2.5">
         <div class="flex items-center space-x-2">
           <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
@@ -1041,7 +1129,8 @@
             <p class="text-[10px] text-slate-500">写真でも、数値の直接入力でも記録できます</p>
           </div>
         </div>
-        <button id="closePhotoBtn" onclick="window.closePhotoRecordModal && window.closePhotoRecordModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
+        <button id="closePhotoBtn" onclick="window.closePhotoRecordModal && window.closePhotoRecordModal()"
+          class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -1049,7 +1138,8 @@
       <!-- 記録枠の選択（朝/昼/夜/間食） -->
       <div class="flex items-center space-x-2 text-xs">
         <span class="text-slate-600 font-bold shrink-0">記録する食事:</span>
-        <select id="recordTargetSlot" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 font-bold">
+        <select id="recordTargetSlot"
+          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 font-bold">
           <option value="breakfast">🌅 朝食</option>
           <option value="lunch" selected>☀️ 昼食</option>
           <option value="dinner">🌙 夕食</option>
@@ -1059,15 +1149,18 @@
 
       <!-- 記録方法タブ切り替え -->
       <div class="flex rounded-xl bg-slate-100 p-1 text-xs font-bold text-slate-600">
-        <button id="tabPhotoBtn" class="flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition">
+        <button id="tabPhotoBtn"
+          class="flex-1 py-1.5 rounded-lg bg-white text-emerald-700 shadow-xs flex items-center justify-center gap-1 transition">
           <i class="fa-solid fa-camera"></i>
           <span>カメラで撮影</span>
         </button>
-        <button id="tabManualBtn" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 flex items-center justify-center gap-1 transition">
+        <button id="tabManualBtn"
+          class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 flex items-center justify-center gap-1 transition">
           <i class="fa-solid fa-keyboard"></i>
           <span>手動で入力</span>
         </button>
-        <button id="tabPresetBtn" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 flex items-center justify-center gap-1 transition">
+        <button id="tabPresetBtn"
+          class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-800 flex items-center justify-center gap-1 transition">
           <i class="fa-solid fa-store"></i>
           <span>定番から選ぶ</span>
         </button>
@@ -1077,21 +1170,26 @@
       <div id="photoTabContent" class="space-y-3">
 
         <!-- ⚡ Google最先端AI (Gemini) 超高精度モード設定エリア（無料BYOK） -->
-        <div id="geminiIntegrationCard" class="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-purple-50/60 to-white p-3 shadow-2xs space-y-2">
+        <div id="geminiIntegrationCard"
+          class="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-purple-50/60 to-white p-3 shadow-2xs space-y-2">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2 min-w-0">
-              <span class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs shrink-0">
+              <span
+                class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs shrink-0">
                 <i class="fa-solid fa-bolt"></i>
               </span>
               <div class="min-w-0">
                 <div class="font-black text-indigo-950 text-xs flex items-center gap-1.5 flex-wrap">
                   <span>Google AI（Gemini）超高精度モード</span>
-                  <span id="geminiStatusBadge" class="text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600">未連携</span>
+                  <span id="geminiStatusBadge"
+                    class="text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600">未連携</span>
                 </div>
                 <div class="text-[10px] text-indigo-800/80 font-medium truncate">焼肉定食や副菜まで95%以上の精度で特定（完全無料・クレカ不要）</div>
               </div>
             </div>
-            <button type="button" id="toggleGeminiSettingsBtn" onclick="window.toggleGeminiDrawer && window.toggleGeminiDrawer()" class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold shrink-0 cursor-pointer flex items-center gap-1 ml-2 px-2 py-1 rounded-lg hover:bg-indigo-100/50 transition">
+            <button type="button" id="toggleGeminiSettingsBtn"
+              onclick="window.toggleGeminiDrawer && window.toggleGeminiDrawer()"
+              class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold shrink-0 cursor-pointer flex items-center gap-1 ml-2 px-2 py-1 rounded-lg hover:bg-indigo-100/50 transition">
               <span id="geminiToggleText">設定</span>
               <i id="geminiToggleIcon" class="fa-solid fa-chevron-down text-[10px]"></i>
             </button>
@@ -1105,23 +1203,29 @@
                 <span>無料APIキーの取得手順（約1分・ずっと無料）：</span>
               </div>
               <ol class="list-decimal list-inside space-y-0.5 text-slate-600 text-[10.5px]">
-                <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-bold underline hover:text-indigo-800">Google AI Studio (公式)</a> を開きます。</li>
+                <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
+                    class="text-indigo-600 font-bold underline hover:text-indigo-800">Google AI Studio (公式)</a> を開きます。
+                </li>
                 <li><strong>「Create API key」</strong> を押してキーをコピーします（クレジットカード登録不要）。</li>
                 <li>下の枠に貼り付けて<strong>「保存する」</strong>を押すだけ！ブラウザに自動保存されます。</li>
               </ol>
             </div>
 
             <div class="flex items-center gap-1.5">
-              <input type="password" id="geminiApiKeyInput" placeholder="Google APIキー (AIzaSy...)" class="flex-1 p-2 bg-white border border-indigo-200 rounded-xl font-mono text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300">
-              <button type="button" id="saveGeminiKeyBtn" onclick="window.saveGeminiApiKey && window.saveGeminiApiKey()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-xs cursor-pointer shrink-0">
+              <input type="password" id="geminiApiKeyInput" placeholder="Google APIキー (AIzaSy...)"
+                class="flex-1 p-2 bg-white border border-indigo-200 rounded-xl font-mono text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300">
+              <button type="button" id="saveGeminiKeyBtn" onclick="window.saveGeminiApiKey && window.saveGeminiApiKey()"
+                class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-xs cursor-pointer shrink-0">
                 <span>保存する</span>
               </button>
             </div>
-            <div id="geminiSaveSuccessMsg" class="hidden text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+            <div id="geminiSaveSuccessMsg"
+              class="hidden text-[11px] text-emerald-600 font-bold flex items-center gap-1">
               <i class="fa-solid fa-check"></i>
               <span>設定を保存しました！</span>
             </div>
-            <div id="geminiActiveNotice" class="hidden text-[10.5px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 p-2 rounded-xl border border-emerald-200">
+            <div id="geminiActiveNotice"
+              class="hidden text-[10.5px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 p-2 rounded-xl border border-emerald-200">
               <i class="fa-solid fa-circle-check text-emerald-600"></i>
               <span>自分専用の1日1,500回無料枠が有効です！写真を撮るだけで最高精度AIが自動で特定します。</span>
             </div>
@@ -1131,25 +1235,33 @@
         <!-- メイン：スマホ標準カメラ直結ボタン（100%確実に即カメラが起動） -->
         <div id="primaryCameraLauncher" class="space-y-2">
           <div class="relative w-full overflow-hidden rounded-2xl shadow-lg">
-            <div class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold flex items-center justify-center space-x-2 text-sm sm:text-base pointer-events-none">
+            <div
+              class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold flex items-center justify-center space-x-2 text-sm sm:text-base pointer-events-none">
               <i class="fa-solid fa-camera text-xl"></i>
               <span>📸 今すぐカメラを起動して撮影</span>
             </div>
-            <input type="file" id="directCameraInput" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onclick="this.value=null;" onchange="window.handleModalFileChange(this)" aria-label="カメラを起動して撮影">
+            <input type="file" id="directCameraInput" accept="image/*" capture="environment"
+              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onclick="this.value=null;"
+              onchange="window.handleModalFileChange(this)" aria-label="カメラを起動して撮影">
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <!-- アルバム選択 -->
-            <div class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 transition">
-              <div class="py-2.5 text-slate-700 font-bold text-xs flex items-center justify-center space-x-1.5 pointer-events-none">
+            <div
+              class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 transition">
+              <div
+                class="py-2.5 text-slate-700 font-bold text-xs flex items-center justify-center space-x-1.5 pointer-events-none">
                 <i class="fa-solid fa-images text-slate-500"></i>
                 <span>📁 写真から選ぶ</span>
               </div>
-              <input type="file" id="albumFileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onclick="this.value=null;" onchange="window.handleModalFileChange(this)" aria-label="アルバムから選ぶ">
+              <input type="file" id="albumFileInput" accept="image/*"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onclick="this.value=null;"
+                onchange="window.handleModalFileChange(this)" aria-label="アルバムから選ぶ">
             </div>
 
             <!-- ライブカメラ切り替え -->
-            <button id="toggleLiveStreamBtn" type="button" class="py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition border border-slate-200">
+            <button id="toggleLiveStreamBtn" type="button"
+              class="py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer transition border border-slate-200">
               <i class="fa-solid fa-video text-teal-600"></i>
               <span>📹 ライブファインダー</span>
             </button>
@@ -1157,31 +1269,38 @@
         </div>
 
         <!-- リアルタイムカメラファインダー領域 (折りたたみ表示) -->
-        <div id="cameraContainer" class="hidden relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex flex-col items-center justify-center min-h-[220px]">
+        <div id="cameraContainer"
+          class="hidden relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner flex flex-col items-center justify-center min-h-[220px]">
           <!-- ライブビデオストリーム -->
           <video id="cameraVideo" autoplay playsinline muted class="w-full h-52 sm:h-60 object-cover"></video>
-          
+
           <!-- カメラファインダー枠線ガイド -->
-          <div id="cameraGuideBox" class="absolute inset-3 border-2 border-white/40 border-dashed rounded-xl pointer-events-none flex items-center justify-center">
-            <span class="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded-full font-medium">料理を枠内に合わせてください</span>
+          <div id="cameraGuideBox"
+            class="absolute inset-3 border-2 border-white/40 border-dashed rounded-xl pointer-events-none flex items-center justify-center">
+            <span
+              class="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded-full font-medium">料理を枠内に合わせてください</span>
           </div>
 
           <!-- カメラ起動中 / 許可待ちオーバーレイ -->
-          <div id="cameraLoadingOverlay" class="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center p-4 text-center text-white space-y-2 z-10">
+          <div id="cameraLoadingOverlay"
+            class="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center p-4 text-center text-white space-y-2 z-10">
             <div class="w-8 h-8 rounded-full border-3 border-emerald-500 border-t-transparent animate-spin"></div>
             <p class="text-xs font-bold" id="cameraStatusText">カメラを起動中...</p>
             <p class="text-[10px] text-slate-300">ブラウザの許可ダイアログで「許可」を押してください</p>
           </div>
 
           <!-- カメラ許可拒否・エラー時のメッセージ -->
-          <div id="cameraErrorBox" class="hidden absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center p-4 text-center text-white space-y-2 z-20">
+          <div id="cameraErrorBox"
+            class="hidden absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center p-4 text-center text-white space-y-2 z-20">
             <i class="fa-solid fa-camera-slash text-2xl text-rose-400"></i>
             <p class="text-xs font-bold text-rose-300">ライブカメラが利用できません</p>
             <p class="text-[10px] text-slate-300">HTTP接続やブラウザ権限で制限されています。<br>上の「今すぐカメラを起動」をお使いください。</p>
           </div>
 
           <!-- カメラ反転ボタン（イン/アウト） -->
-          <button id="switchCameraBtn" class="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/50 text-white text-xs flex items-center justify-center hover:bg-black/70 transition cursor-pointer z-10" title="カメラ反転">
+          <button id="switchCameraBtn"
+            class="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-black/50 text-white text-xs flex items-center justify-center hover:bg-black/70 transition cursor-pointer z-10"
+            title="カメラ反転">
             <i class="fa-solid fa-arrows-rotate"></i>
           </button>
         </div>
@@ -1191,7 +1310,8 @@
 
         <!-- ライブカメラ用シャッター操作ボタン -->
         <div id="liveCameraActionBtn" class="hidden">
-          <button id="captureShutterBtn" type="button" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 active:scale-95 text-white font-bold rounded-2xl shadow-md transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
+          <button id="captureShutterBtn" type="button"
+            class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 active:scale-95 text-white font-bold rounded-2xl shadow-md transition flex items-center justify-center space-x-2 text-sm cursor-pointer">
             <i class="fa-solid fa-circle-dot text-lg text-emerald-200"></i>
             <span>シャッターを切る</span>
           </button>
@@ -1201,19 +1321,27 @@
         <div class="sample-presets-box space-y-1 pt-1 border-t border-slate-100">
           <span class="text-[10px] font-bold text-slate-500">またはサンプルで即座にテスト：</span>
           <div class="grid grid-cols-2 gap-1.5 text-[11px]">
-            <button class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5" data-type="ramen">
+            <button
+              class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5"
+              data-type="ramen">
               <span>🍜</span>
               <span class="truncate">豚骨ラーメン</span>
             </button>
-            <button class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5" data-type="bento">
+            <button
+              class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5"
+              data-type="bento">
               <span>🍱</span>
               <span class="truncate">からあげ弁当</span>
             </button>
-            <button class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5" data-type="cake">
+            <button
+              class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5"
+              data-type="cake">
               <span>🍰</span>
               <span class="truncate">チーズケーキ</span>
             </button>
-            <button class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5" data-type="salad">
+            <button
+              class="sample-photo-btn px-2 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-95 text-slate-700 font-medium transition cursor-pointer text-left flex items-center gap-1.5"
+              data-type="salad">
               <span>🥗</span>
               <span class="truncate">サラダチキン</span>
             </button>
@@ -1221,18 +1349,21 @@
         </div>
 
         <!-- 写真プレビュー & スキャンアニメーション領域 -->
-        <div id="scanPreviewArea" class="hidden relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-md">
+        <div id="scanPreviewArea"
+          class="hidden relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-md">
           <img id="scannedImagePreview" class="w-full h-44 sm:h-52 object-cover opacity-90" alt="Preview">
           <div id="scanLaserLine" class="scan-laser hidden"></div>
-          <div id="scanOverlay" class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white text-xs font-semibold space-y-2">
+          <div id="scanOverlay"
+            class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white text-xs font-semibold space-y-2">
             <i class="fa-solid fa-spinner fa-spin text-2xl text-teal-400"></i>
             <span id="scanStatusText">AIが食材・カロリーを解析中...</span>
           </div>
         </div>
 
         <!-- 解析結果カード（AI高精度判定：候補リスト ＆ 確定） -->
-        <div id="scanResultArea" class="hidden space-y-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 sm:p-3.5 text-xs shadow-xs">
-          
+        <div id="scanResultArea"
+          class="hidden space-y-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 sm:p-3.5 text-xs shadow-xs">
+
           <!-- ① AI候補リスト -->
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
@@ -1240,7 +1371,8 @@
                 <i class="fa-solid fa-wand-magic-sparkles text-emerald-600"></i>
                 <span>写真から検出した料理（「決定」で即記録）：</span>
               </span>
-              <span class="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">AI高精度判定</span>
+              <span
+                class="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">AI高精度判定</span>
             </div>
             <div id="aiCandidatesList" class="space-y-1.5">
               <!-- JSで写真・時間帯から判定したTOP4候補を動的表示 -->
@@ -1253,45 +1385,63 @@
               <span class="text-[10px] font-bold text-slate-500">選択中の料理 ＆ カロリー:</span>
               <div class="flex items-center gap-1 text-[10px]">
                 <span class="text-slate-400">大盛/少なめ:</span>
-                <button type="button" id="calMinus50Btn" class="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-slate-700 active:scale-95 transition">-50</button>
-                <button type="button" id="calPlus50Btn" class="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-slate-700 active:scale-95 transition">+50</button>
+                <button type="button" id="calMinus50Btn"
+                  class="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-slate-700 active:scale-95 transition">-50</button>
+                <button type="button" id="calPlus50Btn"
+                  class="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-slate-700 active:scale-95 transition">+50</button>
               </div>
             </div>
 
             <div class="flex items-center gap-2">
-              <input type="text" id="resultDishNameInput" class="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs outline-none focus:border-emerald-500" value="チキンカレーライス">
+              <input type="text" id="resultDishNameInput"
+                class="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs outline-none focus:border-emerald-500"
+                value="チキンカレーライス">
               <div class="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shrink-0">
-                <input type="number" id="resultCaloriesInput" class="w-16 font-mono font-black text-emerald-700 text-base outline-none text-right bg-transparent" value="680">
+                <input type="number" id="resultCaloriesInput"
+                  class="w-16 font-mono font-black text-emerald-700 text-base outline-none text-right bg-transparent"
+                  value="680">
                 <span class="text-xs font-bold text-slate-500 ml-1">kcal</span>
               </div>
             </div>
 
             <!-- PFC内訳 -->
-            <div class="grid grid-cols-3 gap-1 bg-slate-50 p-2 rounded-xl text-[10px] text-center border border-slate-100 font-semibold">
-              <div><span class="text-amber-800">たんぱく</span> <span class="font-bold font-mono text-slate-800" id="resultP">18.5g</span></div>
-              <div><span class="text-rose-800">脂質</span> <span class="font-bold font-mono text-slate-800" id="resultF">20.0g</span></div>
-              <div><span class="text-blue-800">炭水化物</span> <span class="font-bold font-mono text-slate-800" id="resultC">105.0g</span></div>
+            <div
+              class="grid grid-cols-3 gap-1 bg-slate-50 p-2 rounded-xl text-[10px] text-center border border-slate-100 font-semibold">
+              <div><span class="text-amber-800">たんぱく</span> <span class="font-bold font-mono text-slate-800"
+                  id="resultP">18.5g</span></div>
+              <div><span class="text-rose-800">脂質</span> <span class="font-bold font-mono text-slate-800"
+                  id="resultF">20.0g</span></div>
+              <div><span class="text-blue-800">炭水化物</span> <span class="font-bold font-mono text-slate-800"
+                  id="resultC">105.0g</span></div>
             </div>
 
             <!-- スープ・汁物の摂取量選択（ラーメン・うどん・汁物等の時に動的表示） -->
-            <div id="soupOptionContainer" class="hidden rounded-xl p-2.5 bg-amber-50/90 border border-amber-200 space-y-2 transition mt-2">
+            <div id="soupOptionContainer"
+              class="hidden rounded-xl p-2.5 bg-amber-50/90 border border-amber-200 space-y-2 transition mt-2">
               <div class="flex items-center justify-between text-[11px] font-bold text-amber-950">
                 <span class="flex items-center gap-1.5">
                   <span class="text-sm">🍜</span>
                   <span>スープ・汁物の飲み干し具合：</span>
                 </span>
-                <span id="soupSavingsBadge" class="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full font-bold">全飲み（通常）</span>
+                <span id="soupSavingsBadge"
+                  class="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full font-bold">全飲み（通常）</span>
               </div>
               <div class="grid grid-cols-3 gap-1.5 text-center text-xs">
-                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-amber-500 text-white shadow-2xs border-amber-500 cursor-pointer" data-level="all">
+                <button type="button"
+                  class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-amber-500 text-white shadow-2xs border-amber-500 cursor-pointer"
+                  data-level="all">
                   <div>全部飲んだ</div>
                   <div class="text-[9px] opacity-80 font-normal mt-0.5">±0 kcal</div>
                 </button>
-                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer" data-level="half">
+                <button type="button"
+                  class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer"
+                  data-level="half">
                   <div>半分残した</div>
                   <div class="text-[9px] text-emerald-600 font-bold mt-0.5">-75 kcal</div>
                 </button>
-                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer" data-level="none">
+                <button type="button"
+                  class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer"
+                  data-level="none">
                   <div>麺・具のみ</div>
                   <div class="text-[9px] text-emerald-600 font-bold mt-0.5">-150 kcal</div>
                 </button>
@@ -1306,20 +1456,25 @@
           <div class="space-y-1 relative">
             <span class="text-[10px] text-slate-500 font-semibold block">🔍 候補にない時は食品名で即座に検索（正確な数値を自動反映）：</span>
             <div class="relative">
-              <input type="text" id="foodQuickSearchInput" placeholder="例: バナナ、納豆ご飯、カレー、唐揚げ、うどん..." class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 font-medium">
-              <div id="foodQuickSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs">
+              <input type="text" id="foodQuickSearchInput" placeholder="例: バナナ、納豆ご飯、カレー、唐揚げ、うどん..."
+                class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 font-medium">
+              <div id="foodQuickSearchResults"
+                class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs">
                 <!-- 検索結果が動的に表示 -->
               </div>
             </div>
           </div>
 
-          <div class="text-[10px] sm:text-[11px] text-emerald-950 bg-emerald-100/60 p-2.5 rounded-xl leading-relaxed" id="resultAdvice"></div>
+          <div class="text-[10px] sm:text-[11px] text-emerald-950 bg-emerald-100/60 p-2.5 rounded-xl leading-relaxed"
+            id="resultAdvice"></div>
 
           <div class="flex gap-2 pt-1">
-            <button id="retakeCameraBtn" class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer">
+            <button id="retakeCameraBtn"
+              class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer">
               <i class="fa-solid fa-rotate-left mr-1"></i>撮り直す
             </button>
-            <button id="applyPhotoMealBtn" class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white font-bold rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center space-x-2 cursor-pointer">
+            <button id="applyPhotoMealBtn"
+              class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white font-bold rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center space-x-2 cursor-pointer">
               <i class="fa-solid fa-circle-check text-base"></i>
               <span id="applyPhotoBtnLabel">この料理を記録する</span>
             </button>
@@ -1331,30 +1486,37 @@
       <div id="manualTabContent" class="hidden space-y-3 text-xs">
         <div>
           <label class="block text-slate-600 font-semibold mb-1">食べた料理・商品名</label>
-          <input type="text" id="manualDishName" placeholder="例: おにぎりと味噌汁、カレーライス" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+          <input type="text" id="manualDishName" placeholder="例: おにぎりと味噌汁、カレーライス"
+            class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-slate-600 font-semibold mb-1">カロリー (kcal) <span class="text-rose-500">*</span></label>
-            <input type="number" id="manualCalories" placeholder="例: 450" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-bold font-mono">
+            <label class="block text-slate-600 font-semibold mb-1">カロリー (kcal) <span
+                class="text-rose-500">*</span></label>
+            <input type="number" id="manualCalories" placeholder="例: 450"
+              class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-bold font-mono">
           </div>
           <div>
             <label class="block text-slate-600 font-semibold mb-1">たんぱく質 (g)</label>
-            <input type="number" id="manualP" placeholder="例: 20" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono">
+            <input type="number" id="manualP" placeholder="例: 20"
+              class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono">
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-slate-600 font-semibold mb-1">脂質 (g)</label>
-            <input type="number" id="manualF" placeholder="例: 12" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono">
+            <input type="number" id="manualF" placeholder="例: 12"
+              class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono">
           </div>
           <div>
             <label class="block text-slate-600 font-semibold mb-1">炭水化物 (g)</label>
-            <input type="number" id="manualC" placeholder="例: 60" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono">
+            <input type="number" id="manualC" placeholder="例: 60"
+              class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono">
           </div>
         </div>
 
-        <button id="saveManualMealBtn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center space-x-1.5 mt-2 cursor-pointer">
+        <button id="saveManualMealBtn"
+          class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center space-x-1.5 mt-2 cursor-pointer">
           <i class="fa-solid fa-check"></i>
           <span>手動入力で記録する</span>
         </button>
@@ -1371,9 +1533,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=4.5.0"></script>
-  <script src="js/calculator.js?v=4.5.0"></script>
-  <script src="js/app.js?v=4.5.0"></script>
+  <script src="js/data.js?v=5.0.0"></script>
+  <script src="js/calculator.js?v=5.0.0"></script>
+  <script src="js/app.js?v=5.0.0"></script>
 </body>
 
 </html>

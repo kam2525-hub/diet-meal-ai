@@ -396,9 +396,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // 基本のカロリー比率（朝25%, 昼38%, 夜30%, 間食7%）
     const baseRatios = {
       breakfast: { cal: 0.25, p: 0.25, f: 0.22, c: 0.27 },
-      lunch:     { cal: 0.38, p: 0.38, f: 0.40, c: 0.38 },
-      dinner:    { cal: 0.30, p: 0.32, f: 0.25, c: 0.28 },
-      snack:     { cal: 0.07, p: 0.05, f: 0.13, c: 0.07 }
+      lunch: { cal: 0.38, p: 0.38, f: 0.40, c: 0.38 },
+      dinner: { cal: 0.30, p: 0.32, f: 0.25, c: 0.28 },
+      snack: { cal: 0.07, p: 0.05, f: 0.13, c: 0.07 }
     };
 
     // 食べた実績カロリーの集計と、未記録スロットの自動調整
@@ -675,7 +675,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===================== イベントリスナー =====================
   // グローバルモーダル開閉（HTMLのonclickからも直接呼べるようにwindowに公開）
-  window.openPhotoRecordModal = function(slot) {
+  window.openPhotoRecordModal = function (slot) {
     const modal = document.getElementById("photoModal");
     if (!modal) return;
     if (slot) {
@@ -691,7 +691,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  window.closePhotoRecordModal = function() {
+  window.closePhotoRecordModal = function () {
     const modal = document.getElementById("photoModal");
     if (!modal) return;
     modal.classList.add("hidden");
@@ -989,15 +989,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentFacingMode = "environment"; // 背面カメラを優先
     let currentScanItem = null;
 
-    // TensorFlow.js MobileNet のバックグラウンド初期化（完全無料・端末内深層学習）
-    if (window.mobilenet && !window.mobilenetModel) {
-      window.mobilenet.load({ version: 2, alpha: 1.0 }).then(model => {
-        window.mobilenetModel = model;
-        console.log("MobileNet Food AI Model loaded successfully!");
-      }).catch(e => {
-        console.warn("MobileNet load error:", e);
-      });
-    }
+
 
     // モーダル閉じるボタン
     if (closePhotoBtn) {
@@ -1095,7 +1087,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (directCameraInput) directCameraInput.value = "";
           if (albumFileInput) albumFileInput.value = "";
           document.querySelectorAll(".slot-direct-camera").forEach(inp => { inp.value = ""; });
-        } catch (e) {}
+        } catch (e) { }
 
         const img = new Image();
         img.onerror = () => {
@@ -1193,7 +1185,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (mediaStream) {
         try {
           mediaStream.getTracks().forEach(track => track.stop());
-        } catch (e) {}
+        } catch (e) { }
         mediaStream = null;
       }
       if (cameraVideo) {
@@ -1453,7 +1445,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     updateGeminiStatusUI();
 
-    window.toggleGeminiDrawer = function() {
+    window.toggleGeminiDrawer = function () {
       const drawer = document.getElementById("geminiSettingsDrawer");
       const icon = document.getElementById("geminiToggleIcon");
       if (!drawer) return;
@@ -1464,7 +1456,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    window.saveGeminiApiKey = function() {
+    window.saveGeminiApiKey = function () {
       const input = document.getElementById("geminiApiKeyInput");
       const successMsg = document.getElementById("geminiSaveSuccessMsg");
       if (!input) return;
@@ -1563,220 +1555,6 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Gemini Vision exception:", e);
         return null;
       }
-    }
-
-    // ==================== 高精度AI画像認識：Canvasコンピュータビジョン ＆ 色彩解析 ====================
-    function analyzeFoodImageWithCanvas(img) {
-      try {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const size = 100;
-        canvas.width = size;
-        canvas.height = size;
-
-        // 料理が集中する中央70%領域を切り出してフォーカス解析
-        const nw = img.naturalWidth || img.width || 400;
-        const nh = img.naturalHeight || img.height || 300;
-        const sx = nw * 0.15;
-        const sy = nh * 0.15;
-        const sw = nw * 0.70;
-        const sh = nh * 0.70;
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
-
-        const imgData = ctx.getImageData(0, 0, size, size);
-        const data = imgData.data;
-        const total = size * size;
-
-        let soupBroth = 0;
-        let noodleYellow = 0;
-        let curryBrown = 0;
-        let saladGreen = 0;
-        let friedCrispy = 0;
-        let redMeat = 0;
-        let whiteRice = 0;
-        let sweetBerry = 0;
-        let tomatoRed = 0;
-        let cheeseYellow = 0;
-        let salmonOrange = 0;
-
-        for (let i = 0; i < data.length; i += 4) {
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-
-          const max = Math.max(r, g, b);
-          const min = Math.min(r, g, b);
-          const diff = max - min;
-          const s = max === 0 ? 0 : diff / max;
-          const v = max / 255;
-
-          let h = 0;
-          if (diff !== 0) {
-            if (max === r) h = ((g - b) / diff) % 6;
-            else if (max === g) h = (b - r) / diff + 2;
-            else h = (r - g) / diff + 4;
-            h = h * 60;
-            if (h < 0) h += 360;
-          }
-
-          // ラーメンの醤油・豚骨スープ（液体の濃い琥珀〜茶色）
-          if (h >= 24 && h <= 42 && s >= 0.40 && s <= 0.88 && v >= 0.28 && v <= 0.78) {
-            soupBroth++;
-          }
-          // ラーメンの黄色い麺・煮卵
-          if (h >= 44 && h <= 64 && s >= 0.25 && s <= 0.70 && v >= 0.60) {
-            noodleYellow++;
-          }
-          // 本物のカレールー (非常に濃厚な黄褐色・高彩度・低明度 ※木製トレーや影との混同を防止)
-          if (h >= 18 && h <= 35 && s >= 0.65 && v >= 0.15 && v <= 0.42) {
-            curryBrown++;
-          }
-          // サラダの鮮やかな緑色
-          if (h >= 75 && h <= 165 && s > 0.25 && v > 0.25) {
-            saladGreen++;
-          }
-          // から揚げ・フライのきつね色の揚げ衣
-          if (h >= 22 && h <= 40 && s >= 0.50 && s <= 0.85 && v >= 0.35 && v <= 0.72) {
-            friedCrispy++;
-          }
-          // 焼肉（カルビ・ロース・ハラミの生肉赤色＆焼き色）・牛肉・豚肉・赤身肉
-          if (((h >= 340 || h <= 18) && s >= 0.22 && v >= 0.28) || (h >= 10 && h <= 28 && s >= 0.35 && v >= 0.18 && v <= 0.58)) {
-            redMeat++;
-          }
-          // 白ご飯・トーストのクラム・生クリーム
-          if (s < 0.18 && v > 0.72) {
-            whiteRice++;
-          }
-          // ピザのトマトソース・赤色
-          if ((h >= 350 || h <= 14) && s > 0.45 && v > 0.40) {
-            tomatoRed++;
-          }
-          // ピザの溶けたチーズ
-          if (h >= 40 && h <= 55 && s >= 0.35 && s <= 0.68 && v >= 0.65) {
-            cheeseYellow++;
-          }
-          // サーモン・マグロ・寿司ネタ
-          if (h >= 12 && h <= 25 && s >= 0.55 && v >= 0.45) {
-            salmonOrange++;
-          }
-          // スイーツ・ベリー・洋菓子のピンク/赤
-          if ((h >= 325 && h <= 350) && s > 0.40 && v > 0.50) {
-            sweetBerry++;
-          }
-        }
-
-        const pSalad = saladGreen / total;
-        const pCurry = curryBrown / total;
-        const pRice = whiteRice / total;
-        const pBroth = soupBroth / total;
-        const pNoodle = noodleYellow / total;
-        const pFried = friedCrispy / total;
-        const pMeat = redMeat / total;
-        const pTomato = tomatoRed / total;
-        const pCheese = cheeseYellow / total;
-        const pSalmon = salmonOrange / total;
-        const pBerry = sweetBerry / total;
-
-        const scores = {};
-
-        // 焼肉定食・肉料理: お肉8%以上 (白ご飯があればさらに定食スコア加算)
-        if (pMeat >= 0.08) {
-          scores.yakiniku = pMeat * 2.2 + (pRice >= 0.05 ? pRice * 1.2 : 0);
-        }
-        // サラダ: 緑が12%以上
-        if (pSalad >= 0.12) scores.salad = pSalad * 2.0;
-        // カレー: ルー10%以上かつライス8%以上 (※お肉プレートがある場合は焼肉定食を優先)
-        if (pCurry >= 0.10 && pRice >= 0.08 && pMeat < 0.08) {
-          scores.curry = pCurry * 1.5 + pRice * 0.8;
-        }
-        // ラーメン: 麺8%以上かつスープ8%以上の【両方】が揃っている場合のみ！
-        if (pNoodle >= 0.08 && pBroth >= 0.08) scores.ramen = pBroth * 1.0 + pNoodle * 1.0;
-        // ピザ・パスタ: トマト赤6%以上かつチーズ6%以上
-        if (pTomato >= 0.06 && pCheese >= 0.06) scores.pizza_pasta = pTomato * 1.2 + pCheese * 1.0;
-        // 寿司・海鮮: 魚ネタ6%以上かつ白米10%以上
-        if (pSalmon >= 0.06 && pRice >= 0.10) scores.sushi = pSalmon * 1.4 + pRice * 0.8;
-        // から揚げ・揚げ物: 揚げ衣16%以上
-        if (pFried >= 0.16) scores.karaage = pFried * 1.2;
-        // ケーキ・スイーツ: ベリー赤/ピンク4%以上かつクリーム白10%以上
-        if (pBerry >= 0.04 && pRice >= 0.10) scores.cake = pBerry * 1.5 + pRice * 0.8;
-
-        console.log("Canvas Food CV Scores:", scores);
-
-        let bestCategory = null;
-        let maxScore = 0;
-        for (const [cat, score] of Object.entries(scores)) {
-          if (score > maxScore) {
-            maxScore = score;
-            bestCategory = cat;
-          }
-        }
-
-        if (maxScore >= 0.22) {
-          return { category: bestCategory, score: maxScore };
-        }
-        return null;
-      } catch (e) {
-        console.warn("Canvas food analysis exception:", e);
-        return null;
-      }
-    }
-
-    // MobileNetクラス名から多岐にわたる料理カテゴリを特定
-    function mapMobileNetPredictionToCategory(preds) {
-      if (!preds || !preds.length) return null;
-      const classNames = preds.map(p => (p.className || "").toLowerCase());
-
-      // 1. お盆 (tray) やお皿 (dish/plate) + お肉関連クラスが上位にある場合は日本の「定食・焼肉定食」
-      const hasTray = classNames.some(c => c.includes("tray") || c.includes("dish") || c.includes("plate"));
-      const hasMeatInTop = classNames.some(c => 
-        c.includes("meat loaf") || c.includes("steak") || c.includes("beef") || 
-        c.includes("pork") || c.includes("rib") || c.includes("chop") || 
-        c.includes("roast") || c.includes("grill") || c.includes("barbecue")
-      );
-      if (hasTray && hasMeatInTop) {
-        return "yakiniku";
-      }
-
-      for (const pred of preds) {
-        const name = (pred.className || "").toLowerCase();
-        const prob = pred.probability || 0;
-        if (prob < 0.02) continue; // 低信頼度のノイズは除外
-
-        // 焼肉・ステーキ・肉料理定食
-        if (name.includes("meat loaf") || name.includes("steak") || name.includes("beefsteak") || 
-            name.includes("sirloin") || name.includes("pork chop") || name.includes("rib") || 
-            name.includes("barbecue") || name.includes("grill") || name.includes("pot roast") || 
-            name.includes("tenderloin") || name.includes("cutlet")) {
-          return "yakiniku";
-        }
-        // 寿司・刺身
-        if (name.includes("sushi") || name.includes("sashimi")) return "sushi";
-        // ピザ
-        if (name.includes("pizza")) return "pizza";
-        // ハンバーガー
-        if (name.includes("cheeseburger") || name.includes("hamburger") || name.includes("burger")) return "burger";
-        // サラダ・野菜
-        if (name.includes("salad") || name.includes("coleslaw") || name.includes("lettuce") || name.includes("cucumber") || name.includes("broccoli") || name.includes("cauliflower") || name.includes("zucchini")) return "salad";
-        // パスタ・スパゲッティ
-        if (name.includes("carbonara") || name.includes("spaghetti") || name.includes("pasta")) return "pasta";
-        // カレー・シチュー
-        if (name.includes("curry") || name.includes("stew")) return "curry";
-        // パン・サンドイッチ
-        if (name.includes("sandwich") || name.includes("bagel") || name.includes("croissant") || name.includes("bread") || name.includes("french loaf") || name.includes("pretzel") || name.includes("toast")) return "bread";
-        // 揚げ物・唐揚げ
-        if (name.includes("fried chicken") || name.includes("chicken wing") || name.includes("nugget") || name.includes("tempura")) return "karaage";
-        // ケーキ・洋菓子・スイーツ
-        if (name.includes("cake") || name.includes("chocolate sauce") || name.includes("ice cream") || name.includes("waffle") || name.includes("pancake") || name.includes("muffin") || name.includes("custard") || name.includes("bakery") || name.includes("doughnut") || name.includes("tart")) return "cake";
-        // フルーツ・果物
-        if (name.includes("banana") || name.includes("apple") || name.includes("orange") || name.includes("strawberry") || name.includes("grape") || name.includes("lemon") || name.includes("pineapple")) return "fruit";
-        // コーヒー・カフェ・飲み物
-        if (name.includes("espresso") || name.includes("coffee") || name.includes("cappuccino") || name.includes("cup") || name.includes("mug") || name.includes("tea") || name.includes("beverage")) return "coffee";
-        // ラーメン・麺類・スープ（明確なもの）
-        if (name.includes("ramen") || name.includes("noodle") || name.includes("soup bowl") || name.includes("consomme") || name.includes("hot pot")) return "ramen";
-        // 丼・ライスボウル
-        if (name.includes("rice bowl") || name.includes("bowl")) return "donburi";
-      }
-      return null;
     }
 
     // ==================== MealAI 高精度料理候補TOP4生成 ====================
@@ -2025,12 +1803,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // グローバルアクセス・テスト用エクスポート
-    window.analyzeFoodImageWithCanvas = analyzeFoodImageWithCanvas;
-    window.mapMobileNetPredictionToCategory = mapMobileNetPredictionToCategory;
     window.getAskenCandidates = getAskenCandidates;
 
-    // 解析開始演出 ＆ AI画像認識・候補自動特定
-    async function startPhotoAnalysis(imageSrc, presetData, fileName, sourceImg) {
+    // 解析開始演出 ＆ Google Gemini AI画像認識（旧検出は完全廃止しGeminiに一本化）
+    async function startPhotoAnalysis(imageSrc, presetData, fileName) {
       if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
       if (cameraContainer) cameraContainer.classList.add("hidden");
       if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
@@ -2042,81 +1818,51 @@ document.addEventListener("DOMContentLoaded", () => {
       scanOverlay.classList.remove("hidden");
       scanLaserLine.classList.remove("hidden");
       scanResultArea.classList.add("hidden");
-      scanStatusText.textContent = "AIが写真から料理とカロリーを分析中...";
 
-      const slot = document.getElementById("recordTargetSlot")?.value || "breakfast";
-
-      let detectedCategory = null;
+      const slot = document.getElementById("recordTargetSlot")?.value || "lunch";
       let geminiRes = null;
-      let imgForAnalysis = sourceImg;
-      if (!imgForAnalysis) {
-        imgForAnalysis = new Image();
-        imgForAnalysis.src = imageSrc;
-        if (!imgForAnalysis.complete) {
-          await new Promise(r => { imgForAnalysis.onload = imgForAnalysis.onerror = r; });
-        }
-      }
 
-      // 1. Google Gemini AIキーがある場合（最優先・超高精度実行）
-      if (geminiApiKey && !presetData) {
+      if (presetData) {
+        scanStatusText.textContent = "サンプル料理データを読み込み中...";
+        await new Promise(r => setTimeout(r, 200));
+      } else if (geminiApiKey) {
         scanStatusText.textContent = "Google Gemini AIが料理・副菜・カロリーを精密解析中...";
         geminiRes = await analyzeWithGeminiVision(imageSrc);
+      } else {
+        scanStatusText.textContent = "AI解析準備完了";
+        await new Promise(r => setTimeout(r, 150));
       }
-
-      // 2. Geminiキーがない、または解析失敗時のローカルAIフォールバック
-      if (!geminiRes) {
-        if (!window.mobilenetModel && window.mobilenet) {
-          scanStatusText.textContent = "AIエンジンで分析中...";
-          try {
-            const loadPromise = window.mobilenet.load({ version: 2, alpha: 1.0 });
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 1500));
-            window.mobilenetModel = await Promise.race([loadPromise, timeoutPromise]);
-          } catch (e) {
-            console.warn("MobileNet load timeout:", e);
-          }
-        }
-
-        if (window.mobilenetModel && imgForAnalysis && imgForAnalysis.naturalWidth) {
-          try {
-            const preds = await window.mobilenetModel.classify(imgForAnalysis, 10);
-            console.log("MobileNet predictions:", preds);
-            const mlCat = mapMobileNetPredictionToCategory(preds);
-            if (mlCat) {
-              detectedCategory = mlCat;
-              console.log("Detected category by MobileNet ML:", detectedCategory);
-            }
-          } catch (e) {
-            console.warn("MobileNet inference exception:", e);
-          }
-        }
-
-        if (!detectedCategory && imgForAnalysis && imgForAnalysis.naturalWidth) {
-          const cvRes = analyzeFoodImageWithCanvas(imgForAnalysis);
-          if (cvRes) {
-            detectedCategory = cvRes.category;
-            console.log("Detected food category by Canvas CV:", detectedCategory);
-          }
-        }
-      }
-
-      await new Promise(r => setTimeout(r, geminiRes ? 150 : 350));
 
       scanOverlay.classList.add("hidden");
       scanLaserLine.classList.add("hidden");
 
-      let candidateResult = getAskenCandidates(slot, detectedCategory, fileName);
-      let candidates = candidateResult.candidates;
-      let label = candidateResult.label;
+      let candidates = [];
+      let label = "";
 
       if (presetData) {
-        candidates = [{ rank: 1, ...presetData }, ...candidates.slice(0, 3).map((item, i) => ({ ...item, rank: i + 2 }))];
+        candidates = [{ rank: 1, ...presetData }];
         label = `📸 ${presetData.name} (サンプル)`;
       } else if (geminiRes) {
-        candidates = [{ rank: 1, ...geminiRes }, ...candidates.slice(0, 3).map((item, i) => ({ ...item, rank: i + 2 }))];
+        candidates = [{ rank: 1, ...geminiRes }];
         label = `⚡ Google Gemini AI特定：${geminiRes.name}`;
+      } else {
+        // キー未設定時：Geminiキーの登録案内
+        label = "🔑 Gemini AIキー未設定（無料キーの登録で全自動特定）";
+        candidates = [
+          {
+            rank: 1,
+            name: "下の検索バーで料理名を入力して記録",
+            calories: 550,
+            p: 22.0,
+            f: 18.0,
+            c: 70.0,
+            icon: "🔍",
+            advice: "💡 上の「Google AI設定」から無料キー（クレカ不要）を保存すると、次回から写真を撮るだけで焼肉定食や副菜まで95%以上で自動判定されます。"
+          }
+        ];
       }
 
-      renderAskenCandidates(candidates, imageSrc, label, detectedCategory, slot);
+      renderAskenCandidates(candidates, imageSrc, label, null, slot);
       selectCandidate(candidates[0], imageSrc);
 
       scanResultArea.classList.remove("hidden");
@@ -2134,12 +1880,28 @@ document.addEventListener("DOMContentLoaded", () => {
       container.innerHTML = "";
 
       if (detectedLabel) {
+        const isNotSet = detectedLabel.includes("未設定");
         const headerBadge = document.createElement("div");
-        headerBadge.className = "flex items-center space-x-2 bg-emerald-100/90 border border-emerald-300 px-3 py-2 rounded-xl text-emerald-950 font-bold text-xs shadow-2xs mb-2";
-        headerBadge.innerHTML = `
-          <i class="fa-solid fa-wand-magic-sparkles text-emerald-600 text-sm shrink-0"></i>
-          <span>AI解析判定：<strong>${detectedLabel}</strong></span>
-        `;
+        headerBadge.className = isNotSet
+          ? "flex items-center justify-between bg-amber-50 border border-amber-300 px-3 py-2 rounded-xl text-amber-950 font-bold text-xs shadow-2xs mb-2"
+          : "flex items-center space-x-2 bg-emerald-100/90 border border-emerald-300 px-3 py-2 rounded-xl text-emerald-950 font-bold text-xs shadow-2xs mb-2";
+
+        if (isNotSet) {
+          headerBadge.innerHTML = `
+            <div class="flex items-center space-x-2 min-w-0">
+              <i class="fa-solid fa-bolt text-amber-600 text-sm shrink-0"></i>
+              <span class="truncate">Google AI（Gemini）キー未設定</span>
+            </div>
+            <button type="button" onclick="window.toggleGeminiDrawer && window.toggleGeminiDrawer(); document.getElementById('geminiIntegrationCard')?.scrollIntoView({behavior:'smooth'});" class="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold shrink-0 cursor-pointer transition">
+              設定を開く（無料）
+            </button>
+          `;
+        } else {
+          headerBadge.innerHTML = `
+            <i class="fa-solid fa-wand-magic-sparkles text-emerald-600 text-sm shrink-0"></i>
+            <span>AI解析判定：<strong>${detectedLabel}</strong></span>
+          `;
+        }
         container.appendChild(headerBadge);
       }
 
@@ -2278,7 +2040,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const queryLower = val.toLowerCase();
           const dbMatches = (window.WORLD_FOOD_DATABASE || []).filter(item => {
             return item.name.toLowerCase().includes(queryLower) ||
-                   (item.country && item.country.toLowerCase().includes(queryLower));
+              (item.country && item.country.toLowerCase().includes(queryLower));
           }).slice(0, 4);
 
           // 2. もしデータベースにない未知の料理なら「動的AI推計エンジン」で即時生成！
@@ -2340,15 +2102,15 @@ document.addEventListener("DOMContentLoaded", () => {
         dedCal = isNoodle ? 75 : 20;
         dedF = isNoodle ? 4 : 1;
         badgeText = `半分残し (-${dedCal} kcal)`;
-        adviceText = isNoodle 
-          ? "💡 スープを半分残して約75kcal＆塩分カット！満足感をキープしながら賢くカロリーオフできました。" 
+        adviceText = isNoodle
+          ? "💡 スープを半分残して約75kcal＆塩分カット！満足感をキープしながら賢くカロリーオフできました。"
           : "💡 汁物を半分残して塩分・余分な脂質をカットしました。";
       } else if (level === 'none') {
         dedCal = isNoodle ? 150 : 35;
         dedF = isNoodle ? 8 : 2;
         badgeText = `麺・具のみ (-${dedCal} kcal)`;
-        adviceText = isNoodle 
-          ? "✨ スープを飲まずに麺と具のみ完食！約150kcal＆余分な脂質・塩分を大幅カットし、ダイエット効果抜群です！" 
+        adviceText = isNoodle
+          ? "✨ スープを飲まずに麺と具のみ完食！約150kcal＆余分な脂質・塩分を大幅カットし、ダイエット効果抜群です！"
           : "✨ 具材のみ食べて汁を残し、塩分と余分なカロリーをしっかり抑えました！";
       }
 
@@ -2483,8 +2245,8 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        const matched = MEAL_DATABASE.filter(item => 
-          item.name.toLowerCase().includes(query) || 
+        const matched = MEAL_DATABASE.filter(item =>
+          item.name.toLowerCase().includes(query) ||
           (item.storeName && item.storeName.toLowerCase().includes(query)) ||
           (item.tags && item.tags.some(t => t.toLowerCase().includes(query)))
         ).slice(0, 10);
@@ -2524,7 +2286,7 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("resultF").textContent = `${f}g`;
             document.getElementById("resultC").textContent = `${c}g`;
             document.getElementById("resultAdvice").textContent = `✨ 食品DB「${name}」の正確な栄養成分 (${cal}kcal) を適用しました！`;
-            
+
             if (currentScanItem) {
               currentScanItem.name = name;
               currentScanItem.calories = cal;
@@ -2618,7 +2380,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const raw = localStorage.getItem(`mealai_records_${dayStr}`);
           if (raw) dayRecords = JSON.parse(raw);
-        } catch (e) {}
+        } catch (e) { }
 
         let dayCalories = 0;
         let hasAnyRecord = false;
@@ -2639,8 +2401,8 @@ document.addEventListener("DOMContentLoaded", () => {
           totalTargetCalories += targetPerDay;
 
           const isUnder = dayCalories <= targetPerDay;
-          dayCell.className += isUnder 
-            ? " bg-emerald-50/80 border-emerald-300 hover:bg-emerald-100" 
+          dayCell.className += isUnder
+            ? " bg-emerald-50/80 border-emerald-300 hover:bg-emerald-100"
             : " bg-rose-50/80 border-rose-300 hover:bg-rose-100";
 
           dayCell.innerHTML = `
@@ -2649,8 +2411,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="w-1.5 h-1.5 rounded-full ${isUnder ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
           `;
         } else {
-          dayCell.className += isToday 
-            ? " bg-teal-50/60 border-teal-300 font-bold" 
+          dayCell.className += isToday
+            ? " bg-teal-50/60 border-teal-300 font-bold"
             : " bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-400";
           dayCell.innerHTML = `
             <span class="text-[11px] ${isToday ? 'text-teal-700 font-bold' : 'text-slate-600'}">${day}</span>
