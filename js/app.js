@@ -53,6 +53,12 @@ document.addEventListener("DOMContentLoaded", () => {
       snack: "all",
       drink: "all"
     },
+    // 体重履歴記録 (YYYY-MM-DD: kg)
+    weights: {},
+    // 獲得した実績バッジ一覧
+    badges: [],
+    // 今日の合計摂取栄養素
+    eatenNutrients: { cal: 0, p: 0, f: 0, c: 0 },
 
     // 日付管理 (YYYY-MM-DD)
     currentDate: getTodayString(),
@@ -75,15 +81,83 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${year}-${month}-${day}`;
   }
 
+  // 実績バッジ一覧定義
+  const ACHIEVEMENTS_LIST = [
+    {
+      id: "first_meal",
+      icon: "🌟",
+      title: "はじめの一歩",
+      desc: "初めて食事を記録した",
+      eval: (s) => Object.values(s.records || {}).some(Boolean) || (s.weights && Object.keys(s.weights).length > 0)
+    },
+    {
+      id: "streak_3",
+      icon: "🔥",
+      title: "3日連続マスター",
+      desc: "3日間続けて食事または体重を記録",
+      eval: (s) => (s.weights && Object.keys(s.weights).length >= 3)
+    },
+    {
+      id: "streak_7",
+      icon: "👑",
+      title: "1週間継続の英雄",
+      desc: "7日分以上の記録を積み重ねた",
+      eval: (s) => (s.weights && Object.keys(s.weights).length >= 7)
+    },
+    {
+      id: "protein_master",
+      icon: "🥩",
+      title: "たんぱく質マスター",
+      desc: "1日のたんぱく質目標の80%以上を摂取",
+      eval: (s) => s.eatenNutrients && s.metrics.pfc && s.metrics.pfc.p > 0 && s.eatenNutrients.p >= (s.metrics.pfc.p * 0.8)
+    },
+    {
+      id: "weight_down",
+      icon: "⚖️",
+      title: "体重マイナス突破",
+      desc: "記録開始時より体重が減少した",
+      eval: (s) => {
+        if (!s.weights) return false;
+        const keys = Object.keys(s.weights).sort();
+        if (keys.length < 2) return false;
+        return s.weights[keys[keys.length - 1]] < s.weights[keys[0]];
+      }
+    },
+    {
+      id: "cal_just",
+      icon: "🎯",
+      title: "カロリージャスト",
+      desc: "目標カロリーの±100kcal以内で管理",
+      eval: (s) => s.eatenNutrients && s.eatenNutrients.cal > 500 && Math.abs(s.eatenNutrients.cal - s.metrics.targetCal) <= 100
+    },
+    {
+      id: "cheat_master",
+      icon: "🍕",
+      title: "賢いチートデイ",
+      desc: "チートデイ機能を活用してリフレッシュ",
+      eval: (s) => s.isCheatDay
+    },
+    {
+      id: "mascot_evo",
+      icon: "🌸",
+      title: "モグ丸の進化",
+      desc: "モグ丸がLv.2以上の進化形態に成長",
+      eval: (s) => typeof calculateMascotEvolutionLevel === 'function' ? calculateMascotEvolutionLevel() >= 2 : false
+    }
+  ];
+
   // 初期化
   init();
 
   function init() {
     loadUserFromStorage();
     loadRecordsFromStorage();
+    loadWeightsFromStorage();
+    loadBadgesFromStorage();
     calculateAllMetrics();
     generateFullDayPlan();
     setupEventListeners();
+    setupFeatureModules();
     updateUI();
   }
 
@@ -195,10 +269,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateUI() {
     renderDateBar();
     renderTopBmrPanel();
+    renderWeightWidget();
     renderProfileModalValues();
     renderPlanSummary();
     renderMealSlots();
     renderStatusBanner();
+    checkAndRenderBadges();
   }
 
   function renderDateBar() {
@@ -280,6 +356,8 @@ document.addEventListener("DOMContentLoaded", () => {
         eatenC += rec.c;
       }
     });
+
+    state.eatenNutrients = { cal: eatenCal, p: eatenP, f: eatenF, c: eatenC };
 
     const remainingCal = targetCal - eatenCal;
 
@@ -3730,5 +3808,505 @@ document.addEventListener("DOMContentLoaded", () => {
       speechEl.textContent = `順調だよ！あと ${Math.round(remCal).toLocaleString()} kcal 食べられるよ🌱`;
     }
   }
+
+  // ===================== 新機能モジュール: 体重記録・図鑑・今日の通知表 =====================
+  function setupFeatureModules() {
+    // 1. 体重記録
+    const saveWeightBtn = document.getElementById("saveQuickWeightBtn");
+    const weightInput = document.getElementById("quickWeightInput");
+    if (saveWeightBtn) saveWeightBtn.addEventListener("click", saveCurrentWeight);
+    if (weightInput) {
+      weightInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") saveCurrentWeight();
+      });
+    }
+
+    // 体重グラフモーダル開閉
+    document.getElementById("openWeightChartBtn")?.addEventListener("click", () => window.openWeightChartModal());
+    document.getElementById("closeWeightChartBtn")?.addEventListener("click", () => window.closeWeightChartModal());
+    const weightModal = document.getElementById("weightChartModal");
+    if (weightModal) {
+      weightModal.addEventListener("click", (e) => {
+        if (e.target === weightModal) window.closeWeightChartModal();
+      });
+    }
+
+    // 2. モグ丸の称号・実績バッジ図鑑モーダル開閉
+    document.getElementById("openBadgesBtn")?.addEventListener("click", () => window.openBadgesModal());
+    document.getElementById("closeBadgesBtn")?.addEventListener("click", () => window.closeBadgesModal());
+    const badgesModal = document.getElementById("badgesModal");
+    if (badgesModal) {
+      badgesModal.addEventListener("click", (e) => {
+        if (e.target === badgesModal) window.closeBadgesModal();
+      });
+    }
+
+    // 3. 本日のAI総評レビュー（今日の通知表）モーダル開閉
+    document.getElementById("openDailyReviewBtn")?.addEventListener("click", () => window.openDailyReviewModal());
+    document.getElementById("closeDailyReviewBtn")?.addEventListener("click", () => window.closeDailyReviewModal());
+    document.getElementById("closeDailyReviewFooterBtn")?.addEventListener("click", () => window.closeDailyReviewModal());
+    const dailyReviewModal = document.getElementById("dailyReviewModal");
+    if (dailyReviewModal) {
+      dailyReviewModal.addEventListener("click", (e) => {
+        if (e.target === dailyReviewModal) window.closeDailyReviewModal();
+      });
+    }
+  }
+
+  // --- 体重記録ロジック ---
+  function loadWeightsFromStorage() {
+    try {
+      const saved = localStorage.getItem("mealai_weights");
+      state.weights = saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      state.weights = {};
+    }
+  }
+
+  function saveWeightsToStorage() {
+    try {
+      localStorage.setItem("mealai_weights", JSON.stringify(state.weights));
+    } catch (e) {}
+  }
+
+  function renderWeightWidget() {
+    const input = document.getElementById("quickWeightInput");
+    const diffBadge = document.getElementById("weightDiffBadge");
+    const summary = document.getElementById("weightHistorySummary");
+    if (!input || !diffBadge || !summary) return;
+
+    const todayWeight = state.weights[state.currentDate];
+    if (todayWeight !== undefined) {
+      input.value = todayWeight;
+      const prevDate = getPreviousRecordedDate(state.currentDate);
+      if (prevDate && state.weights[prevDate] !== undefined) {
+        const diff = Number((todayWeight - state.weights[prevDate]).toFixed(1));
+        if (diff < 0) {
+          diffBadge.textContent = `前日比 ${diff}kg 🎉`;
+          diffBadge.className = "text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200";
+          summary.textContent = `前日より ${Math.abs(diff)}kg 減量！ナイスペース🌱`;
+        } else if (diff > 0) {
+          diffBadge.textContent = `前日比 +${diff}kg`;
+          diffBadge.className = "text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200";
+          summary.textContent = `水分やむくみもあるので焦らずいこう🌱`;
+        } else {
+          diffBadge.textContent = `前日比 ±0.0kg`;
+          diffBadge.className = "text-[10px] text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200";
+          summary.textContent = `体重キープ！安定したコントロールです`;
+        }
+      } else {
+        diffBadge.textContent = "記録済み";
+        diffBadge.className = "text-[10px] text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200";
+        summary.textContent = `本日記録済み（${todayWeight}kg）`;
+      }
+    } else {
+      input.value = state.user.weight || 70;
+      diffBadge.textContent = "未記録";
+      diffBadge.className = "text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200";
+      summary.textContent = "今日の体重を入力して記録しよう🌱";
+    }
+  }
+
+  function getPreviousRecordedDate(currentDateStr) {
+    const dates = Object.keys(state.weights).filter(d => d < currentDateStr).sort();
+    return dates.length > 0 ? dates[dates.length - 1] : null;
+  }
+
+  function saveCurrentWeight() {
+    const input = document.getElementById("quickWeightInput");
+    if (!input) return;
+    const val = parseFloat(input.value);
+    if (isNaN(val) || val < 20 || val > 300) {
+      alert("正しい体重を入力してください（20kg〜300kg）");
+      return;
+    }
+
+    const prevDate = getPreviousRecordedDate(state.currentDate);
+    const prevWeight = prevDate ? state.weights[prevDate] : (state.user.weight || val);
+    const diff = Number((val - prevWeight).toFixed(1));
+
+    state.weights[state.currentDate] = val;
+    saveWeightsToStorage();
+
+    // ユーザー情報と基礎代謝・TDEEの自動更新
+    state.user.weight = val;
+    calculateAllMetrics();
+    saveUserToStorage();
+
+    // モグ丸のリアクション
+    const speechEl = document.getElementById("mascotSpeech");
+    if (diff < 0) {
+      if (speechEl) {
+        speechEl.textContent = `昨日より ${Math.abs(diff)}kg 減ってる！🎉 すごい、この調子だよ〜🌱`;
+      }
+      playMascotChime("celebrate");
+      spawnMascotParticles(true);
+    } else if (diff > 0) {
+      if (speechEl) {
+        speechEl.textContent = `体重記録ありがとう！水分やむくみもあるから焦らずマイペースにいこうね🌱`;
+      }
+      playMascotChime("normal");
+      spawnMascotParticles(false);
+    } else {
+      if (speechEl) {
+        speechEl.textContent = `体重記録完了！現状維持ナイスコントロール🌱`;
+      }
+      playMascotChime("normal");
+      spawnMascotParticles(false);
+    }
+
+    updateUI();
+  }
+
+  window.openWeightChartModal = function () {
+    const modal = document.getElementById("weightChartModal");
+    if (!modal) return;
+    renderWeightChart();
+    modal.classList.remove("hidden");
+    modal.style.display = "flex";
+  };
+
+  window.closeWeightChartModal = function () {
+    const modal = document.getElementById("weightChartModal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+  };
+
+  function renderWeightChart() {
+    const container = document.getElementById("weightSvgChartContainer");
+    const curWeightEl = document.getElementById("chartCurrentWeight");
+    const diffEl = document.getElementById("chartWeightDiff");
+    const paceEl = document.getElementById("chartTargetPace");
+    const historyList = document.getElementById("weightHistoryList");
+
+    const sortedDates = Object.keys(state.weights).sort();
+    let currentWeight = state.user.weight || 70;
+    let startWeight = currentWeight;
+
+    if (sortedDates.length > 0) {
+      currentWeight = state.weights[sortedDates[sortedDates.length - 1]];
+      startWeight = state.weights[sortedDates[0]];
+    }
+
+    const totalDiff = Number((currentWeight - startWeight).toFixed(1));
+    if (curWeightEl) curWeightEl.textContent = `${currentWeight.toFixed(1)} kg`;
+    if (diffEl) {
+      diffEl.textContent = totalDiff <= 0 ? `${totalDiff} kg` : `+${totalDiff} kg`;
+      diffEl.className = totalDiff <= 0
+        ? "text-sm sm:text-base font-black text-emerald-700 font-mono"
+        : "text-sm sm:text-base font-black text-amber-700 font-mono";
+    }
+    if (paceEl) {
+      const p = parseFloat(state.user.pace) || 0;
+      paceEl.textContent = p === 0 ? "現状維持 (±0kg)" : `月 -${p.toFixed(1)}kg`;
+    }
+
+    // 履歴リスト
+    if (historyList) {
+      if (sortedDates.length === 0) {
+        historyList.innerHTML = `<p class="text-slate-400 text-center py-3">まだ体重記録がありません。「記録」ボタンから入力してみましょう！</p>`;
+      } else {
+        const recentDates = sortedDates.slice(-7).reverse();
+        historyList.innerHTML = recentDates.map((date, idx) => {
+          const w = state.weights[date];
+          const nextDate = recentDates[idx + 1];
+          let diffBadgeHtml = "";
+          if (nextDate && state.weights[nextDate] !== undefined) {
+            const d = Number((w - state.weights[nextDate]).toFixed(1));
+            diffBadgeHtml = d <= 0
+              ? `<span class="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">${d}kg</span>`
+              : `<span class="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">+${d}kg</span>`;
+          }
+          return `
+            <div class="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+              <span class="text-slate-600 font-medium">${date}</span>
+              <div class="flex items-center space-x-2">
+                ${diffBadgeHtml}
+                <span class="font-black text-slate-800 font-mono">${w.toFixed(1)} kg</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    // SVG グラフ描画
+    if (container) {
+      let chartPoints = sortedDates.slice(-14).map(d => ({ date: d.slice(5), weight: state.weights[d] }));
+      if (chartPoints.length === 0) {
+        chartPoints = [
+          { date: "開始", weight: currentWeight + 0.8 },
+          { date: "今日", weight: currentWeight }
+        ];
+      } else if (chartPoints.length === 1) {
+        chartPoints.unshift({ date: "開始", weight: chartPoints[0].weight + 0.5 });
+      }
+
+      const weightsArr = chartPoints.map(p => p.weight);
+      const minW = Math.min(...weightsArr) - 0.5;
+      const maxW = Math.max(...weightsArr) + 0.5;
+      const rangeW = maxW - minW || 1;
+
+      const width = 360;
+      const height = 180;
+      const padding = { top: 20, right: 25, bottom: 30, left: 35 };
+
+      const getX = (i) => padding.left + (i / (chartPoints.length - 1)) * (width - padding.left - padding.right);
+      const getY = (w) => height - padding.bottom - ((w - minW) / rangeW) * (height - padding.top - padding.bottom);
+
+      const pathData = chartPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.weight)}`).join(" ");
+      const areaPathData = `${pathData} L ${getX(chartPoints.length - 1)} ${height - padding.bottom} L ${getX(0)} ${height - padding.bottom} Z`;
+
+      const dotsHtml = chartPoints.map((p, i) => `
+        <circle cx="${getX(i)}" cy="${getY(p.weight)}" r="4.5" fill="#10b981" stroke="#ffffff" stroke-width="2"/>
+        <text x="${getX(i)}" y="${getY(p.weight) - 8}" text-anchor="middle" fill="#34d399" font-size="10" font-weight="bold">${p.weight.toFixed(1)}</text>
+        <text x="${getX(i)}" y="${height - 10}" text-anchor="middle" fill="#94a3b8" font-size="9">${p.date}</text>
+      `).join("");
+
+      container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" class="w-full h-full overflow-visible">
+          <defs>
+            <linearGradient id="chartAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+            </linearGradient>
+          </defs>
+          <line x1="${padding.left}" y1="${getY(minW)}" x2="${width - padding.right}" y2="${getY(minW)}" stroke="#334155" stroke-dasharray="3,3" />
+          <line x1="${padding.left}" y1="${getY(maxW)}" x2="${width - padding.right}" y2="${getY(maxW)}" stroke="#334155" stroke-dasharray="3,3" />
+          <path d="${areaPathData}" fill="url(#chartAreaGrad)" />
+          <path d="${pathData}" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          ${dotsHtml}
+        </svg>
+      `;
+    }
+  }
+
+  // --- 実績バッジ図鑑ロジック ---
+
+  function loadBadgesFromStorage() {
+    try {
+      const saved = localStorage.getItem("mealai_badges");
+      state.badges = saved ? JSON.parse(saved) : ["first_meal"];
+    } catch (e) {
+      state.badges = ["first_meal"];
+    }
+  }
+
+  function saveBadgesToStorage() {
+    try {
+      localStorage.setItem("mealai_badges", JSON.stringify(state.badges));
+    } catch (e) {}
+  }
+
+  function checkAndRenderBadges() {
+    ACHIEVEMENTS_LIST.forEach(ach => {
+      if (!state.badges.includes(ach.id)) {
+        if (ach.eval(state)) {
+          state.badges.push(ach.id);
+          saveBadgesToStorage();
+        }
+      }
+    });
+
+    const badgeHeaderCount = document.getElementById("badgeUnlockedCountBadge");
+    if (badgeHeaderCount) {
+      badgeHeaderCount.textContent = state.badges.length;
+    }
+  }
+
+  window.openBadgesModal = function () {
+    const modal = document.getElementById("badgesModal");
+    if (!modal) return;
+
+    checkAndRenderBadges();
+
+    const countEl = document.getElementById("badgesUnlockedCount");
+    if (countEl) countEl.textContent = state.badges.length;
+
+    const currentLevel = calculateMascotEvolutionLevel();
+    const lvlText = currentLevel === 4 ? "Lv.4 キング丸" : currentLevel === 3 ? "Lv.3 アスリート丸" : currentLevel === 2 ? "Lv.2 すっきり丸" : "Lv.1 ぽよ丸";
+    const lvlEl = document.getElementById("badgesModalMascotLevel");
+    if (lvlEl) lvlEl.textContent = lvlText;
+
+    const grid = document.getElementById("badgesGridContainer");
+    if (grid) {
+      grid.innerHTML = ACHIEVEMENTS_LIST.map(ach => {
+        const isUnlocked = state.badges.includes(ach.id);
+        if (isUnlocked) {
+          return `
+            <div class="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/90 shadow-2xs flex items-center space-x-2.5">
+              <span class="text-2xl filter drop-shadow-xs shrink-0">${ach.icon}</span>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1">
+                  <span class="font-bold text-xs text-slate-800 truncate">${ach.title}</span>
+                  <i class="fa-solid fa-circle-check text-emerald-500 text-[11px]"></i>
+                </div>
+                <p class="text-[10px] text-slate-500 truncate">${ach.desc}</p>
+                <span class="text-[9px] text-emerald-700 font-bold bg-emerald-100/80 px-1.5 py-0.2 rounded-full mt-1 inline-block">達成済み！</span>
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="p-3 rounded-2xl bg-slate-100/70 border border-slate-200/80 shadow-2xs flex items-center space-x-2.5 opacity-60">
+              <span class="text-2xl grayscale shrink-0">${ach.icon}</span>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1">
+                  <span class="font-bold text-xs text-slate-700 truncate">${ach.title}</span>
+                  <i class="fa-solid fa-lock text-slate-400 text-[10px]"></i>
+                </div>
+                <p class="text-[10px] text-slate-400 truncate">${ach.desc}</p>
+                <span class="text-[9px] text-slate-500 font-semibold bg-slate-200 px-1.5 py-0.2 rounded-full mt-1 inline-block">未達成</span>
+              </div>
+            </div>
+          `;
+        }
+      }).join("");
+    }
+
+    modal.classList.remove("hidden");
+    modal.style.display = "flex";
+  };
+
+  window.closeBadgesModal = function () {
+    const modal = document.getElementById("badgesModal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+  };
+
+  // --- 今日の通知表 ＆ AI総評レビューロジック ---
+  window.openDailyReviewModal = function () {
+    const modal = document.getElementById("dailyReviewModal");
+    if (!modal) return;
+
+    const eaten = state.eatenNutrients || { cal: 0, p: 0, f: 0, c: 0 };
+    const targetCal = state.metrics.targetCal || 2000;
+    const targetP = (state.metrics.pfc && state.metrics.pfc.p) || 95;
+    const targetF = (state.metrics.pfc && state.metrics.pfc.f) || 45;
+
+    let score = 90;
+    const calDiff = eaten.cal - targetCal;
+    const pRatio = targetP > 0 ? (eaten.p / targetP) : 1;
+    const fRatio = targetF > 0 ? (eaten.f / targetF) : 1;
+
+    // カロリー採点
+    if (Math.abs(calDiff) <= 120) {
+      score += 6;
+    } else if (Math.abs(calDiff) <= 300) {
+      score += 2;
+    } else {
+      score -= 8;
+    }
+
+    // たんぱく質採点
+    if (pRatio >= 0.85) {
+      score += 4;
+    } else {
+      score -= 5;
+    }
+
+    // 脂質採点
+    if (fRatio <= 1.1) {
+      // 良好
+    } else {
+      score -= 4;
+    }
+
+    score = Math.max(65, Math.min(100, Math.round(score)));
+
+    // ランク判定
+    let rank = "S ランク";
+    let stampText = "たいへん<br>よくできました";
+    let verdict = "目標カロリーも栄養バランスもほぼ満点の素晴らしい一日でした！";
+
+    if (score >= 93) {
+      rank = "S ランク";
+      stampText = "たいへん<br>よくできました";
+    } else if (score >= 84) {
+      rank = "A ランク";
+      stampText = "よく<br>できました";
+      verdict = "バランスよく上手にコントロールできています。明日もこの調子をキープ！";
+    } else if (score >= 75) {
+      rank = "B ランク";
+      stampText = "がんばり<br>ました";
+      verdict = "概ね良好です。少し気になる栄養素を明日の食事で意識してみましょう。";
+    } else {
+      rank = "C ランク";
+      stampText = "あした<br>挽回！";
+      verdict = "今日はちょっと息抜きの日。明日からまたモグ丸と一緒に楽しく整えましょう🌱";
+    }
+
+    document.getElementById("reviewScoreNum").textContent = score;
+    document.getElementById("reviewRankBadge").textContent = rank;
+    document.getElementById("reviewStampText").innerHTML = stampText;
+    document.getElementById("reviewScoreVerdict").textContent = verdict;
+    document.getElementById("dailyReviewDateLabel").textContent = `${state.currentDate} のまとめ`;
+
+    // 3大評価項目テキスト
+    const calEl = document.getElementById("reviewCalScore");
+    const calDetailEl = document.getElementById("reviewCalDetail");
+    if (calEl && calDetailEl) {
+      if (Math.abs(calDiff) <= 120) {
+        calEl.textContent = "◎ 適正ペース";
+        calEl.className = "font-bold text-emerald-600 text-xs sm:text-sm";
+      } else if (calDiff > 120) {
+        calEl.textContent = "○ ややオーバー";
+        calEl.className = "font-bold text-amber-600 text-xs sm:text-sm";
+      } else {
+        calEl.textContent = "○ 控えめ";
+        calEl.className = "font-bold text-teal-600 text-xs sm:text-sm";
+      }
+      calDetailEl.textContent = calDiff >= 0 ? `目標比 +${Math.round(calDiff)}kcal` : `目標比 ${Math.round(calDiff)}kcal`;
+    }
+
+    const pEl = document.getElementById("reviewProteinScore");
+    const pDetailEl = document.getElementById("reviewProteinDetail");
+    if (pEl && pDetailEl) {
+      const pPct = Math.round(pRatio * 100);
+      pEl.textContent = pPct >= 85 ? "◎ 目標達成" : "△ やや不足";
+      pEl.className = pPct >= 85 ? "font-bold text-teal-600 text-xs sm:text-sm" : "font-bold text-amber-600 text-xs sm:text-sm";
+      pDetailEl.textContent = `達成率 ${pPct}% (${Math.round(eaten.p)}g / ${Math.round(targetP)}g)`;
+    }
+
+    const fEl = document.getElementById("reviewFatScore");
+    const fDetailEl = document.getElementById("reviewFatDetail");
+    if (fEl && fDetailEl) {
+      fEl.textContent = fRatio <= 1.15 ? "○ 適正範囲" : "△ やや多め";
+      fEl.className = fRatio <= 1.15 ? "font-bold text-emerald-600 text-xs sm:text-sm" : "font-bold text-rose-500 text-xs sm:text-sm";
+      fDetailEl.textContent = `実績 ${Math.round(eaten.f)}g / 目標 ${Math.round(targetF)}g`;
+    }
+
+    // AI/モグ丸からの総評アドバイス
+    const adviceEl = document.getElementById("reviewAdviceText");
+    if (adviceEl) {
+      if (score >= 90) {
+        adviceEl.textContent = "朝・昼・晩とバランスよく記録できて素晴らしい一日でした！モグ丸もとっても元気いっぱいです。明日は水分補給をこまめに意識するとさらに代謝が上がりますよ✨";
+      } else if (pRatio < 0.8) {
+        adviceEl.textContent = "カロリー管理はできていますが、筋肉を守るたんぱく質が少し足りないかも！明日の朝か昼にサラダチキンやゆで卵、プロテインを1品プラスしてみてね🌱";
+      } else if (fRatio > 1.2) {
+        adviceEl.textContent = "脂質が少し多めの一日でした。明日は揚げ物やドレッシングを少し控えて、お魚や具だくさんスープをメインにするとすぐリカバリーできますよ！ファイトです🔥";
+      } else {
+        adviceEl.textContent = "記録をしっかり続けられていること自体がダイエット成功の最大の秘訣！無理のないペースで明日も美味しく健康に食べようね🌱";
+      }
+    }
+
+    const reviewBadge = document.getElementById("dailyReviewBadge");
+    if (reviewBadge) {
+      reviewBadge.textContent = `${score}点 ${rank.split(' ')[0]}`;
+      reviewBadge.className = "bg-emerald-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full";
+    }
+
+    modal.classList.remove("hidden");
+    modal.style.display = "flex";
+  };
+
+  window.closeDailyReviewModal = function () {
+    const modal = document.getElementById("dailyReviewModal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+  };
 });
 

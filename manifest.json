@@ -1,21 +1,21 @@
 {
-  "name": "MealAI - ダイエット食事自動決定サービス",
+  "name": "MealAI - ダイエット食事管理",
   "short_name": "MealAI",
-  "description": "今日の食事をAIが自動決定。無理なく1ヶ月で理想の体型へ。",
+  "description": "AIが毎日の食事とカロリー収支を最適化。モグ丸と一緒に楽しく続くダイエット管理アプリ",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f8fafc",
+  "background_color": "#ffffff",
   "theme_color": "#10b981",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
