@@ -1396,8 +1396,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updateGeminiStatusUI() {
       geminiApiKey = localStorage.getItem("mealai_gemini_key") || "";
-      const isVerified = localStorage.getItem("mealai_gemini_verified");
-      const lastError = localStorage.getItem("mealai_gemini_last_error") || "";
+      let isVerified = localStorage.getItem("mealai_gemini_verified");
+      let lastError = localStorage.getItem("mealai_gemini_last_error") || "";
+
+      // 過去の古い1.5系エラーがブラウザ内に残っている場合は自動クリア
+      if (lastError.includes("1.5-flash") || lastError.includes("gemini-1.5")) {
+        localStorage.removeItem("mealai_gemini_last_error");
+        lastError = "";
+        if (isVerified === "false") {
+          localStorage.removeItem("mealai_gemini_verified");
+          isVerified = null;
+        }
+      }
 
       const modalInput = document.getElementById("geminiModalApiKeyInput");
       const modalBadge = document.getElementById("geminiModalStatusBadge");
