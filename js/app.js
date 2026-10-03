@@ -2334,7 +2334,7 @@ document.addEventListener("DOMContentLoaded", () => {
       scanLaserLine.classList.add("hidden");
 
       // ステップ 1（料理名確認）を表示
-      setupStep1DishUI(currentScanItem, isGeminiSuccess, isPreset);
+      setupStep1DishUI(currentScanItem, isGeminiSuccess, isPreset, geminiRes?.error ? geminiRes?.message : null);
 
       scanResultArea.classList.remove("hidden");
       setTimeout(() => {
@@ -2345,7 +2345,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==================== 2ステップ式 UI制御 ====================
 
     // 【ステップ 1】料理名の確認UIをセットアップ
-    function setupStep1DishUI(meal, isGemini, isPreset) {
+    function setupStep1DishUI(meal, isGemini, isPreset, geminiErrorMsg) {
       const step1Area = document.getElementById("photoStepDishArea");
       const step2Area = document.getElementById("photoStepNutritionArea");
       const badgeText = document.getElementById("stepDishBadgeText");
@@ -2364,11 +2364,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (badgeText) {
         if (isGemini) {
-          badgeText.textContent = "Google Gemini AI特定";
+          badgeText.textContent = "🤖 Google Gemini AI 認識（本物AI稼働中）";
+          if (badgeText.parentElement) {
+            badgeText.parentElement.className = "text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1 shadow-2xs";
+          }
         } else if (isPreset) {
           badgeText.textContent = "サンプル料理";
+          if (badgeText.parentElement) {
+            badgeText.parentElement.className = "text-[10px] text-slate-800 font-bold bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-300 flex items-center gap-1";
+          }
+        } else if (geminiErrorMsg) {
+          badgeText.textContent = "⚡ オフライン色彩解析（API通信エラー）";
+          if (badgeText.parentElement) {
+            badgeText.parentElement.className = "text-[10px] text-amber-800 font-bold bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-300 flex items-center gap-1";
+          }
         } else {
-          badgeText.textContent = "AI高精度ビジュアル特定";
+          badgeText.textContent = "⚡ オフライン色彩解析（AI未設定）";
+          if (badgeText.parentElement) {
+            badgeText.parentElement.className = "text-[10px] text-slate-700 font-bold bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-300 flex items-center gap-1";
+          }
         }
       }
     }
