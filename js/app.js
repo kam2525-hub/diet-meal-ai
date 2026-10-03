@@ -1426,62 +1426,137 @@ document.addEventListener("DOMContentLoaded", () => {
     let geminiApiKey = localStorage.getItem("mealai_gemini_key") || "";
 
     function updateGeminiStatusUI() {
-      const input = document.getElementById("geminiApiKeyInput");
-      const badge = document.getElementById("geminiStatusBadge");
-      const notice = document.getElementById("geminiActiveNotice");
-      const docLink = document.getElementById("geminiDocLink");
-      if (docLink) {
-        docLink.href = "https://ai.google.dev/gemini-api/docs";
-      }
-      if (input) input.value = geminiApiKey;
-      if (badge) {
+      geminiApiKey = localStorage.getItem("mealai_gemini_key") || "";
+      const modalInput = document.getElementById("geminiModalApiKeyInput");
+      const modalBadge = document.getElementById("geminiModalStatusBadge");
+      const modalDesc = document.getElementById("geminiModalStatusDesc");
+      const headerBadge = document.getElementById("headerGeminiBadge");
+      const photoBadge = document.getElementById("geminiStatusBadge");
+      const photoDesc = document.getElementById("geminiStatusBarDesc");
+      const photoBtnText = document.getElementById("geminiStatusActionBtnText");
+
+      if (modalInput) modalInput.value = geminiApiKey;
+
+      if (headerBadge) {
         if (geminiApiKey) {
-          badge.textContent = "✨ 超高精度AI有効";
-          badge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
+          headerBadge.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-xs inline-block";
+          headerBadge.title = "Google AI有効";
         } else {
-          badge.textContent = "未連携（標準）";
-          badge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600";
+          headerBadge.className = "w-2 h-2 rounded-full bg-slate-300 inline-block";
+          headerBadge.title = "Google AI未設定";
         }
       }
-      if (notice) {
-        notice.classList.toggle("hidden", !geminiApiKey);
+
+      if (photoBadge) {
+        if (geminiApiKey) {
+          photoBadge.textContent = "✨ 超高精度AI有効";
+          photoBadge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
+        } else {
+          photoBadge.textContent = "未設定（標準）";
+          photoBadge.className = "text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600";
+        }
+      }
+
+      if (photoDesc) {
+        if (geminiApiKey) {
+          photoDesc.textContent = "自分専用の無料AI枠が稼働中。写真を撮るだけで料理を自動特定します";
+        } else {
+          photoDesc.textContent = "写真を撮るだけで料理・副菜を95%以上の精度で特定";
+        }
+      }
+
+      if (photoBtnText) {
+        photoBtnText.textContent = geminiApiKey ? "設定変更" : "AI設定";
+      }
+
+      if (modalBadge) {
+        if (geminiApiKey) {
+          modalBadge.textContent = "✨ 超高精度AIが有効です";
+          modalBadge.className = "text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
+        } else {
+          modalBadge.textContent = "未設定（標準モード）";
+          modalBadge.className = "text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600";
+        }
+      }
+
+      if (modalDesc) {
+        if (geminiApiKey) {
+          modalDesc.textContent = "自分専用のGoogle無料APIキーが設定されています。食事の写真を撮影すると、Google Geminiが自動で料理や副菜を高精度に特定します。";
+        } else {
+          modalDesc.textContent = "Google公式の無料APIキーを設定すると、写真を撮るだけで焼肉定食や副菜、スープまで超高精度に料理を自動特定します。";
+        }
       }
     }
     updateGeminiStatusUI();
 
-    window.toggleGeminiDrawer = function () {
-      const drawer = document.getElementById("geminiSettingsDrawer");
-      const icon = document.getElementById("geminiToggleIcon");
-      if (!drawer) return;
-      drawer.classList.toggle("hidden");
-      const isOpen = !drawer.classList.contains("hidden");
-      if (icon) {
-        icon.className = isOpen ? "fa-solid fa-chevron-up text-[10px]" : "fa-solid fa-chevron-down text-[10px]";
+    // 独立したGemini設定モーダルの開閉
+    window.openGeminiModal = function () {
+      const modal = document.getElementById("geminiModal");
+      if (modal) {
+        updateGeminiStatusUI();
+        modal.classList.remove("hidden");
       }
     };
 
-    window.saveGeminiApiKey = function () {
-      const input = document.getElementById("geminiApiKeyInput");
-      const successMsg = document.getElementById("geminiSaveSuccessMsg");
+    window.closeGeminiModal = function () {
+      const modal = document.getElementById("geminiModal");
+      if (modal) {
+        modal.classList.add("hidden");
+      }
+    };
+
+    // パスワードの伏字/表示トグル
+    window.toggleGeminiKeyVisibility = function () {
+      const input = document.getElementById("geminiModalApiKeyInput");
+      const icon = document.getElementById("geminiEyeIcon");
       if (!input) return;
-      geminiApiKey = input.value.trim();
+      if (input.type === "password") {
+        input.type = "text";
+        if (icon) icon.className = "fa-solid fa-eye-slash text-xs text-indigo-600";
+      } else {
+        input.type = "password";
+        if (icon) icon.className = "fa-solid fa-eye text-xs text-slate-400";
+      }
+    };
+
+    // モーダルからのAPIキー保存
+    window.saveGeminiApiKeyFromModal = function () {
+      const input = document.getElementById("geminiModalApiKeyInput");
+      const successMsg = document.getElementById("geminiModalSaveSuccessMsg");
+      if (!input) return;
+      const keyVal = input.value.trim();
+
+      if (!keyVal) {
+        alert("APIキーを入力してください。解除したい場合は「解除」ボタンを押してください。");
+        return;
+      }
+
+      geminiApiKey = keyVal;
       localStorage.setItem("mealai_gemini_key", geminiApiKey);
       updateGeminiStatusUI();
+
       if (successMsg) {
         successMsg.classList.remove("hidden");
-        setTimeout(() => successMsg.classList.add("hidden"), 3000);
+        setTimeout(() => successMsg.classList.add("hidden"), 4000);
       }
-      if (geminiApiKey) {
-        alert("✨ Google最先端AI（Gemini）超高精度モードが有効になりました！\n自分専用の1日1,500回無料枠で、次回から写真を撮るだけで95%以上の精度で料理・副菜・カロリーを特定します。");
-      } else {
-        alert("APIキーをクリアしました。標準の無料モードに戻ります。");
-      }
+      alert("✨ Google最先端AI（Gemini）超高精度モードが有効になりました！\n\n1日1,500回の無料枠で、食事撮影時に95%以上の精度で定食や副菜・カロリーを特定します。");
     };
 
-    const toggleGeminiBtn = document.getElementById("toggleGeminiSettingsBtn");
-    const saveGeminiBtn = document.getElementById("saveGeminiKeyBtn");
-    if (toggleGeminiBtn) toggleGeminiBtn.addEventListener("click", window.toggleGeminiDrawer);
-    if (saveGeminiBtn) saveGeminiBtn.addEventListener("click", window.saveGeminiApiKey);
+    // APIキーの解除（標準モードへ復帰）
+    window.clearGeminiApiKey = function () {
+      if (!localStorage.getItem("mealai_gemini_key")) {
+        alert("APIキーは現在登録されていません。");
+        return;
+      }
+      if (confirm("APIキーの登録を解除して標準モードに戻しますか？")) {
+        geminiApiKey = "";
+        localStorage.removeItem("mealai_gemini_key");
+        const input = document.getElementById("geminiModalApiKeyInput");
+        if (input) input.value = "";
+        updateGeminiStatusUI();
+        alert("APIキーを解除しました。標準モードで動作します。");
+      }
+    };
 
     // Google Gemini 1.5 Flash Vision 呼び出し関数 (超高精度マルチモーダルAI)
     async function analyzeWithGeminiVision(imageSrc) {
@@ -1896,7 +1971,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <i class="fa-solid fa-bolt text-amber-600 text-sm shrink-0"></i>
               <span class="truncate">Google AI（Gemini）キー未設定</span>
             </div>
-            <button type="button" onclick="window.toggleGeminiDrawer && window.toggleGeminiDrawer(); document.getElementById('geminiIntegrationCard')?.scrollIntoView({behavior:'smooth'});" class="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold shrink-0 cursor-pointer transition">
+            <button type="button" onclick="window.openGeminiModal && window.openGeminiModal();" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-lg text-[10px] font-bold shrink-0 cursor-pointer transition">
               設定を開く（無料）
             </button>
           `;

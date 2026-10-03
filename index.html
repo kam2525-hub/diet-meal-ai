@@ -169,6 +169,13 @@
           <span class="hidden sm:inline">買い物メモ</span>
           <span id="shoppingBadge" class="bg-emerald-600 text-white rounded-full px-1.5 py-0.2 text-[10px]">0</span>
         </button>
+        <button id="openGeminiModalBtn" onclick="window.openGeminiModal && window.openGeminiModal()"
+          class="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold border border-indigo-200 transition active:scale-95 cursor-pointer"
+          title="Google AI（Gemini）超高精度設定">
+          <i class="fa-solid fa-bolt text-indigo-600"></i>
+          <span>AI設定</span>
+          <span id="headerGeminiBadge" class="w-2 h-2 rounded-full bg-slate-300 inline-block"></span>
+        </button>
         <button id="openProfileBtn" class="p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition cursor-pointer"
           title="プロフィール・目標設定">
           <i class="fa-solid fa-sliders text-base"></i>
@@ -1050,6 +1057,156 @@
     </div>
   </div>
 
+  <!-- ⚡ Google AI（Gemini）超高精度設定 ＆ APIキー取得ガイド モーダル -->
+  <div id="geminiModal"
+    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div
+      class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold shrink-0">
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">Google AI（Gemini）設定</h2>
+            <p class="text-[10px] sm:text-[11px] text-slate-500">写真認識精度95%以上・完全無料（1日1,500回）・クレカ不要</p>
+          </div>
+        </div>
+        <button id="closeGeminiModalBtn" onclick="window.closeGeminiModal && window.closeGeminiModal()"
+          class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- 現在のステータス表示カード -->
+      <div id="geminiModalStatusCard"
+        class="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-white p-3.5 space-y-1.5 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-700">現在の稼働ステータス:</span>
+          <span id="geminiModalStatusBadge"
+            class="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600">未設定（標準モード）</span>
+        </div>
+        <p id="geminiModalStatusDesc" class="text-[11px] text-slate-600 leading-relaxed">
+          Google公式の無料APIキーを設定すると、写真を撮るだけで焼肉定食や副菜、スープまで超高精度に料理を自動特定します。
+        </p>
+      </div>
+
+      <!-- わかりやすい3ステップ取得ガイド -->
+      <div class="space-y-2.5 text-xs">
+        <div class="font-bold text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-circle-question text-indigo-600"></i>
+          <span>超カンタン！無料APIキーの取得手順（約1〜2分）</span>
+        </div>
+
+        <!-- ⚠️ 18歳以上Googleアカウントに関する最重要注意点 -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 space-y-1">
+          <div class="font-bold flex items-center gap-1 text-amber-800">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>【最重要】18歳以上のGoogleアカウントをご使用ください</span>
+          </div>
+          <p class="leading-relaxed text-amber-800/90 text-[10.5px]">
+            Google AI Studioの利用規約により、<strong>18歳未満のアカウント、学校・保護者管理アカウント</strong>では「Permission Denied（権限エラー）」等が表示されてAPIキーを作成できません。うまくいかない場合は、18歳以上の通常アカウントでログインしてお試しください。
+          </p>
+        </div>
+
+        <!-- ステップ1 -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
+          <div class="font-bold text-indigo-950 flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">1</span>
+              <span>Google Cloudでプロジェクトを作成（初回のみ・30秒）</span>
+            </div>
+            <span class="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-700 font-bold rounded">完全無料</span>
+          </div>
+          <p class="text-[10.5px] text-slate-600 leading-relaxed">
+            APIキーを発行するには、Google Cloudにプロジェクトが1つ必要です（クレジットカード登録は不要です）。
+          </p>
+          <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 hover:border-indigo-400 rounded-lg text-indigo-600 font-bold text-[11px] transition shadow-2xs">
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            <span>Google Cloud プロジェクト作成画面を開く</span>
+          </a>
+          <div class="text-[10px] text-slate-500">※プロジェクト名（例: <code>my-meal-ai</code> など何でもOK）を入れて「作成」を押すだけで完了です。</div>
+        </div>
+
+        <!-- ステップ2 -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
+          <div class="font-bold text-indigo-950 flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">2</span>
+              <span>Google AI StudioでAPIキーを作成してコピー</span>
+            </div>
+            <span class="text-[9px] px-1.5 py-0.2 bg-indigo-100 text-indigo-700 font-bold rounded">1日1,500回無料</span>
+          </div>
+          <p class="text-[10.5px] text-slate-600 leading-relaxed">
+            AI Studioのキー作成画面を開き、右上のボタンを押します。
+          </p>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[11px] transition shadow-2xs">
+            <i class="fa-solid fa-key text-[10px]"></i>
+            <span>Google AI Studio APIキー作成画面を開く</span>
+          </a>
+          <ol class="list-decimal list-inside text-[10.5px] text-slate-600 space-y-0.5 pt-0.5">
+            <li>青いボタン<strong>「Create API key（APIキーを作成）」</strong>を押す</li>
+            <li>先ほど作ったプロジェクトを選択してキーを生成</li>
+            <li>表示された <code class="bg-slate-200 px-1 rounded font-mono text-[10px]">AIzaSy...</code> から始まる文字列をコピー</li>
+          </ol>
+        </div>
+
+        <!-- ステップ3 -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <div class="font-bold text-indigo-950 flex items-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">3</span>
+            <span>下の枠に貼り付けて「保存する」を押す</span>
+          </div>
+          <p class="text-[10.5px] text-slate-600 leading-relaxed">
+            コピーしたキーを貼り付ければ完了です！お使いの端末（ブラウザのLocalStorage）にのみ安全に保存されます。
+          </p>
+
+          <div class="space-y-1.5 pt-1">
+            <label class="block text-[11px] font-bold text-slate-700">Google Gemini APIキー</label>
+            <div class="relative">
+              <input type="password" id="geminiModalApiKeyInput" placeholder="AIzaSy..."
+                class="w-full p-2.5 pr-10 bg-white border border-slate-300 rounded-xl font-mono text-xs outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+              <button type="button" id="toggleGeminiModalKeyVisibilityBtn"
+                onclick="window.toggleGeminiKeyVisibility && window.toggleGeminiKeyVisibility()"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                <i id="geminiEyeIcon" class="fa-solid fa-eye text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <button type="button" id="saveGeminiModalKeyBtn"
+              onclick="window.saveGeminiApiKeyFromModal && window.saveGeminiApiKeyFromModal()"
+              class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer">
+              <i class="fa-solid fa-check"></i>
+              <span>設定を保存する</span>
+            </button>
+            <button type="button" id="clearGeminiModalKeyBtn"
+              onclick="window.clearGeminiApiKey && window.clearGeminiApiKey()"
+              class="px-3 py-2.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold rounded-xl text-xs transition border border-slate-200 cursor-pointer"
+              title="キーを削除して標準モードに戻す">
+              <i class="fa-solid fa-trash-can mr-1"></i>解除
+            </button>
+          </div>
+
+          <div id="geminiModalSaveSuccessMsg"
+            class="hidden text-[11px] text-emerald-600 font-bold flex items-center gap-1.5 p-2 bg-emerald-50 rounded-xl border border-emerald-200">
+            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+            <span>設定を保存しました！次回からの食事撮影でGoogle最先端AIが自動適用されます。</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- セキュリティ＆プライバシー注記 -->
+      <div class="text-[10px] text-slate-400 border-t pt-2 space-y-0.5">
+        <p>🔒 <strong>プライバシー保護:</strong> 入力されたAPIキーは外部サーバーには送信されず、お使いの端末（ブラウザ）内でのみ直接Google APIと通信するために使われます。</p>
+        <p>💰 <strong>料金について:</strong> Google AI Studioの無料枠（1日1,500リクエスト・1分15回まで）内で動作するため、個人利用で費用が発生することはありません。</p>
+      </div>
+    </div>
+  </div>
+
   <!-- 今月の成果 ＆ 減量進捗ダッシュボード モーダル -->
   <div id="monthlyModal"
     class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
@@ -1172,78 +1329,26 @@
       <!-- ① カメラ撮影タブコンテンツ -->
       <div id="photoTabContent" class="space-y-3">
 
-        <!-- ⚡ Google最先端AI (Gemini) 超高精度モード設定エリア（無料BYOK） -->
-        <div id="geminiIntegrationCard"
-          class="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-purple-50/60 to-white p-3 shadow-2xs space-y-2">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-2 min-w-0">
-              <span
-                class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs shrink-0">
-                <i class="fa-solid fa-bolt"></i>
-              </span>
-              <div class="min-w-0">
-                <div class="font-black text-indigo-950 text-xs flex items-center gap-1.5 flex-wrap">
-                  <span>Google AI（Gemini）超高精度モード</span>
-                  <span id="geminiStatusBadge"
-                    class="text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600">未連携</span>
-                </div>
-                <div class="text-[10px] text-indigo-800/80 font-medium truncate">焼肉定食や副菜まで95%以上の精度で特定（完全無料・クレカ不要）</div>
+        <!-- ⚡ Google AI (Gemini) 超高精度モード 状態表示バー（設定・取得ガイドは専用モーダルへ分離） -->
+        <div id="photoGeminiStatusBar"
+          class="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-white p-2.5 sm:p-3 shadow-2xs flex items-center justify-between gap-2">
+          <div class="flex items-center space-x-2.5 min-w-0">
+            <span class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs shrink-0">
+              <i class="fa-solid fa-bolt"></i>
+            </span>
+            <div class="min-w-0">
+              <div class="font-bold text-indigo-950 text-xs flex items-center gap-1.5 flex-wrap">
+                <span>Google AI（Gemini）</span>
+                <span id="geminiStatusBadge" class="text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600">未設定</span>
               </div>
-            </div>
-            <button type="button" id="toggleGeminiSettingsBtn"
-              onclick="window.toggleGeminiDrawer && window.toggleGeminiDrawer()"
-              class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold shrink-0 cursor-pointer flex items-center gap-1 ml-2 px-2 py-1 rounded-lg hover:bg-indigo-100/50 transition">
-              <span id="geminiToggleText">設定</span>
-              <i id="geminiToggleIcon" class="fa-solid fa-chevron-down text-[10px]"></i>
-            </button>
-          </div>
-
-          <!-- アコーディオン展開エリア（キー入力 ＆ 取得ガイド） -->
-          <div id="geminiSettingsDrawer" class="hidden space-y-2 pt-2 border-t border-indigo-100 text-xs">
-            <div class="bg-white/90 rounded-xl p-2.5 border border-indigo-100 space-y-1 text-[11px] text-slate-700">
-              <div class="font-bold text-indigo-900 flex items-center gap-1">
-                <i class="fa-solid fa-circle-question text-indigo-500"></i>
-                <span>無料APIキーの取得手順（約1分・ずっと無料）：</span>
-              </div>
-              <ol class="list-decimal list-inside space-y-1 text-slate-600 text-[10.5px]">
-                <li>以下のいずれかを開きます：
-                  <div class="mt-1 flex flex-col gap-1 pl-1">
-                    <a id="geminiDirectKeyLink" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
-                      class="text-indigo-600 font-bold underline hover:text-indigo-800 flex items-center gap-1">
-                      <i class="fa-solid fa-key text-[10px]"></i>
-                      <span>① APIキー作成・取得画面（直リンク）</span>
-                    </a>
-                    <a id="geminiDocLink" href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noopener noreferrer"
-                      class="text-slate-600 font-medium underline hover:text-slate-800 flex items-center gap-1 text-[10px]">
-                      <i class="fa-solid fa-book-open text-[9px]"></i>
-                      <span>② 従来のGemini APIドキュメント画面</span>
-                    </a>
-                  </div>
-                </li>
-                <li><strong>「Create API key」</strong>（または Get API key）を押してキーをコピーします（クレカ不要・無料）。</li>
-                <li>下の枠に貼り付けて<strong>「保存する」</strong>を押すだけ！ブラウザに自動保存されます。</li>
-              </ol>
-            </div>
-
-            <div class="flex items-center gap-1.5">
-              <input type="password" id="geminiApiKeyInput" placeholder="Google APIキー (AIzaSy...)"
-                class="flex-1 p-2 bg-white border border-indigo-200 rounded-xl font-mono text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300">
-              <button type="button" id="saveGeminiKeyBtn" onclick="window.saveGeminiApiKey && window.saveGeminiApiKey()"
-                class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-xs cursor-pointer shrink-0">
-                <span>保存する</span>
-              </button>
-            </div>
-            <div id="geminiSaveSuccessMsg"
-              class="hidden text-[11px] text-emerald-600 font-bold flex items-center gap-1">
-              <i class="fa-solid fa-check"></i>
-              <span>設定を保存しました！</span>
-            </div>
-            <div id="geminiActiveNotice"
-              class="hidden text-[10.5px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 p-2 rounded-xl border border-emerald-200">
-              <i class="fa-solid fa-circle-check text-emerald-600"></i>
-              <span>自分専用の1日1,500回無料枠が有効です！写真を撮るだけで最高精度AIが自動で特定します。</span>
+              <div id="geminiStatusBarDesc" class="text-[10px] text-slate-500 truncate">写真を撮るだけで料理・副菜を95%以上の精度で特定</div>
             </div>
           </div>
+          <button type="button" onclick="window.openGeminiModal && window.openGeminiModal()"
+            class="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-xs cursor-pointer shrink-0 flex items-center gap-1">
+            <i class="fa-solid fa-gear text-[11px]"></i>
+            <span id="geminiStatusActionBtnText">AI設定</span>
+          </button>
         </div>
 
         <!-- メイン：スマホ標準カメラ直結ボタン（100%確実に即カメラが起動） -->
@@ -1547,9 +1652,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=5.3.0"></script>
-  <script src="js/calculator.js?v=5.3.0"></script>
-  <script src="js/app.js?v=5.3.0"></script>
+  <script src="js/data.js?v=5.4.0"></script>
+  <script src="js/calculator.js?v=5.4.0"></script>
+  <script src="js/app.js?v=5.4.0"></script>
 </body>
 
 </html>
