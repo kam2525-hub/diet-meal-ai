@@ -754,8 +754,8 @@ document.addEventListener("DOMContentLoaded", () => {
       profileModal.classList.add("hidden");
     });
 
-    // 全リロールボタン
-    document.getElementById("regenerateAllBtn").addEventListener("click", () => {
+    // 全リロールボタン（任意）
+    document.getElementById("regenerateAllBtn")?.addEventListener("click", () => {
       generateFullDayPlan();
       updateUI();
     });
@@ -781,35 +781,35 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // クイック気分・調整ボタンたち
+    // クイック気分・調整ボタンたち（任意）
     setupCravingButton("btnCravingSweet", "sweet");
     setupCravingButton("btnCravingSalty", "salty");
     setupCravingButton("btnCravingMeat", "meat");
 
-    // リカバリーボタン
-    document.getElementById("btnToggleRecovery").addEventListener("click", (e) => {
+    // リカバリーボタン（任意）
+    document.getElementById("btnToggleRecovery")?.addEventListener("click", (e) => {
       state.isRecoveryMode = !state.isRecoveryMode;
       if (state.isRecoveryMode) state.isCheatDay = false; // 排他
-      document.getElementById("btnToggleCheat").classList.remove("active");
+      document.getElementById("btnToggleCheat")?.classList.remove("active");
       e.currentTarget.classList.toggle("active", state.isRecoveryMode);
       calculateAllMetrics();
       generateFullDayPlan();
       updateUI();
     });
 
-    // チートデイボタン
-    document.getElementById("btnToggleCheat").addEventListener("click", (e) => {
+    // チートデイボタン（任意）
+    document.getElementById("btnToggleCheat")?.addEventListener("click", (e) => {
       state.isCheatDay = !state.isCheatDay;
       if (state.isCheatDay) state.isRecoveryMode = false; // 排他
-      document.getElementById("btnToggleRecovery").classList.remove("active");
+      document.getElementById("btnToggleRecovery")?.classList.remove("active");
       e.currentTarget.classList.toggle("active", state.isCheatDay);
       calculateAllMetrics();
       generateFullDayPlan();
       updateUI();
     });
 
-    // 1000円以内節約ボタン
-    document.getElementById("btnBudgetStrict").addEventListener("click", (e) => {
+    // 1000円以内節約ボタン（任意）
+    document.getElementById("btnBudgetStrict")?.addEventListener("click", (e) => {
       state.isBudgetStrict = !state.isBudgetStrict;
       e.currentTarget.classList.toggle("active", state.isBudgetStrict);
       generateFullDayPlan();
@@ -822,13 +822,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setupCravingButton(btnId, cravingType) {
     const btn = document.getElementById(btnId);
+    if (!btn) return;
     btn.addEventListener("click", () => {
       if (state.craving === cravingType) {
         state.craving = null;
         btn.classList.remove("active");
       } else {
         ['btnCravingSweet', 'btnCravingSalty', 'btnCravingMeat'].forEach(id => {
-          document.getElementById(id).classList.remove("active");
+          document.getElementById(id)?.classList.remove("active");
         });
         state.craving = cravingType;
         btn.classList.add("active");
