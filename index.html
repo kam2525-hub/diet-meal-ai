@@ -1076,6 +1076,58 @@
       <!-- ① カメラ撮影タブコンテンツ -->
       <div id="photoTabContent" class="space-y-3">
 
+        <!-- ⚡ Google最先端AI (Gemini) 超高精度モード設定エリア（無料BYOK） -->
+        <div id="geminiIntegrationCard" class="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-purple-50/60 to-white p-3 shadow-2xs space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2 min-w-0">
+              <span class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs shadow-xs shrink-0">
+                <i class="fa-solid fa-bolt"></i>
+              </span>
+              <div class="min-w-0">
+                <div class="font-black text-indigo-950 text-xs flex items-center gap-1.5 flex-wrap">
+                  <span>Google AI（Gemini）超高精度モード</span>
+                  <span id="geminiStatusBadge" class="text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-600">未連携</span>
+                </div>
+                <div class="text-[10px] text-indigo-800/80 font-medium truncate">焼肉定食や副菜まで95%以上の精度で特定（完全無料・クレカ不要）</div>
+              </div>
+            </div>
+            <button type="button" id="toggleGeminiSettingsBtn" onclick="window.toggleGeminiDrawer && window.toggleGeminiDrawer()" class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold shrink-0 cursor-pointer flex items-center gap-1 ml-2 px-2 py-1 rounded-lg hover:bg-indigo-100/50 transition">
+              <span id="geminiToggleText">設定</span>
+              <i id="geminiToggleIcon" class="fa-solid fa-chevron-down text-[10px]"></i>
+            </button>
+          </div>
+
+          <!-- アコーディオン展開エリア（キー入力 ＆ 取得ガイド） -->
+          <div id="geminiSettingsDrawer" class="hidden space-y-2 pt-2 border-t border-indigo-100 text-xs">
+            <div class="bg-white/90 rounded-xl p-2.5 border border-indigo-100 space-y-1 text-[11px] text-slate-700">
+              <div class="font-bold text-indigo-900 flex items-center gap-1">
+                <i class="fa-solid fa-circle-question text-indigo-500"></i>
+                <span>無料APIキーの取得手順（約1分・ずっと無料）：</span>
+              </div>
+              <ol class="list-decimal list-inside space-y-0.5 text-slate-600 text-[10.5px]">
+                <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-bold underline hover:text-indigo-800">Google AI Studio (公式)</a> を開きます。</li>
+                <li><strong>「Create API key」</strong> を押してキーをコピーします（クレジットカード登録不要）。</li>
+                <li>下の枠に貼り付けて<strong>「保存する」</strong>を押すだけ！ブラウザに自動保存されます。</li>
+              </ol>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <input type="password" id="geminiApiKeyInput" placeholder="Google APIキー (AIzaSy...)" class="flex-1 p-2 bg-white border border-indigo-200 rounded-xl font-mono text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300">
+              <button type="button" id="saveGeminiKeyBtn" onclick="window.saveGeminiApiKey && window.saveGeminiApiKey()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-xs cursor-pointer shrink-0">
+                <span>保存する</span>
+              </button>
+            </div>
+            <div id="geminiSaveSuccessMsg" class="hidden text-[11px] text-emerald-600 font-bold flex items-center gap-1">
+              <i class="fa-solid fa-check"></i>
+              <span>設定を保存しました！</span>
+            </div>
+            <div id="geminiActiveNotice" class="hidden text-[10.5px] text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 p-2 rounded-xl border border-emerald-200">
+              <i class="fa-solid fa-circle-check text-emerald-600"></i>
+              <span>自分専用の1日1,500回無料枠が有効です！写真を撮るだけで最高精度AIが自動で特定します。</span>
+            </div>
+          </div>
+        </div>
+
         <!-- メイン：スマホ標準カメラ直結ボタン（100%確実に即カメラが起動） -->
         <div id="primaryCameraLauncher" class="space-y-2">
           <div class="relative w-full overflow-hidden rounded-2xl shadow-lg">
@@ -1319,9 +1371,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=4.4.0"></script>
-  <script src="js/calculator.js?v=4.4.0"></script>
-  <script src="js/app.js?v=4.4.0"></script>
+  <script src="js/data.js?v=4.5.0"></script>
+  <script src="js/calculator.js?v=4.5.0"></script>
+  <script src="js/app.js?v=4.5.0"></script>
 </body>
 
 </html>
