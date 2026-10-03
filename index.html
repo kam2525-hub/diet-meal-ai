@@ -248,34 +248,6 @@
       </div>
     </div>
 
-    <!-- 毎日の体重記録 ＆ ミニ推移グラフ -->
-    <div class="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs flex items-center justify-between gap-2.5">
-      <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
-        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm shrink-0">
-          <i class="fa-solid fa-weight-scale"></i>
-        </div>
-        <div class="min-w-0">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="font-bold text-xs sm:text-sm text-slate-800">今日の体重記録</span>
-            <span id="weightDiffBadge" class="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">未記録</span>
-          </div>
-          <p id="weightHistorySummary" class="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5">記録するとモグ丸が反応するよ🌱</p>
-        </div>
-      </div>
-      <div class="flex items-center space-x-1.5 shrink-0">
-        <div class="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
-          <input type="number" id="quickWeightInput" step="0.1" class="w-14 sm:w-16 bg-transparent text-right font-black font-mono text-xs sm:text-sm text-slate-800 outline-none" placeholder="70.0">
-          <span class="text-[10px] text-slate-400 ml-1 font-bold">kg</span>
-        </div>
-        <button id="saveQuickWeightBtn" class="bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-xs px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-xs cursor-pointer">
-          記録
-        </button>
-        <button id="openWeightChartBtn" class="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition cursor-pointer" title="体重推移グラフを見る">
-          <i class="fa-solid fa-chart-line text-sm"></i>
-        </button>
-      </div>
-    </div>
-
     <!-- 1日の総目標カロリー & 栄養量ガイド（Hero Dashboard） -->
     <section class="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-4 sm:p-6 shadow-xl border border-slate-700/60 relative overflow-hidden space-y-4">
       <!-- 上部ステータス -->
@@ -1096,71 +1068,6 @@
       <div class="text-[10px] text-slate-400 border-t pt-2 space-y-0.5">
         <p>🔒 <strong>プライバシー保護:</strong> 入力されたAPIキーは外部サーバーには送信されず、お使いの端末（ブラウザ）内でのみ直接Google APIと通信するために使われます。</p>
         <p>💰 <strong>料金について:</strong> Google AI Studioの無料枠（1日1,500リクエスト・1分15回まで）内で動作するため、個人利用で費用が発生することはありません。</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- 📈 体重推移グラフ モーダル -->
-  <div id="weightChartModal"
-    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
-      <div class="flex items-center justify-between border-b pb-3">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center text-sm font-bold shrink-0">
-            <i class="fa-solid fa-chart-line"></i>
-          </div>
-          <div>
-            <h2 class="text-sm sm:text-base font-bold text-slate-800">体重推移グラフ</h2>
-            <p class="text-[10px] sm:text-[11px] text-slate-500">毎日の記録で成果を可視化</p>
-          </div>
-        </div>
-        <button id="closeWeightChartBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
-
-      <!-- 体重サマリーカード -->
-      <div class="grid grid-cols-3 gap-2 text-center">
-        <div class="bg-slate-50 border rounded-xl p-2">
-          <span class="text-[10px] text-slate-400 block font-medium">現在体重</span>
-          <span id="chartCurrentWeight" class="text-sm sm:text-base font-black text-slate-800 font-mono">--.- kg</span>
-        </div>
-        <div class="bg-teal-50 border border-teal-100 rounded-xl p-2">
-          <span class="text-[10px] text-teal-600 block font-medium">昨日比 / 変化</span>
-          <span id="chartWeightDiff" class="text-sm sm:text-base font-black text-teal-700 font-mono">--.- kg</span>
-        </div>
-        <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-2">
-          <span class="text-[10px] text-emerald-600 block font-medium">目標ペース</span>
-          <span id="chartTargetPace" class="text-sm sm:text-base font-black text-emerald-700 font-mono">月 -2.0kg</span>
-        </div>
-      </div>
-
-      <!-- SVG グラフ描画エリア -->
-      <div class="bg-slate-900 rounded-2xl p-3 sm:p-4 text-white space-y-2 shadow-inner">
-        <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
-          <span class="flex items-center gap-1.5 font-bold text-slate-200">
-            <span class="w-2 h-2 rounded-full bg-teal-400 inline-block"></span>
-            体重の推移 (kg)
-          </span>
-          <span id="chartDateRangeLabel" class="text-[10px]">直近 14 日間</span>
-        </div>
-        <div id="weightSvgChartContainer" class="w-full h-44 sm:h-52 flex items-center justify-center">
-          <!-- 動的SVGグラフがここに挿入されます -->
-        </div>
-      </div>
-
-      <!-- 過去の記録リスト（簡易一覧） -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1">
-            <i class="fa-solid fa-clock-rotate-left text-slate-400 text-[10px]"></i>
-            直近の記録履歴
-          </h3>
-          <span class="text-[10px] text-slate-400">最新7件</span>
-        </div>
-        <div id="weightHistoryList" class="space-y-1 max-h-36 overflow-y-auto text-xs">
-          <!-- JSで履歴一覧が生成されます -->
-        </div>
       </div>
     </div>
   </div>

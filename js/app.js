@@ -269,7 +269,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateUI() {
     renderDateBar();
     renderTopBmrPanel();
-    renderWeightWidget();
     renderProfileModalValues();
     renderPlanSummary();
     renderMealSlots();
@@ -3809,29 +3808,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ===================== 新機能モジュール: 体重記録・図鑑・今日の通知表 =====================
+  // ===================== 新機能モジュール: 図鑑・今日の通知表 =====================
   function setupFeatureModules() {
-    // 1. 体重記録
-    const saveWeightBtn = document.getElementById("saveQuickWeightBtn");
-    const weightInput = document.getElementById("quickWeightInput");
-    if (saveWeightBtn) saveWeightBtn.addEventListener("click", saveCurrentWeight);
-    if (weightInput) {
-      weightInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") saveCurrentWeight();
-      });
-    }
-
-    // 体重グラフモーダル開閉
-    document.getElementById("openWeightChartBtn")?.addEventListener("click", () => window.openWeightChartModal());
-    document.getElementById("closeWeightChartBtn")?.addEventListener("click", () => window.closeWeightChartModal());
-    const weightModal = document.getElementById("weightChartModal");
-    if (weightModal) {
-      weightModal.addEventListener("click", (e) => {
-        if (e.target === weightModal) window.closeWeightChartModal();
-      });
-    }
-
-    // 2. モグ丸の称号・実績バッジ図鑑モーダル開閉
+    // 1. モグ丸の称号・実績バッジ図鑑モーダル開閉
     document.getElementById("openBadgesBtn")?.addEventListener("click", () => window.openBadgesModal());
     document.getElementById("closeBadgesBtn")?.addEventListener("click", () => window.closeBadgesModal());
     const badgesModal = document.getElementById("badgesModal");
