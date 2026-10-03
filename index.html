@@ -367,6 +367,81 @@
         </div>
       </div>
 
+      <!-- AIパートナー「モグ丸」コンパニオンエリア -->
+      <div id="mascotCompanionCard"
+        class="flex items-center gap-3 py-2.5 px-3 sm:py-3 sm:px-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition active:scale-[0.99] cursor-pointer relative overflow-hidden group select-none shadow-sm"
+        onclick="window.interactWithMascot && window.interactWithMascot()" title="タップしてお話しする">
+        <!-- SVGマスコット（モグ丸） -->
+        <div class="relative shrink-0 w-13 h-13 sm:w-15 sm:h-15 flex items-center justify-center mascot-container" id="mascotAvatar">
+          <svg viewBox="0 -8 100 108" class="w-full h-full filter drop-shadow">
+            <defs>
+              <linearGradient id="mogumaruGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#34d399" />
+                <stop offset="60%" stop-color="#10b981" />
+                <stop offset="100%" stop-color="#059669" />
+              </linearGradient>
+              <linearGradient id="bellyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" />
+                <stop offset="100%" stop-color="#d1fae5" />
+              </linearGradient>
+            </defs>
+            <!-- ぷっくり体型 -->
+            <path d="M50 16 C32 16, 20 34, 20 58 C20 80, 32 91, 50 91 C68 91, 80 80, 80 58 C80 34, 68 16, 50 16 Z" fill="url(#mogumaruGrad)" stroke="#047857" stroke-width="2" />
+            <!-- お腹のパッチ -->
+            <ellipse cx="50" cy="65" rx="20" ry="18" fill="url(#bellyGrad)" opacity="0.95" />
+            <!-- ちいさな足 -->
+            <ellipse cx="40" cy="90" rx="5" ry="3" fill="#047857" />
+            <ellipse cx="60" cy="90" rx="5" ry="3" fill="#047857" />
+            <!-- 頭のぴこぴこ若葉スプラウト -->
+            <g class="mascot-sprout">
+              <path d="M50 16 Q50 6, 45 4" stroke="#047857" stroke-width="2.5" stroke-linecap="round" fill="none" />
+              <path d="M45 4 C39 2, 38 7, 43 8 C47 9, 47 5, 45 4 Z" fill="#86efac" stroke="#047857" stroke-width="1" />
+              <path d="M46 5 C52 2, 54 6, 50 8 C47 9, 46 6, 46 5 Z" fill="#bbf7d0" stroke="#047857" stroke-width="1" />
+            </g>
+            <!-- ほっぺチーク -->
+            <circle cx="30" cy="56" r="5" fill="#fb7185" opacity="0.55" />
+            <circle cx="70" cy="56" r="5" fill="#fb7185" opacity="0.55" />
+            <!-- 瞳（まばたきアニメ） -->
+            <g class="mascot-eye mascot-eye-left" style="transform-origin: 37px 47px;">
+              <ellipse cx="37" cy="47" rx="4" ry="5.5" fill="#064e3b" />
+              <circle cx="35.5" cy="45" r="1.8" fill="#ffffff" />
+              <circle cx="38.5" cy="48.5" r="0.8" fill="#ffffff" />
+            </g>
+            <g class="mascot-eye mascot-eye-right" style="transform-origin: 63px 47px;">
+              <ellipse cx="63" cy="47" rx="4" ry="5.5" fill="#064e3b" />
+              <circle cx="61.5" cy="45" r="1.8" fill="#ffffff" />
+              <circle cx="64.5" cy="48.5" r="0.8" fill="#ffffff" />
+            </g>
+            <!-- にっこり口 -->
+            <path id="mascotMouthSvg" d="M45 53 Q50 58, 55 53" fill="none" stroke="#064e3b" stroke-width="2" stroke-linecap="round" />
+            <!-- ちいさな手＆ミニスプーン -->
+            <path d="M21 57 Q15 54, 18 49 Q22 47, 23 54" fill="#6ee7b7" stroke="#047857" stroke-width="1.5" />
+            <g>
+              <path d="M79 57 Q85 54, 82 49 Q78 47, 77 54" fill="#6ee7b7" stroke="#047857" stroke-width="1.5" />
+              <!-- ミニスプーン -->
+              <path d="M81 50 L88 38 M86 38 C90 34, 94 37, 90 41 Z" stroke="#f59e0b" stroke-width="2" fill="#fef08a" stroke-linecap="round" />
+            </g>
+          </svg>
+        </div>
+        <!-- 吹き出し -->
+        <div class="flex-1 min-w-0 pr-1">
+          <div class="flex items-center justify-between gap-1 mb-0.5">
+            <div class="flex items-center gap-1.5">
+              <span class="bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs">パートナー</span>
+              <span class="text-xs font-bold text-emerald-300">モグ丸</span>
+            </div>
+            <span class="text-[10px] text-slate-400 flex items-center gap-1 group-hover:text-emerald-300 transition">
+              <i class="fa-solid fa-hand-pointer text-[9px] animate-bounce"></i>タップで会話
+            </span>
+          </div>
+          <p id="mascotSpeech" class="text-xs sm:text-[13px] font-bold text-white leading-snug tracking-tight">
+            今日もお疲れ様！今日も美味しく健康に食べようね🌱
+          </p>
+        </div>
+        <!-- パーティクル発生コンテナ -->
+        <div id="mascotHeartContainer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+      </div>
+
       <!-- 残りカロリー Hero表示 -->
       <div class="space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">

@@ -3,6 +3,10 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  // AIマスコット状態
+  var mascotTapCount = 0;
+  var mascotIsCelebrating = false;
+
   // アプリケーション状態
   const state = {
     user: {
@@ -349,16 +353,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const eatenTotalEl = document.getElementById("eatenTotalCal");
     if (eatenTotalEl) eatenTotalEl.textContent = Math.round(eatenCal).toLocaleString();
 
-    // 残りあと何kcal食べられるかバッジ
+    // 残りあと何kcal食べられるか
     const remBadge = document.getElementById("remainingCalBadge");
+    const diffBadge = document.getElementById("calDiffBadge");
     if (remBadge) {
       if (remainingCal >= 0) {
         remBadge.textContent = `残りあと ${Math.round(remainingCal).toLocaleString()} kcal`;
-        remBadge.className = "text-xs px-3 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800";
+        remBadge.className = "text-2xl sm:text-4xl font-black text-white font-mono tracking-tight";
+        if (diffBadge) {
+          diffBadge.textContent = "適正ペース";
+          diffBadge.className = "text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        }
       } else {
         remBadge.textContent = `目標を ${Math.round(Math.abs(remainingCal)).toLocaleString()} kcal 超過`;
-        remBadge.className = "text-xs px-3 py-1 rounded-full font-bold bg-rose-100 text-rose-800";
+        remBadge.className = "text-2xl sm:text-4xl font-black text-rose-400 font-mono tracking-tight";
+        if (diffBadge) {
+          diffBadge.textContent = "カロリー超過";
+          diffBadge.className = "text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        }
       }
+    }
+
+    // マスコット「モグ丸」の日常セリフ自動更新
+    if (typeof updateMascotDefaultSpeech === "function") {
+      updateMascotDefaultSpeech(eatenCal, targetCal, state.records);
     }
 
     // 消化進捗バー
@@ -3368,6 +3386,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function showRecordSuccessNotification(slot, name, cal) {
+      // AIマスコット「モグ丸」のお祝いリアクション
+      if (typeof triggerMascotCelebration === "function") {
+        triggerMascotCelebration(slot, name, cal);
+      }
+
       const slotJp = getSlotJpName(slot);
       const banner = document.getElementById("statusBanner");
       if (banner) {
@@ -3452,4 +3475,181 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (e) { }
   }
+
+  // === AIパートナー「モグ丸」マスコット機能 ===
+
+  function playMascotChime(type = "normal") {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      const now = ctx.currentTime;
+      if (type === "celebrate") {
+        // ファンファーレ風「ピロリーン♪」 (C5 -> E5 -> G5)
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.08);
+        osc.frequency.setValueAtTime(783.99, now + 0.16);
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } else {
+        // かわいい「ぽよん♪」 (D5 -> A5)
+        osc.frequency.setValueAtTime(587.33, now);
+        osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.12);
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }
+    } catch (e) {
+      // AudioContext policy or unsupported, silent fallback
+    }
+  }
+
+  function spawnMascotParticles(isCelebration = false) {
+    const container = document.getElementById("mascotHeartContainer");
+    if (!container) return;
+    const icons = isCelebration
+      ? ["🎉", "⭐", "✨", "💖", "🥗", "🥑", "🏆"]
+      : ["💕", "✨", "🌱", "⭐", "🍀", "🥰"];
+    const count = isCelebration ? 6 : 2;
+
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const particle = document.createElement("span");
+        particle.className = "mascot-particle";
+        particle.textContent = icons[Math.floor(Math.random() * icons.length)];
+        const randX = (Math.random() - 0.5) * 80;
+        particle.style.setProperty("--rand-x", randX);
+        particle.style.left = `${30 + Math.random() * 20}px`;
+        particle.style.top = `${15 + Math.random() * 15}px`;
+        container.appendChild(particle);
+        setTimeout(() => particle.remove(), 950);
+      }, i * 80);
+    }
+  }
+
+  window.interactWithMascot = function() {
+    mascotTapCount++;
+    playMascotChime("normal");
+
+    // アバタージャンプ
+    const avatar = document.getElementById("mascotAvatar");
+    if (avatar) {
+      avatar.classList.remove("mascot-bounce");
+      void avatar.offsetWidth;
+      avatar.classList.add("mascot-bounce");
+    }
+
+    spawnMascotParticles(false);
+
+    const speechEl = document.getElementById("mascotSpeech");
+    if (!speechEl) return;
+
+    let eatenCal = 0;
+    let eatenP = 0;
+    Object.values(state.records).forEach(r => {
+      if (r) {
+        eatenCal += r.calories;
+        eatenP += r.p || 0;
+      }
+    });
+    const targetCal = state.metrics.targetCal;
+    const remCal = targetCal - eatenCal;
+    const targetP = state.metrics.pfc?.p || 80;
+
+    const funDialogues = [
+      "えへへ、くすぐったいよ〜😆",
+      "今日も一緒に美味しく健康に食べようね🌱",
+      "お水もこまめに飲んでる？水分補給も代謝に大切だよ🚰",
+      "無理な我慢はNG！美味しく続けられるのが一番だよ🍀",
+      "記録してるだけで本当にえらい！ハナマルあげる〜💯",
+      "食べた後は軽くお散歩すると血糖値の上昇がゆるやかに🚶‍♂️",
+      "よく噛んで食べると満腹中枢が刺激されて大満足だよ✨",
+      "今日のあなたの頑張り、モグ丸はずっと見てるよ〜！🥰",
+      "夜はぬるめのお風呂に浸かるとぐっすり眠れるよ🛁"
+    ];
+
+    if (eatenP >= targetP * 0.7) {
+      funDialogues.push("タンパク質しっかり摂れてて最高！筋肉も喜んでるよ💪");
+    }
+
+    if (remCal < 0) {
+      funDialogues.push("ちょっと目標オーバーしても大丈夫！明日と明後日で調整すればOKだよ👍");
+    } else if (remCal <= 300) {
+      funDialogues.push("本日の目標カロリーにぴったり近づいてる！ペース配分完璧✨");
+    }
+
+    const randomLine = funDialogues[Math.floor(Math.random() * funDialogues.length)];
+    speechEl.textContent = randomLine;
+  };
+
+  function triggerMascotCelebration(slot, name, cal) {
+    mascotIsCelebrating = true;
+    playMascotChime("celebrate");
+
+    const avatar = document.getElementById("mascotAvatar");
+    if (avatar) {
+      avatar.classList.remove("mascot-bounce");
+      void avatar.offsetWidth;
+      avatar.classList.add("mascot-bounce");
+    }
+
+    spawnMascotParticles(true);
+
+    const speechEl = document.getElementById("mascotSpeech");
+    if (speechEl) {
+      const slotJp = getSlotJpName(slot);
+      speechEl.textContent = `【${slotJp}】記録できたね！偉すぎる〜！美味しく健康にチャージ完了🎉`;
+    }
+
+    setTimeout(() => {
+      mascotIsCelebrating = false;
+    }, 4500);
+  }
+
+  function updateMascotDefaultSpeech(eatenCal, targetCal, records) {
+    if (mascotIsCelebrating) return;
+    const speechEl = document.getElementById("mascotSpeech");
+    if (!speechEl) return;
+
+    const remCal = targetCal - eatenCal;
+    const recordedCount = Object.values(records).filter(Boolean).length;
+    const hour = new Date().getHours();
+
+    if (recordedCount === 0) {
+      if (hour >= 5 && hour < 11) {
+        speechEl.textContent = "おはよう！朝ごはんを食べて代謝のスイッチをONにしよう☀️";
+      } else if (hour >= 11 && hour < 15) {
+        speechEl.textContent = "お昼ごはん何食べる？写真をパシャッと撮るだけで記録完了だよ📸";
+      } else if (hour >= 15 && hour < 18) {
+        speechEl.textContent = "お疲れ様！小腹が空いたらナッツやお茶でブレイクタイム☕";
+      } else if (hour >= 18 && hour < 22) {
+        speechEl.textContent = "夜ごはんの時間だね！今日の食事を振り返りながら美味しく食べよう✨";
+      } else {
+        speechEl.textContent = "今日もお疲れ様！夜更かしせずしっかり寝るのもダイエットだよ🌙";
+      }
+      return;
+    }
+
+    if (remCal < -200) {
+      speechEl.textContent = "今日は目標を少しオーバー気味💦 明日の食事を軽めにして調整しよっ！";
+    } else if (remCal >= 0 && remCal <= 350) {
+      speechEl.textContent = "すごい！目標カロリーにぴったり適正ペースをキープ中だよ🎯✨";
+    } else if (remCal > 350) {
+      speechEl.textContent = `順調だよ！あと ${Math.round(remCal).toLocaleString()} kcal 食べられるよ🌱`;
+    }
+  }
 });
+
