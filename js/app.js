@@ -3540,6 +3540,77 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // === モグ丸進化・体型変化システム ===
+  function calculateMascotEvolutionLevel() {
+    let eatenCal = 0;
+    Object.values(state.records).forEach(r => {
+      if (r) eatenCal += r.calories;
+    });
+    const targetCal = state.metrics.targetCal;
+    const hasRecords = Object.values(state.records).some(Boolean);
+    const isTodayUnderCal = hasRecords && eatenCal <= targetCal + 30;
+
+    let score = 0;
+    if (isTodayUnderCal) score += 1;
+
+    // 記録された食事数（朝・昼・夕・間食）
+    const recordCount = Object.values(state.records).filter(Boolean).length;
+    score += recordCount;
+
+    // 体重変化ボーナス
+    try {
+      const initialWeightKey = "mealai_initial_weight";
+      let initialWeight = parseFloat(localStorage.getItem(initialWeightKey) || "0");
+      if (!initialWeight && state.user.weight) {
+        localStorage.setItem(initialWeightKey, state.user.weight.toString());
+      } else if (initialWeight > 0 && state.user.weight < initialWeight) {
+        // 体重が減っている場合ボーナス+3
+        score += 3;
+      }
+    } catch(e) {}
+
+    // 継続達成ストリーク（LocalStorage）
+    try {
+      const streak = parseInt(localStorage.getItem("mealai_achieved_days") || "0", 10);
+      score += streak;
+    } catch(e) {}
+
+    if (score >= 6) return 4; // 👑 Lv.4 キングモグ丸
+    if (score >= 4) return 3; // 💪 Lv.3 アスリート丸
+    if (score >= 2) return 2; // 🌸 Lv.2 すっきり丸
+    return 1;                 // 🌱 Lv.1 ぽよ丸
+  }
+
+  function applyMascotEvolutionUI(level) {
+    const badge = document.getElementById("mascotLevelBadge");
+    const flower = document.getElementById("mascotFlower");
+    const crown = document.getElementById("mascotCrown");
+    const spoon = document.getElementById("mascotToolSpoon");
+    const dumbbell = document.getElementById("mascotToolDumbbell");
+
+    if (flower) flower.classList.toggle("hidden", level !== 2 && level !== 3);
+    if (crown) crown.classList.toggle("hidden", level < 4);
+    if (spoon) spoon.classList.toggle("hidden", level >= 3);
+    if (dumbbell) dumbbell.classList.toggle("hidden", level < 3);
+
+    if (badge) {
+      if (level === 4) {
+        badge.textContent = "👑 Lv.4 キング丸";
+        badge.className = "bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-2xs";
+      } else if (level === 3) {
+        badge.textContent = "💪 Lv.3 アスリート丸";
+        badge.className = "bg-gradient-to-r from-cyan-400 to-blue-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-2xs";
+      } else if (level === 2) {
+        badge.textContent = "🌸 Lv.2 すっきり丸";
+        badge.className = "bg-gradient-to-r from-pink-400 to-rose-300 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-2xs";
+      } else {
+        badge.textContent = "🌱 Lv.1 ぽよ丸";
+        badge.className = "bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-2xs";
+      }
+    }
+  }
+  window.applyMascotEvolutionUI = applyMascotEvolutionUI;
+
   window.interactWithMascot = function() {
     mascotTapCount++;
     playMascotChime("normal");
@@ -3556,6 +3627,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const speechEl = document.getElementById("mascotSpeech");
     if (!speechEl) return;
+
+    const currentLevel = calculateMascotEvolutionLevel();
+    applyMascotEvolutionUI(currentLevel);
 
     let eatenCal = 0;
     let eatenP = 0;
@@ -3580,6 +3654,21 @@ document.addEventListener("DOMContentLoaded", () => {
       "今日のあなたの頑張り、モグ丸はずっと見てるよ〜！🥰",
       "夜はぬるめのお風呂に浸かるとぐっすり眠れるよ🛁"
     ];
+
+    // レベル・進化状況に応じた専用セリフ
+    if (currentLevel === 1) {
+      funDialogues.push("目標カロリーを守って食事を記録すると、モグ丸に花が咲いて進化するよ🌸");
+      funDialogues.push("体重が減るとモグ丸もシュッとスリムに成長できるんだ！一緒に頑張ろうね🔥");
+    } else if (currentLevel === 2) {
+      funDialogues.push("見て見て！頭にお花が咲いたよ🌸 あと少しでダンベル持てる筋肉アスリート丸に進化できるよ💪");
+      funDialogues.push("いいペース！お腹がすっきりして体が軽くなってきた気がする〜✨");
+    } else if (currentLevel === 3) {
+      funDialogues.push("ダンベル装備で代謝爆上がり中💪 このまま達成を続けると最高の王冠キング丸になれるよ👑");
+      funDialogues.push("ナイス筋肉！タンパク質がしっかり身について引き締まってきたよ〜！🔥");
+    } else if (currentLevel === 4) {
+      funDialogues.push("あなたの努力でついに最高のキングモグ丸になったよ！神すぎる〜！👑✨");
+      funDialogues.push("目標達成の達人！これからもずっとモグ丸と一緒にベスト体型をキープしようね💖");
+    }
 
     if (eatenP >= targetP * 0.7) {
       funDialogues.push("タンパク質しっかり摂れてて最高！筋肉も喜んでるよ💪");
@@ -3608,10 +3697,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     spawnMascotParticles(true);
 
+    const level = calculateMascotEvolutionLevel();
+    applyMascotEvolutionUI(level);
+
     const speechEl = document.getElementById("mascotSpeech");
     if (speechEl) {
       const slotJp = getSlotJpName(slot);
-      speechEl.textContent = `【${slotJp}】記録できたね！偉すぎる〜！美味しく健康にチャージ完了🎉`;
+      if (level >= 3) {
+        speechEl.textContent = `【${slotJp}】記録完了！モグ丸もますます引き締まってパワーアップ中だよ〜！💪🎉`;
+      } else {
+        speechEl.textContent = `【${slotJp}】記録できたね！偉すぎる〜！美味しく健康にチャージ完了🎉`;
+      }
     }
 
     setTimeout(() => {
@@ -3620,6 +3716,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateMascotDefaultSpeech(eatenCal, targetCal, records) {
+    const level = calculateMascotEvolutionLevel();
+    applyMascotEvolutionUI(level);
+
     if (mascotIsCelebrating) return;
     const speechEl = document.getElementById("mascotSpeech");
     if (!speechEl) return;
