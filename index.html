@@ -223,142 +223,28 @@
       class="hidden rounded-xl p-3 sm:p-3.5 flex items-center justify-between text-xs font-medium border shadow-sm">
     </div>
 
-    <!-- 身体データ ＆ 基礎代謝設定（折りたたみ可能なドロワー形式） -->
-    <details class="group bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden transition">
-      <summary class="flex items-center justify-between p-3.5 sm:p-4 cursor-pointer list-none hover:bg-slate-50/80 transition">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold shadow-xs">
-            <i class="fa-solid fa-calculator"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h2 class="font-bold text-xs sm:text-sm text-slate-800">身体データ ＆ 基礎代謝設定</h2>
-              <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">BMR: <span id="mainBmrSummary">1,620</span> kcal</span>
-            </div>
-            <p class="text-[10px] sm:text-[11px] text-slate-500">あなたの体に合わせた正確な目標カロリー・PFCを算出中</p>
-          </div>
+    <!-- 身体データ ＆ 減量目標サマリー（タップで設定を開く） -->
+    <div id="openProfileBanner" onclick="window.openProfileModal && window.openProfileModal()"
+      class="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-3.5 border border-slate-200/80 shadow-xs hover:border-emerald-300 hover:shadow-sm transition cursor-pointer flex items-center justify-between group active:scale-[0.99]"
+      title="タップして体型・減量設定を変更">
+      <div class="flex items-center space-x-3 min-w-0">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm shrink-0 group-hover:bg-emerald-100 transition">
+          <i class="fa-solid fa-sliders"></i>
         </div>
-        <div class="flex items-center space-x-1.5 text-xs text-slate-400 group-open:text-emerald-600 transition">
-          <span class="text-[11px] font-medium hidden sm:inline">変更・確認</span>
-          <i class="fa-solid fa-chevron-down text-xs group-open:rotate-180 transition duration-200"></i>
-        </div>
-      </summary>
-
-      <div class="p-4 sm:p-5 pt-2 border-t border-slate-100 space-y-3 sm:space-y-4">
-        <div class="flex items-center justify-between flex-wrap gap-2">
-          <p class="text-[11px] text-slate-500">変更すると今日の目標値が自動で再計算されます</p>
-          <label class="flex items-center space-x-1.5 cursor-pointer text-slate-600 font-medium bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 hover:bg-slate-100 transition text-xs">
-            <input type="checkbox" id="manualBmrToggle" class="rounded text-emerald-600 focus:ring-emerald-500">
-            <span>体組成計の数値を直接入力</span>
-          </label>
-        </div>
-
-        <!-- 入力グリッド -->
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
-          <div>
-            <label class="block text-slate-600 mb-1 font-semibold">性別</label>
-            <select id="mainGender"
-              class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
-              <option value="male" selected>男性</option>
-              <option value="female">女性</option>
-            </select>
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="font-bold text-xs sm:text-sm text-slate-800">身体データ ＆ 減量設定</span>
+            <span id="summaryBmrBadge" class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">BMR: <span id="mainBmrSummary">1,620</span> kcal</span>
+            <span id="summaryPaceBadge" class="text-[10px] text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200"><span id="mainPaceSummary">月 -2.0kg</span></span>
           </div>
-          <div>
-            <label class="block text-slate-600 mb-1 font-semibold">年齢</label>
-            <input type="number" id="mainAge" value="28"
-              class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
-          </div>
-          <div>
-            <label class="block text-slate-600 mb-1 font-semibold">身長 (cm)</label>
-            <input type="number" id="mainHeight" value="172"
-              class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
-          </div>
-          <div>
-            <label class="block text-slate-600 mb-1 font-semibold">現在の体重 (kg)</label>
-            <input type="number" id="mainWeight" value="70" step="0.5"
-              class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
-          </div>
-          <div class="col-span-2 sm:col-span-1">
-            <label class="block text-slate-600 mb-1 font-semibold">月間の減量目標</label>
-            <select id="mainPace"
-              class="w-full p-2 bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl outline-none font-bold">
-              <option value="0">現状維持 (±0kg)</option>
-              <option value="1">月 -1.0 kg 減量</option>
-              <option value="2" selected>月 -2.0 kg 減量</option>
-              <option value="3">月 -3.0 kg 減量</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- 活動レベル & 基礎代謝の計算結果バー -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
-          <div>
-            <label class="block text-slate-600 mb-1 font-semibold">日常の活動レベル</label>
-            <select id="mainActivity"
-              class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-medium">
-              <option value="1.2">ほぼ座り仕事・デスクワーク</option>
-              <option value="1.375" selected>通勤・軽い立ち仕事・日常歩行</option>
-              <option value="1.55">立ち仕事・週2〜3回の運動</option>
-              <option value="1.725">肉体労働・ハードな筋トレ</option>
-            </select>
-          </div>
-
-          <!-- 基礎代謝 (BMR) 表示 / 直接入力 -->
-          <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
-            <div class="flex justify-between items-center text-slate-600 font-semibold">
-              <span>あなたの基礎代謝 (BMR)</span>
-              <span class="text-[10px] text-emerald-600" id="bmrCalcMethodBadge">自動計算</span>
-            </div>
-            <div class="flex items-center space-x-1.5 mt-1">
-              <input type="number" id="mainBmrInput" value="1620" disabled
-                class="w-full text-base font-black text-slate-800 bg-transparent font-mono outline-none">
-              <span class="text-xs font-bold text-slate-600">kcal</span>
-            </div>
-          </div>
-
-          <!-- 総消費カロリー (TDEE) -->
-          <div class="bg-emerald-50/70 p-2.5 rounded-2xl border border-emerald-200 flex flex-col justify-between">
-            <div class="flex justify-between items-center text-emerald-900 font-semibold">
-              <span>1日の総消費カロリー (TDEE)</span>
-              <i class="fa-solid fa-fire text-orange-500"></i>
-            </div>
-            <div class="flex items-baseline space-x-1.5 mt-1">
-              <span id="mainTdeeDisplay" class="text-base font-black text-emerald-700 font-mono">2,228</span>
-              <span class="text-xs font-bold text-slate-600">kcal / 日</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 体型判定：ローレル指数 (低身長・高校生適応) ＆ 適正体重 -->
-        <div id="bodyIndexCard" class="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 sm:p-3 text-xs space-y-2">
-          <div class="flex items-center justify-between flex-wrap gap-2">
-            <div class="flex items-center space-x-1.5 sm:space-x-2">
-              <span
-                class="w-6 h-6 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0">
-                <i class="fa-solid fa-weight-scale"></i>
-              </span>
-              <span class="font-bold text-slate-700 text-xs sm:text-sm" id="bodyIndexTitle">体型指数：ローレル指数</span>
-              <span
-                class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 shrink-0"
-                id="bodyIndexBadge">標準</span>
-            </div>
-            <div class="flex items-center space-x-2 sm:space-x-3 text-slate-600 text-xs">
-              <div>数値: <strong class="text-slate-800 font-mono" id="bodyIndexValue">128.5</strong></div>
-              <div>適正目安: <strong class="text-emerald-700 font-mono" id="standardWeightDisplay">32.5 kg</strong></div>
-            </div>
-          </div>
-
-          <!-- 小柄・高校生検知時の納得ガイド -->
-          <div id="rohrerNote"
-            class="text-[10px] sm:text-[11px] text-teal-900 bg-teal-50/80 p-2 rounded-xl border border-teal-200/60 leading-relaxed flex items-start gap-1.5">
-            <i class="fa-solid fa-circle-check text-teal-600 mt-0.5 shrink-0"></i>
-            <span>
-              <strong>小柄・成長期適応モード適用中：</strong>身長が小柄な方（145cm以下）や高校生の場合、成人用BMIだと数学的な歪みで肥満度や代謝がおかしくなるため、体積比で正確に測れる<strong>「ローレル指数（体重÷身長³）」</strong>と厚生労働省基準を自動適用しています。
-            </span>
-          </div>
+          <p class="text-[10px] sm:text-[11px] text-slate-400 truncate mt-0.5">タップして身長・体重・目標ペースを変更</p>
         </div>
       </div>
-    </details>
+      <div class="flex items-center space-x-1 text-slate-400 group-hover:text-emerald-600 text-xs font-semibold shrink-0 transition pl-1">
+        <span>設定</span>
+        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+      </div>
+    </div>
 
     <!-- 1日の総目標カロリー & 栄養量ガイド（Hero Dashboard） -->
     <section class="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-4 sm:p-6 shadow-xl border border-slate-700/60 relative overflow-hidden space-y-4">

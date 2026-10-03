@@ -28,12 +28,12 @@ const DietCalculator = {
    * 脂肪1kg = 約7,200kcal
    */
   calculateTargetCalories: function (tdee, bmr, monthlyLossKg) {
-    const monthlyDeficit = monthlyLossKg * 7200;
+    const monthlyDeficit = (parseFloat(monthlyLossKg) || 0) * 7200;
     const dailyDeficit = Math.round(monthlyDeficit / 30);
     let target = tdee - dailyDeficit;
 
-    // 安全装置（セーフティ）：基礎代謝の90%を下回る極端な制限を防止
-    const safeMinimum = Math.round(bmr * 0.95);
+    // 安全装置（セーフティ）：極端な飢餓状態を防止（基礎代謝の80%または1,100kcalを下回らない）
+    const safeMinimum = Math.max(1100, Math.round(bmr * 0.8));
     let isLimited = false;
 
     if (target < safeMinimum) {

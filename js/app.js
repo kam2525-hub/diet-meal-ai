@@ -250,77 +250,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const u = state.user;
     const m = state.metrics;
 
-    // トップ入力フォームの同期
-    const genderEl = document.getElementById("mainGender");
-    if (genderEl) genderEl.value = u.gender;
-    const ageEl = document.getElementById("mainAge");
-    if (ageEl) ageEl.value = u.age;
-    const heightEl = document.getElementById("mainHeight");
-    if (heightEl) heightEl.value = u.height;
-    const weightEl = document.getElementById("mainWeight");
-    if (weightEl) weightEl.value = u.weight;
-    const paceEl = document.getElementById("mainPace");
-    if (paceEl) paceEl.value = u.pace;
-    const actEl = document.getElementById("mainActivity");
-    if (actEl) actEl.value = u.activity;
-
-    // BMRと直接入力チェックボックス
-    const manualToggle = document.getElementById("manualBmrToggle");
-    const bmrInput = document.getElementById("mainBmrInput");
-    const badge = document.getElementById("bmrCalcMethodBadge");
-
-    if (manualToggle && bmrInput && badge) {
-      manualToggle.checked = u.isManualBmr;
-      bmrInput.disabled = !u.isManualBmr;
-      bmrInput.value = m.bmr;
-
-      if (u.isManualBmr) {
-        badge.textContent = "手動入力中";
-        badge.className = "text-[10px] text-amber-600 font-bold";
-        bmrInput.classList.add("bg-white", "border", "border-amber-300", "px-1", "rounded");
-      } else {
-        badge.textContent = "自動計算";
-        badge.className = "text-[10px] text-emerald-600 font-semibold";
-        bmrInput.classList.remove("bg-white", "border", "border-amber-300", "px-1", "rounded");
-      }
+    // ホーム画面の身体データ＆減量設定サマリーバナーの更新
+    const bmrSummaryEl = document.getElementById("mainBmrSummary");
+    if (bmrSummaryEl) {
+      bmrSummaryEl.textContent = (m.bmr || 0).toLocaleString();
     }
 
-    // TDEE表示
-    const tdeeEl = document.getElementById("mainTdeeDisplay");
-    if (tdeeEl) tdeeEl.textContent = m.tdee.toLocaleString();
-
-    // 体型指数（ローレル指数 / BMI）の表示
-    if (m.bodyIndex) {
-      const b = m.bodyIndex;
-      const titleEl = document.getElementById("bodyIndexTitle");
-      if (titleEl) titleEl.textContent = `体型指数：${b.primaryName}`;
-
-      const valEl = document.getElementById("bodyIndexValue");
-      if (valEl) valEl.textContent = b.primaryValue;
-
-      const badgeEl = document.getElementById("bodyIndexBadge");
-      if (badgeEl) {
-        badgeEl.textContent = b.status;
-        if (b.statusColor === 'emerald') {
-          badgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800";
-        } else if (b.statusColor === 'blue' || b.statusColor === 'teal') {
-          badgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800";
-        } else {
-          badgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800";
-        }
-      }
-
-      const stdWeightEl = document.getElementById("standardWeightDisplay");
-      if (stdWeightEl) stdWeightEl.textContent = `${b.standardWeight} kg`;
-
-      const noteEl = document.getElementById("rohrerNote");
-      if (noteEl) {
-        if (b.isSmallOrYouth) {
-          noteEl.classList.remove("hidden");
-        } else {
-          noteEl.classList.add("hidden");
-        }
-      }
+    const paceSummaryEl = document.getElementById("mainPaceSummary");
+    if (paceSummaryEl) {
+      const pace = parseFloat(u.pace) || 0;
+      paceSummaryEl.textContent = pace === 0 ? "現状維持 (±0kg)" : `月 -${pace.toFixed(1)}kg`;
     }
   }
 
@@ -648,6 +587,47 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // プロフィール・減量目標設定モーダルの開閉（単一の設定ウィンドウとして全画面から呼び出し）
+  window.openProfileModal = function () {
+    const profileModal = document.getElementById("profileModal");
+    if (!profileModal) return;
+
+    // 現在のユーザー設定値を入力フィールドに完全同期
+    const u = state.user;
+    const genderEl = document.getElementById("userGender");
+    if (genderEl) genderEl.value = u.gender;
+    const ageEl = document.getElementById("userAge");
+    if (ageEl) ageEl.value = u.age;
+    const heightEl = document.getElementById("userHeight");
+    if (heightEl) heightEl.value = u.height;
+    const weightEl = document.getElementById("userWeight");
+    if (weightEl) weightEl.value = u.weight;
+    const actEl = document.getElementById("userActivity");
+    if (actEl) actEl.value = u.activity;
+    const paceEl = document.getElementById("userPace");
+    if (paceEl) paceEl.value = u.pace;
+    const budgetEl = document.getElementById("userBudget");
+    if (budgetEl) budgetEl.value = u.budget;
+    const cheatEl = document.getElementById("userCheatDay");
+    if (cheatEl) cheatEl.value = u.cheatDay;
+    const favEl = document.getElementById("userFavorites");
+    if (favEl) favEl.value = u.favorites;
+
+    // モーダル内プレビューを最新値で計算・描画
+    calculateAllMetrics();
+    renderProfileModalValues();
+
+    profileModal.classList.remove("hidden");
+    profileModal.style.display = "flex";
+  };
+
+  window.closeProfileModal = function () {
+    const profileModal = document.getElementById("profileModal");
+    if (!profileModal) return;
+    profileModal.classList.add("hidden");
+    profileModal.style.display = "none";
+  };
+
   function setupEventListeners() {
     // 日付切り替えナビゲーション
     const prevDateBtn = document.getElementById("prevDateBtn");
@@ -690,86 +670,42 @@ document.addEventListener("DOMContentLoaded", () => {
     if (profileModal) {
       profileModal.addEventListener("click", (e) => {
         if (e.target === profileModal) {
-          profileModal.classList.add("hidden");
+          window.closeProfileModal();
         }
       });
     }
 
-    // 画面トップの基礎代謝 ＆ 減量目標 パネルのリアルタイム連動
-    const topInputs = ['mainGender', 'mainAge', 'mainHeight', 'mainWeight', 'mainPace', 'mainActivity'];
-    topInputs.forEach(id => {
+    // プロフィール・減量設定モーダルの開閉
+    document.getElementById("openProfileBtn")?.addEventListener("click", () => {
+      window.openProfileModal();
+    });
+    document.getElementById("closeProfileBtn")?.addEventListener("click", () => {
+      window.closeProfileModal();
+    });
+
+    // プロフィール入力変更時のリアルタイムプレビュー連動（input & changeの両イベントに対応）
+    const profileInputIds = ['userGender', 'userAge', 'userHeight', 'userWeight', 'userActivity', 'userPace', 'userBudget', 'userCheatDay', 'userFavorites'];
+    const handleProfilePreviewChange = () => {
+      readProfileInputs();
+      calculateAllMetrics();
+      renderProfileModalValues();
+    };
+    profileInputIds.forEach(id => {
       const el = document.getElementById(id);
-      if (!el) return;
-      el.addEventListener("input", () => {
-        state.user.gender = document.getElementById("mainGender").value;
-        state.user.age = parseInt(document.getElementById("mainAge").value) || 28;
-        state.user.height = parseFloat(document.getElementById("mainHeight").value) || 170;
-        state.user.weight = parseFloat(document.getElementById("mainWeight").value) || 65;
-        state.user.pace = parseFloat(document.getElementById("mainPace").value) || 2;
-        state.user.activity = parseFloat(document.getElementById("mainActivity").value) || 1.375;
-
-        calculateAllMetrics();
-        saveUserToStorage();
-        updateUI();
-      });
+      if (el) {
+        el.addEventListener("input", handleProfilePreviewChange);
+        el.addEventListener("change", handleProfilePreviewChange);
+      }
     });
 
-    // 体組成計 BMR 手動トグル
-    const manualToggle = document.getElementById("manualBmrToggle");
-    const bmrInput = document.getElementById("mainBmrInput");
-    if (manualToggle && bmrInput) {
-      manualToggle.addEventListener("change", (e) => {
-        state.user.isManualBmr = e.target.checked;
-        if (state.user.isManualBmr) {
-          state.user.manualBmr = parseFloat(bmrInput.value) || state.metrics.bmr;
-        }
-        calculateAllMetrics();
-        saveUserToStorage();
-        updateUI();
-      });
-
-      bmrInput.addEventListener("input", (e) => {
-        if (state.user.isManualBmr) {
-          const val = parseFloat(e.target.value);
-          if (val > 500) {
-            state.user.manualBmr = val;
-            calculateAllMetrics();
-            saveUserToStorage();
-            updateUI();
-          }
-        }
-      });
-    }
-
-
-
-    // プロフィールモーダル
-    document.getElementById("openProfileBtn").addEventListener("click", () => {
-      if (profileModal) profileModal.classList.remove("hidden");
-    });
-    document.getElementById("closeProfileBtn").addEventListener("click", () => {
-      profileModal.classList.add("hidden");
-    });
-
-    // プロフィール入力変更時のプレビュー連動
-    const inputs = ['userGender', 'userAge', 'userHeight', 'userWeight', 'userActivity', 'userPace'];
-    inputs.forEach(id => {
-      const el = document.getElementById(id);
-      el.addEventListener("input", () => {
-        readProfileInputs();
-        calculateAllMetrics();
-        renderProfileModalValues();
-      });
-    });
-
-    // プロフィール保存
-    document.getElementById("saveProfileBtn").addEventListener("click", () => {
+    // プロフィール設定保存（保存 → 全体再計算 → 献立更新 → UI更新 → モーダル閉）
+    document.getElementById("saveProfileBtn")?.addEventListener("click", () => {
       readProfileInputs();
       calculateAllMetrics();
       generateFullDayPlan();
       saveUserToStorage();
       updateUI();
-      profileModal.classList.add("hidden");
+      window.closeProfileModal();
     });
 
     // 全リロールボタン（任意）
@@ -858,15 +794,50 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function readProfileInputs() {
-    state.user.gender = document.getElementById("userGender").value;
-    state.user.age = parseInt(document.getElementById("userAge").value) || 28;
-    state.user.height = parseFloat(document.getElementById("userHeight").value) || 170;
-    state.user.weight = parseFloat(document.getElementById("userWeight").value) || 65;
-    state.user.activity = parseFloat(document.getElementById("userActivity").value) || 1.375;
-    state.user.pace = parseFloat(document.getElementById("userPace").value) || 2;
-    state.user.budget = parseInt(document.getElementById("userBudget").value) || 1500;
-    state.user.cheatDay = document.getElementById("userCheatDay").value;
-    state.user.favorites = document.getElementById("userFavorites").value;
+    const genderEl = document.getElementById("userGender");
+    if (genderEl) state.user.gender = genderEl.value;
+
+    const ageEl = document.getElementById("userAge");
+    if (ageEl) {
+      const v = parseInt(ageEl.value, 10);
+      state.user.age = isNaN(v) ? 28 : v;
+    }
+
+    const heightEl = document.getElementById("userHeight");
+    if (heightEl) {
+      const v = parseFloat(heightEl.value);
+      state.user.height = isNaN(v) ? 170 : v;
+    }
+
+    const weightEl = document.getElementById("userWeight");
+    if (weightEl) {
+      const v = parseFloat(weightEl.value);
+      state.user.weight = isNaN(v) ? 65 : v;
+    }
+
+    const actEl = document.getElementById("userActivity");
+    if (actEl) {
+      const v = parseFloat(actEl.value);
+      state.user.activity = isNaN(v) ? 1.375 : v;
+    }
+
+    const paceEl = document.getElementById("userPace");
+    if (paceEl) {
+      const v = parseFloat(paceEl.value);
+      state.user.pace = isNaN(v) ? 2 : v;
+    }
+
+    const budgetEl = document.getElementById("userBudget");
+    if (budgetEl) {
+      const v = parseInt(budgetEl.value, 10);
+      state.user.budget = isNaN(v) ? 1500 : v;
+    }
+
+    const cheatEl = document.getElementById("userCheatDay");
+    if (cheatEl) state.user.cheatDay = cheatEl.value;
+
+    const favEl = document.getElementById("userFavorites");
+    if (favEl) state.user.favorites = favEl.value;
   }
 
   function saveUserToStorage() {
@@ -881,15 +852,24 @@ document.addEventListener("DOMContentLoaded", () => {
       if (saved) {
         state.user = Object.assign(state.user, JSON.parse(saved));
         // 入力フォームに反映
-        document.getElementById("userGender").value = state.user.gender;
-        document.getElementById("userAge").value = state.user.age;
-        document.getElementById("userHeight").value = state.user.height;
-        document.getElementById("userWeight").value = state.user.weight;
-        document.getElementById("userActivity").value = state.user.activity;
-        document.getElementById("userPace").value = state.user.pace;
-        document.getElementById("userBudget").value = state.user.budget;
-        document.getElementById("userCheatDay").value = state.user.cheatDay;
-        document.getElementById("userFavorites").value = state.user.favorites;
+        const genderEl = document.getElementById("userGender");
+        if (genderEl) genderEl.value = state.user.gender;
+        const ageEl = document.getElementById("userAge");
+        if (ageEl) ageEl.value = state.user.age;
+        const heightEl = document.getElementById("userHeight");
+        if (heightEl) heightEl.value = state.user.height;
+        const weightEl = document.getElementById("userWeight");
+        if (weightEl) weightEl.value = state.user.weight;
+        const actEl = document.getElementById("userActivity");
+        if (actEl) actEl.value = state.user.activity;
+        const paceEl = document.getElementById("userPace");
+        if (paceEl) paceEl.value = state.user.pace;
+        const budgetEl = document.getElementById("userBudget");
+        if (budgetEl) budgetEl.value = state.user.budget;
+        const cheatEl = document.getElementById("userCheatDay");
+        if (cheatEl) cheatEl.value = state.user.cheatDay;
+        const favEl = document.getElementById("userFavorites");
+        if (favEl) favEl.value = state.user.favorites;
       }
     } catch (e) { }
   }
