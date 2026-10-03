@@ -1091,11 +1091,11 @@
         </p>
       </div>
 
-      <!-- わかりやすい3ステップ取得ガイド -->
+      <!-- わかりやすい2ステップ取得ガイド -->
       <div class="space-y-2.5 text-xs">
         <div class="font-bold text-slate-800 flex items-center gap-1.5">
           <i class="fa-solid fa-circle-question text-indigo-600"></i>
-          <span>超カンタン！無料APIキーの取得手順（約1〜2分）</span>
+          <span>超カンタン！無料APIキーの取得手順（約30秒）</span>
         </div>
 
         <!-- ⚠️ 18歳以上Googleアカウントに関する最重要注意点 -->
@@ -1110,54 +1110,37 @@
         </div>
 
         <!-- ステップ1 -->
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
           <div class="font-bold text-indigo-950 flex items-center justify-between">
             <div class="flex items-center gap-1.5">
               <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">1</span>
-              <span>Google Cloudでプロジェクトを作成（初回のみ・30秒）</span>
+              <span>Google AI StudioでAPIキーを作成してコピー（所要時間: 30秒）</span>
             </div>
-            <span class="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-700 font-bold rounded">完全無料</span>
+            <span class="text-[9px] px-1.5 py-0.2 bg-emerald-100 text-emerald-700 font-bold rounded">1日1,500回無料</span>
           </div>
           <p class="text-[10.5px] text-slate-600 leading-relaxed">
-            APIキーを発行するには、Google Cloudにプロジェクトが1つ必要です（クレジットカード登録は不要です）。
+            下のボタンからGoogle AI Studioを開きます（クレジットカード不要・完全無料）。
           </p>
-          <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener noreferrer"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 hover:border-indigo-400 rounded-lg text-indigo-600 font-bold text-[11px] transition shadow-2xs">
-            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-            <span>Google Cloud プロジェクト作成画面を開く</span>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition shadow-2xs">
+            <i class="fa-solid fa-key text-[11px]"></i>
+            <span>Google AI Studio APIキー作成画面を開く</span>
           </a>
-          <div class="text-[10px] text-slate-500">※プロジェクト名（例: <code>my-meal-ai</code> など何でもOK）を入れて「作成」を押すだけで完了です。</div>
+          <ol class="list-decimal list-inside text-[11px] text-slate-700 space-y-1 pt-1 bg-white p-2.5 rounded-lg border border-slate-200">
+            <li>青いボタン<strong>「Create API key（APIキーを作成）」</strong>を押す</li>
+            <li><strong>「Create API key in new project」</strong>（新しいプロジェクトで作成）を押すだけで自動発行されます！</li>
+            <li>画面に表示された <code class="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono text-[10.5px] font-bold">AIzaSy...</code> から始まる文字列をコピー</li>
+          </ol>
+          <div class="text-[9.5px] text-slate-400 pt-0.5">
+            ※もし「既存プロジェクトを選択」と出た場合は、画面の指示に従ってプロジェクトを選択するか、<a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener noreferrer" class="text-indigo-500 underline">Google Cloudで名前を入れて新規作成</a>してください。
+          </div>
         </div>
 
         <!-- ステップ2 -->
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
-          <div class="font-bold text-indigo-950 flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">2</span>
-              <span>Google AI StudioでAPIキーを作成してコピー</span>
-            </div>
-            <span class="text-[9px] px-1.5 py-0.2 bg-indigo-100 text-indigo-700 font-bold rounded">1日1,500回無料</span>
-          </div>
-          <p class="text-[10.5px] text-slate-600 leading-relaxed">
-            AI Studioのキー作成画面を開き、右上のボタンを押します。
-          </p>
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[11px] transition shadow-2xs">
-            <i class="fa-solid fa-key text-[10px]"></i>
-            <span>Google AI Studio APIキー作成画面を開く</span>
-          </a>
-          <ol class="list-decimal list-inside text-[10.5px] text-slate-600 space-y-0.5 pt-0.5">
-            <li>青いボタン<strong>「Create API key（APIキーを作成）」</strong>を押す</li>
-            <li>先ほど作ったプロジェクトを選択してキーを生成</li>
-            <li>表示された <code class="bg-slate-200 px-1 rounded font-mono text-[10px]">AIzaSy...</code> から始まる文字列をコピー</li>
-          </ol>
-        </div>
-
-        <!-- ステップ3 -->
         <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
           <div class="font-bold text-indigo-950 flex items-center gap-1.5">
-            <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">3</span>
-            <span>下の枠に貼り付けて「保存する」を押す</span>
+            <span class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">2</span>
+            <span>下の枠に貼り付けて「設定を保存する」を押す</span>
           </div>
           <p class="text-[10.5px] text-slate-600 leading-relaxed">
             コピーしたキーを貼り付ければ完了です！お使いの端末（ブラウザのLocalStorage）にのみ安全に保存されます。
@@ -1652,9 +1635,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=5.4.0"></script>
-  <script src="js/calculator.js?v=5.4.0"></script>
-  <script src="js/app.js?v=5.4.0"></script>
+  <script src="js/data.js?v=5.4.1"></script>
+  <script src="js/calculator.js?v=5.4.1"></script>
+  <script src="js/app.js?v=5.4.1"></script>
 </body>
 
 </html>
