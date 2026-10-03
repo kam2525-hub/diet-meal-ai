@@ -163,12 +163,6 @@
           <i class="fa-solid fa-calendar-check text-teal-600"></i>
           <span>今月の成果</span>
         </button>
-        <button id="shoppingListBtn"
-          class="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold border border-emerald-200 transition active:scale-95 cursor-pointer">
-          <i class="fa-solid fa-cart-shopping"></i>
-          <span class="hidden sm:inline">買い物メモ</span>
-          <span id="shoppingBadge" class="bg-emerald-600 text-white rounded-full px-1.5 py-0.2 text-[10px]">0</span>
-        </button>
         <button id="openGeminiModalBtn" onclick="window.openGeminiModal && window.openGeminiModal()"
           class="flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold border border-indigo-200 transition active:scale-95 cursor-pointer"
           title="Google AI（Gemini）超高精度設定">
@@ -1026,36 +1020,7 @@
     </div>
   </div>
 
-  <!-- 買い物メモ（チェックリスト） モーダル -->
-  <div id="shoppingModal"
-    class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
-      <div class="flex items-center justify-between border-b pb-3">
-        <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-            <i class="fa-solid fa-cart-shopping"></i>
-          </div>
-          <div>
-            <h2 class="text-sm font-bold text-slate-800">今日の買い物チェックリスト</h2>
-            <p class="text-[10px] text-slate-600">コンビニやお店に入ったらこれを見るだけ！</p>
-          </div>
-        </div>
-        <button id="closeShoppingBtn" class="text-slate-600 hover:text-slate-600 p-1">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
 
-      <!-- 店舗別リスト表示エリア -->
-      <div id="shoppingListContent" class="flex-1 overflow-y-auto space-y-4 text-xs pr-1">
-        <!-- 動的レンダリング -->
-      </div>
-
-      <div class="border-t pt-3 flex items-center justify-between text-xs font-semibold text-slate-700">
-        <span>合計推定金額:</span>
-        <span class="text-sm font-bold text-emerald-600" id="shoppingTotalPrice">0 円</span>
-      </div>
-    </div>
-  </div>
 
   <!-- ⚡ Google AI（Gemini）超高精度設定 ＆ APIキー取得ガイド モーダル -->
   <div id="geminiModal"
@@ -1566,6 +1531,52 @@
               </div>
             </div>
 
+            <!-- 個数・ボリューム調整コントロール（AI認識個数の微調整・カロリーリアルタイム連動） -->
+            <div id="portionControlBox" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                  <i class="fa-solid fa-shapes text-emerald-600"></i>
+                  <span>個数・ボリュームの調整：</span>
+                </span>
+                <span id="portionUnitHint" class="text-[10px] text-slate-500 font-medium">1個 約120kcal</span>
+              </div>
+              <div class="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                <!-- ステッパーボタン [-] [個数/量] [+] -->
+                <div class="flex items-center bg-white border border-slate-300 rounded-xl p-0.5 shadow-2xs">
+                  <button type="button" onclick="window.changePortionCount && window.changePortionCount(-1)"
+                    class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-black text-sm flex items-center justify-center cursor-pointer transition"
+                    title="1つ減らす">
+                    <i class="fa-solid fa-minus text-xs"></i>
+                  </button>
+                  <div class="px-3 min-w-[75px] text-center">
+                    <span id="portionCountValue" class="text-base font-black text-slate-800 font-mono">5</span>
+                    <span id="portionUnitLabel" class="text-xs font-bold text-slate-600 ml-0.5">個</span>
+                  </div>
+                  <button type="button" onclick="window.changePortionCount && window.changePortionCount(1)"
+                    class="w-8 h-8 rounded-lg bg-emerald-100 hover:bg-emerald-200 active:scale-95 text-emerald-800 font-black text-sm flex items-center justify-center cursor-pointer transition"
+                    title="1つ増やす">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                  </button>
+                </div>
+
+                <!-- クイック選択チップ -->
+                <div class="flex items-center gap-1.5 overflow-x-auto text-[11px] font-bold" id="portionQuickChips">
+                  <button type="button" onclick="window.setPortionPreset && window.setPortionPreset('small')" id="chipPortionSmall"
+                    class="portion-chip px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:border-emerald-400 active:scale-95 transition cursor-pointer shrink-0">
+                    少なめ (3個)
+                  </button>
+                  <button type="button" onclick="window.setPortionPreset && window.setPortionPreset('medium')" id="chipPortionMed"
+                    class="portion-chip px-2.5 py-1.5 rounded-xl bg-emerald-600 text-white border border-emerald-600 active:scale-95 transition cursor-pointer shadow-2xs shrink-0">
+                    標準 (5個)
+                  </button>
+                  <button type="button" onclick="window.setPortionPreset && window.setPortionPreset('large')" id="chipPortionLarge"
+                    class="portion-chip px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:border-emerald-400 active:scale-95 transition cursor-pointer shrink-0">
+                    大盛 (7個)
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- PFCバランス（3分割） -->
             <div class="grid grid-cols-3 gap-2">
               <div class="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2.5 text-center">
@@ -1680,9 +1691,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=5.6.0"></script>
-  <script src="js/calculator.js?v=5.6.0"></script>
-  <script src="js/app.js?v=5.6.0"></script>
+  <script src="js/data.js?v=5.7.0"></script>
+  <script src="js/calculator.js?v=5.7.0"></script>
+  <script src="js/app.js?v=5.7.0"></script>
 </body>
 
 </html>

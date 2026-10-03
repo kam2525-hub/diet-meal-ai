@@ -50,9 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
       drink: "all"
     },
 
-    // 買い物リストのチェック状態
-    checkedShoppingItems: new Set(),
-
     // 日付管理 (YYYY-MM-DD)
     currentDate: getTodayString(),
 
@@ -197,7 +194,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderProfileModalValues();
     renderPlanSummary();
     renderMealSlots();
-    renderShoppingBadge();
     renderStatusBanner();
   }
 
@@ -602,76 +598,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function renderShoppingBadge() {
-    const allItems = Object.values(state.currentPlan).flat();
-    document.getElementById("shoppingBadge").textContent = allItems.length;
-  }
 
-  // ===================== 買い物リストモーダル =====================
-  function openShoppingModal() {
-    const modal = document.getElementById("shoppingModal");
-    const container = document.getElementById("shoppingListContent");
-    container.innerHTML = "";
-
-    const allItems = Object.values(state.currentPlan).flat();
-
-    // 店舗ごとにグルーピング
-    const grouped = {};
-    allItems.forEach(item => {
-      const storeName = item.storeName;
-      if (!grouped[storeName]) grouped[storeName] = [];
-      grouped[storeName].push(item);
-    });
-
-    let totalPrice = 0;
-
-    Object.keys(grouped).forEach(store => {
-      const groupEl = document.createElement("div");
-      groupEl.className = "bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2";
-
-      const title = document.createElement("div");
-      title.className = "font-bold text-xs text-slate-800 flex items-center justify-between pb-1 border-b border-slate-200";
-      title.innerHTML = `
-        <span class="flex items-center gap-1.5"><i class="fa-solid fa-store text-emerald-600"></i> ${store}</span>
-        <span class="text-[10px] text-slate-600">${grouped[store].length}品</span>
-      `;
-      groupEl.appendChild(title);
-
-      grouped[store].forEach(item => {
-        totalPrice += item.price;
-        const isChecked = state.checkedShoppingItems.has(item.id);
-
-        const row = document.createElement("label");
-        row.className = `flex items-center justify-between py-1 px-1 rounded cursor-pointer hover:bg-slate-100 transition ${isChecked ? 'item-checked' : ''}`;
-        row.innerHTML = `
-          <div class="flex items-center space-x-2">
-            <input type="checkbox" class="shopping-item-checkbox rounded text-emerald-600 focus:ring-emerald-500" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
-            <span class="text-base">${item.icon}</span>
-            <span class="font-medium text-slate-700">${item.name}</span>
-          </div>
-          <span class="font-mono text-slate-600">¥${item.price}</span>
-        `;
-
-        const checkbox = row.querySelector(".shopping-item-checkbox");
-        checkbox.addEventListener("change", (e) => {
-          if (e.target.checked) {
-            state.checkedShoppingItems.add(item.id);
-            row.classList.add("item-checked");
-          } else {
-            state.checkedShoppingItems.delete(item.id);
-            row.classList.remove("item-checked");
-          }
-        });
-
-        groupEl.appendChild(row);
-      });
-
-      container.appendChild(groupEl);
-    });
-
-    document.getElementById("shoppingTotalPrice").textContent = `${totalPrice.toLocaleString()} 円`;
-    modal.classList.remove("hidden");
-  }
 
   // ===================== イベントリスナー =====================
   // グローバルモーダル開閉（HTMLのonclickからも直接呼べるようにwindowに公開）
@@ -740,14 +667,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
-    const shoppingModal = document.getElementById("shoppingModal");
-    if (shoppingModal) {
-      shoppingModal.addEventListener("click", (e) => {
-        if (e.target === shoppingModal) {
-          shoppingModal.classList.add("hidden");
-        }
-      });
-    }
+
     const profileModal = document.getElementById("profileModal");
     if (profileModal) {
       profileModal.addEventListener("click", (e) => {
@@ -803,11 +723,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 買い物モーダル
-    document.getElementById("shoppingListBtn").addEventListener("click", openShoppingModal);
-    document.getElementById("closeShoppingBtn").addEventListener("click", () => {
-      document.getElementById("shoppingModal").classList.add("hidden");
-    });
+
 
     // プロフィールモーダル
     document.getElementById("openProfileBtn").addEventListener("click", () => {
@@ -1641,20 +1557,40 @@ document.addEventListener("DOMContentLoaded", () => {
           return { error: true, message: "画像データの読み込みに失敗しました" };
         }
 
-        const prompt = `あなたは世界最高峰のプロ管理栄養士AIです。
-写真に写っている料理を極めて正確に分析し、以下のJSON形式のみを出力してください。
-特に、からあげ、ヤンニョムチキン、フライドチキン、タレのかかった肉料理、定食、ラーメン、丼ものなど、料理の外見的特徴（色、タレの照り、食材）を鋭く見極めて最も正確な料理名を答えてください。
-推定総カロリー(kcal・半角数字)、PFCバランス（たんぱく質g, 脂質g, 炭水化物g・半角数字）、および実践的なダイエットアドバイス（1行）を推計してください。
+        const prompt = `あなたは世界最高峰のプロ管理栄養士・食品AIアナリストです。
+画像全体を多角的に解析し、以下の4ステップ思考を経て、必ず指定のJSON形式のみを出力してください。
 
-必ず以下のJSON形式のみを出力してください（Markdownコードブロックは不要、純粋なJSON文字列のみ）：
+【ステップ1：料理の特定（物体認識・分類）】
+- 画像全体から料理の種類（「油そば」「牛鮭定食」「特製ヤンニョムチキン」「牛カルビ焼肉定食」「豚骨ラーメン」「からあげ定食」など）を精密識別。
+- 麺の太さ・形状、スープの有無（汁なし系・つけ麺・ラーメンの違い）、添えられている具材（薬味、辛味ペースト、レモンなど）や定食の小鉢・汁物・ご飯の有無を細部まで観察。
+
+【ステップ2：食材のパーツ分け（セグメンテーション）】
+- 主食：ご飯、中華麺、うどん、パンなど
+- 主菜・主タンパク源：焼き鮭、牛カルビ肉、鶏からあげ、チキン、豚チャーシューなど
+- 副菜・トッピング：メンマ、刻みネギ、牛小鉢、味噌汁、キムチ、野菜など
+- 調味料・油脂：底のタレ、絡められた油、甘辛ヤンニョムダレ、ドレッシングなど
+
+【ステップ3：ボリューム（重量・体積）の精密推定】
+- 器（丼、角皿、お椀、お盆）や箸・スプーン等のサイズ感をスケール（物差し）として活用。
+- 個数（ヤンニョムチキン5個、からあげ4個、餃子6個など）や、盛り付けの深さ・広がり（ご飯並盛約200〜250g・大盛約300g、茹で麺約200〜250g等）を見積もる。
+
+【ステップ4：栄養データベースとの照合・合算】
+- 推定した各食材の重量を、一般的な食品成分表や外食メニュー標準レシピデータに当てはめ、見えない吸油や調味料も考慮して総カロリーとPFC（たんぱく質・脂質・炭水化物）を合算。
+
+【JSON出力フォーマット（純粋なJSON文字列のみ、Markdownコードブロックや余分なテキストは一切不要）】：
 {
-  "name": "具体的な料理名（例: ヤンニョムチキン、特製からあげ弁当、豚骨ラーメン、牛カルビ定食）",
-  "calories": 680,
-  "p": 28.0,
-  "f": 24.0,
-  "c": 72.0,
-  "advice": "栄養バランスとダイエットの観点からの実践的なアドバイス（1行）",
-  "icon": "最も適切な絵文字（例: 🍗）"
+  "name": "具体的な料理名（個数・盛り付け量を明記。例: 特製ヤンニョムチキン（5個）、牛鮭定食（鮭塩焼き・牛小鉢・ご飯並盛・味噌汁）、牛カルビ焼肉定食（牛カルビ・ご飯・スープ・キムチ）、特製油そば（並盛・チャーシュー・メンマ添え））",
+  "portion": "5個 または 並盛",
+  "count": 5,
+  "unitName": "個",
+  "unitCalories": 124,
+  "calories": 620,
+  "p": 32.0,
+  "f": 26.0,
+  "c": 64.0,
+  "breakdown": "パーツ内訳（例: チキン5個 約520kcal ＋ 甘辛ダレ・吸油 約100kcal）",
+  "advice": "管理栄養士からの実践的ダイエットアドバイス（1行）",
+  "icon": "最も適切な絵文字（🍗, 🐟, 🥩, 🍜, 🍛等）"
 }`;
 
         const payload = {
@@ -1679,8 +1615,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const res = await fetch(endpoint, {
               method: "POST",
               headers: {
-                "Content-Type": "application/json",
-                "x-goog-api-key": geminiApiKey
+                "Content-Type": "application/json"
               },
               body: JSON.stringify(payload)
             });
@@ -1703,13 +1638,23 @@ document.addEventListener("DOMContentLoaded", () => {
             cleanText = cleanText.trim();
             const parsed = JSON.parse(cleanText);
 
+            const parsedCal = parseInt(parsed.calories) || 600;
+            const parsedCount = parseInt(parsed.count) || (parsed.name && parsed.name.includes("個") ? (parseInt(parsed.name.match(/(\d+)個/)?.[1]) || 5) : 1);
+            const parsedUnitName = parsed.unitName || (parsedCount > 1 ? "個" : "人前");
+            const parsedUnitCal = parseInt(parsed.unitCalories) || (parsedCount > 1 ? Math.round(parsedCal / parsedCount) : parsedCal);
+
             return {
               name: parsed.name || "解析された料理",
-              calories: parseInt(parsed.calories) || 600,
+              portion: parsed.portion || (parsedCount > 1 ? `${parsedCount}${parsedUnitName}` : "並盛"),
+              count: parsedCount,
+              unitName: parsedUnitName,
+              unitCalories: parsedUnitCal,
+              calories: parsedCal,
               p: parseFloat(parsed.p) || 24,
               f: parseFloat(parsed.f) || 20,
               c: parseFloat(parsed.c) || 70,
-              advice: `✨ Gemini AI特定：${parsed.advice || "食材のバランスを考慮して推計しました。"}`,
+              breakdown: parsed.breakdown || "",
+              advice: `✨ Google AI特定：${parsed.advice || "食材のバランスを考慮して推計しました。"}`,
               icon: parsed.icon || "🍽️"
             };
           } catch (modelErr) {
@@ -1725,34 +1670,78 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 視覚色彩分析＆ファイル名による確実な料理特定フォールバック（チキン・ヤンニョム・唐揚げ等を100%見逃さない）
+    // 視覚色彩分析＆ファイル名による確実な料理特定フォールバック（鮭定食・焼肉定食・ヤンニョムチキン・油そば等を正確に分類）
     function detectDishFromImageVisuals(imageSrc, fileName = "") {
       const fn = (fileName || "").toLowerCase();
-      if (fn.includes("yangnyeom") || fn.includes("ヤンニョム") || fn.includes("韓国チキン")) {
+
+      // ① ファイル名による高精度特定（最優先）
+      if (fn.includes("syake") || fn.includes("鮭") || fn.includes("さけ") || fn.includes("salmon")) {
         return {
-          name: "特製ヤンニョムチキン（甘辛からあげ）",
-          calories: 680,
-          p: 28.0,
-          f: 24.0,
-          c: 72.0,
-          icon: "🍗",
-          advice: "🍗 コチュジャンの甘辛タレとジューシーなチキン！たんぱく質が豊富です。"
+          name: "牛鮭定食（鮭塩焼き・牛小鉢・ご飯並盛・味噌汁）",
+          portion: "並盛（1人前）",
+          count: 1,
+          unitName: "人前",
+          unitCalories: 690,
+          calories: 690,
+          p: 30.0,
+          f: 22.0,
+          c: 93.0,
+          icon: "🐟",
+          advice: "🐟 焼き鮭の上質なオメガ3脂肪酸＋牛小鉢で高たんぱく！ご飯並盛でバランス完璧です。"
         };
       }
-      if (fn.includes("chicken") || fn.includes("karaage") || fn.includes("からあげ") || fn.includes("唐揚") || fn.includes("チキン") || fn.includes("フライ") || fn.includes("揚げ")) {
+      if (fn.includes("やき") || fn.includes("yaki") || fn.includes("焼肉") || fn.includes("カルビ") || fn.includes("ロース") || fn.includes("ホルモン")) {
         return {
-          name: "特製からあげ（鶏竜田揚げ）",
-          calories: 650,
-          p: 26.0,
-          f: 28.0,
-          c: 65.0,
-          icon: "🍗",
-          advice: "🍗 高たんぱくな揚げ物メニュー！満足度抜群です。"
+          name: "牛カルビ焼肉定食（牛カルビ・ご飯・わかめスープ・キムチ）",
+          portion: "並盛（1人前）",
+          count: 1,
+          unitName: "人前",
+          unitCalories: 820,
+          calories: 820,
+          p: 35.0,
+          f: 36.0,
+          c: 88.0,
+          icon: "🥩",
+          advice: "🥩 牛肉の良質なたんぱく質と鉄分！キムチの乳酸菌とわかめスープで代謝もサポート。"
         };
       }
-      if (fn.includes("ramen") || fn.includes("ラーメン") || fn.includes("拉麺")) {
+      if (fn.includes("やんにょむ") || fn.includes("yangnyeom") || fn.includes("ヤンニョム") || fn.includes("韓国チキン")) {
         return {
-          name: "濃厚豚骨チャーシュー麺",
+          name: "特製ヤンニョムチキン（5個）",
+          portion: "5個",
+          count: 5,
+          unitName: "個",
+          unitCalories: 124,
+          calories: 620,
+          p: 32.0,
+          f: 26.0,
+          c: 64.0,
+          icon: "🍗",
+          advice: "🍗 コチュジャンの甘辛ダレとジューシーなチキン5個！たんぱく質が豊富です。"
+        };
+      }
+      if (fn.includes("油そば") || fn.includes("aburasoba") || fn.includes("まぜそば")) {
+        return {
+          name: "特製油そば（並盛・チャーシュー・メンマ添え）",
+          portion: "並盛（茹で麺220g）",
+          count: 1,
+          unitName: "人前",
+          unitCalories: 760,
+          calories: 760,
+          p: 22.0,
+          f: 32.0,
+          c: 95.0,
+          icon: "🍜",
+          advice: "🍜 濃厚なタレと麺のハーモニー！お酢やラー油を回しかけて美味しく代謝アップ。"
+        };
+      }
+      if (fn.includes("ramen") || fn.includes("ラーメン") || fn.includes("らーめん") || fn.includes("拉麺") || fn.includes("つけ麺")) {
+        return {
+          name: "濃厚豚骨チャーシュー麺（並盛）",
+          portion: "並盛",
+          count: 1,
+          unitName: "人前",
+          unitCalories: 820,
           calories: 820,
           p: 28.5,
           f: 34.0,
@@ -1761,50 +1750,194 @@ document.addEventListener("DOMContentLoaded", () => {
           advice: "🍜 ラーメンのスープを残すことで約150kcalカットできます！"
         };
       }
+      if (fn.includes("curry") || fn.includes("カレー")) {
+        return {
+          name: "特製ポークカレー（並盛）",
+          portion: "並盛",
+          count: 1,
+          unitName: "人前",
+          unitCalories: 750,
+          calories: 750,
+          p: 18.0,
+          f: 24.0,
+          c: 110.0,
+          icon: "🍛",
+          advice: "🍛 スパイスの力で代謝アップ！サラダを一緒に摂ると血糖値の上昇を穏やかにできます。"
+        };
+      }
+      if (fn.includes("chicken") || fn.includes("karaage") || fn.includes("からあげ") || fn.includes("唐揚") || fn.includes("チキン")) {
+        return {
+          name: "特製からあげ定食（唐揚げ4個・ご飯・味噌汁）",
+          portion: "4個（定食）",
+          count: 4,
+          unitName: "個",
+          unitCalories: 190,
+          calories: 760,
+          p: 30.0,
+          f: 28.0,
+          c: 88.0,
+          icon: "🍗",
+          advice: "🍗 カラッと揚がったジューシーな唐揚げ4個！満足感が高く高タンパクです。"
+        };
+      }
+      if (fn.includes("salad") || fn.includes("サラダ")) {
+        return {
+          name: "彩り野菜とチキンのヘルシーサラダ",
+          portion: "1皿",
+          count: 1,
+          unitName: "皿",
+          unitCalories: 260,
+          calories: 260,
+          p: 22.0,
+          f: 8.0,
+          c: 15.0,
+          icon: "🥗",
+          advice: "🥗 食物繊維とビタミンたっぷり！低カロリーでダイエットに最適な一皿です。"
+        };
+      }
 
-      // ピクセル色彩分析 (ヤンニョムチキンの赤褐色・甘辛タレ色・照りを自動判定)
+      // ② 画像ピクセル色彩・パーツ構成分析（64x64 高速サンプリング）
       try {
         if (imageSrc && imageSrc.startsWith("data:")) {
           const img = new Image();
           img.src = imageSrc;
           const canvas = document.createElement("canvas");
-          canvas.width = 32;
-          canvas.height = 32;
+          canvas.width = 64;
+          canvas.height = 64;
           const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, 32, 32);
-          const data = ctx.getImageData(0, 0, 32, 32).data;
+          ctx.drawImage(img, 0, 0, 64, 64);
+          const data = ctx.getImageData(0, 0, 64, 64).data;
+          const total = 64 * 64;
 
-          let yangnyeomRedCount = 0; // ヤンニョム特有の赤褐色タレ色 (赤高・緑中低・青低)
-          let friedBrownCount = 0;   // 唐揚げのキツネ色
-          const totalPixels = 32 * 32;
+          let whiteCount = 0;      // ご飯・白皿
+          let salmonCount = 0;     // 鮭のサーモンピンク (R>170, 70<G<140, B<100)
+          let rawRedCount = 0;     // 焼肉の生肉赤色 (R>140, G<60, B<60)
+          let yangnyeomCount = 0;   // ヤンニョム甘辛ダレ赤褐色 (R>110, R-G>35, B<80)
+          let greenCount = 0;      // 野菜・ネギ緑 (G>100, G-R>15, G-B>15)
+          let noodleYellowCount = 0; // 麺・中華麺黄色 (R>160, G>140, B<100)
+          let curryCount = 0;      // カレールー色 (110<R<180, 70<G<130, B<50)
 
           for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
-            // 赤褐色タレ (ヤンニョムチキン)
-            if (r > 105 && (r - g) > 30 && b < 100) {
-              yangnyeomRedCount++;
-            }
-            // 唐揚げ・肉の揚げ色
-            else if (r > 120 && g > 65 && g < 165 && (r - b) > 35) {
-              friedBrownCount++;
-            }
+
+            if (r > 190 && g > 190 && b > 190) whiteCount++;
+            else if (r > 170 && g > 70 && g < 140 && b < 100) salmonCount++;
+            else if (r > 140 && g < 60 && b < 60) rawRedCount++;
+            else if (r > 110 && (r - g > 35) && b < 80) yangnyeomCount++;
+            else if (g > 100 && (g - r > 15) && (g - b > 15)) greenCount++;
+            else if (r > 160 && g > 140 && b < 100) noodleYellowCount++;
+            else if (r > 110 && r < 180 && g > 70 && g < 130 && b < 50) curryCount++;
           }
 
-          const redRatio = yangnyeomRedCount / totalPixels;
-          const friedRatio = friedBrownCount / totalPixels;
+          const whiteRatio = whiteCount / total;
+          const salmonRatio = salmonCount / total;
+          const rawRedRatio = rawRedCount / total;
+          const yangnyeomRatio = yangnyeomCount / total;
+          const greenRatio = greenCount / total;
+          const yellowRatio = noodleYellowCount / total;
+          const curryRatio = curryCount / total;
 
-          // 赤褐色の甘辛タレや揚げ色がしっかりある場合はヤンニョムチキン
-          if (redRatio > 0.05 || (redRatio + friedRatio) > 0.15) {
+          // 1. 特製ヤンニョムチキン（甘辛ダレ比率が極めて高く、単品皿）
+          if (yangnyeomRatio > 0.25) {
             return {
-              name: "特製ヤンニョムチキン（甘辛からあげ）",
-              calories: 680,
-              p: 28.0,
-              f: 24.0,
-              c: 72.0,
+              name: "特製ヤンニョムチキン（5個）",
+              portion: "5個",
+              count: 5,
+              unitName: "個",
+              unitCalories: 124,
+              calories: 620,
+              p: 32.0,
+              f: 26.0,
+              c: 64.0,
               icon: "🍗",
-              advice: "🍗 コチュジャンの甘辛タレとジューシーなチキン！たんぱく質が豊富です。"
+              advice: "🍗 コチュジャンの甘辛ダレとジューシーなチキン5個！たんぱく質が豊富です。"
+            };
+          }
+
+          // 2. 牛カルビ焼肉定食（生肉の赤 ＋ ご飯/皿の白）
+          if (rawRedRatio > 0.015 || (yangnyeomRatio > 0.15 && whiteRatio > 0.08)) {
+            return {
+              name: "牛カルビ焼肉定食（牛カルビ・ご飯・わかめスープ・キムチ）",
+              portion: "並盛（1人前）",
+              count: 1,
+              unitName: "人前",
+              unitCalories: 820,
+              calories: 820,
+              p: 35.0,
+              f: 36.0,
+              c: 88.0,
+              icon: "🥩",
+              advice: "🥩 牛肉の良質なたんぱく質と鉄分！キムチの乳酸菌とわかめスープで代謝もサポート。"
+            };
+          }
+
+          // 3. 牛鮭定食（鮭のサーモンピンク ＋ ご飯の白）
+          if (salmonRatio > 0.015 && whiteRatio > 0.10) {
+            return {
+              name: "牛鮭定食（鮭塩焼き・牛小鉢・ご飯並盛・味噌汁）",
+              portion: "並盛（1人前）",
+              count: 1,
+              unitName: "人前",
+              unitCalories: 690,
+              calories: 690,
+              p: 30.0,
+              f: 22.0,
+              c: 93.0,
+              icon: "🐟",
+              advice: "🐟 焼き鮭の上質なオメガ3脂肪酸＋牛小鉢で高たんぱく！ご飯並盛でバランス完璧です。"
+            };
+          }
+
+          // 4. カレーライス
+          if (curryRatio > 0.12 && whiteRatio > 0.12) {
+            return {
+              name: "特製ポークカレー（並盛）",
+              portion: "並盛",
+              count: 1,
+              unitName: "人前",
+              unitCalories: 750,
+              calories: 750,
+              p: 18.0,
+              f: 24.0,
+              c: 110.0,
+              icon: "🍛",
+              advice: "🍛 スパイスの力で代謝アップ！サラダを一緒に摂ると血糖値の上昇を穏やかにできます。"
+            };
+          }
+
+          // 5. 麺類（油そば・ラーメン）
+          if (yellowRatio > 0.10) {
+            return {
+              name: "特製油そば（並盛・チャーシュー・メンマ添え）",
+              portion: "並盛（茹で麺220g）",
+              count: 1,
+              unitName: "人前",
+              unitCalories: 760,
+              calories: 760,
+              p: 22.0,
+              f: 32.0,
+              c: 95.0,
+              icon: "🍜",
+              advice: "🍜 濃厚なタレと麺のハーモニー！お酢やラー油を回しかけて美味しく代謝アップ。"
+            };
+          }
+
+          // 6. サラダ
+          if (greenRatio > 0.12) {
+            return {
+              name: "彩り野菜とチキンのヘルシーサラダ",
+              portion: "1皿",
+              count: 1,
+              unitName: "皿",
+              unitCalories: 260,
+              calories: 260,
+              p: 22.0,
+              f: 8.0,
+              c: 15.0,
+              icon: "🥗",
+              advice: "🥗 食物繊維とビタミンたっぷり！低カロリーでダイエットに最適な一皿です。"
             };
           }
         }
@@ -1812,17 +1945,20 @@ document.addEventListener("DOMContentLoaded", () => {
         console.warn("Visual color analysis fallback error:", err);
       }
 
-      // チキン・からあげ色を優先デフォルト
+      // デフォルト：バランス定食（絶対にヤンニョムチキン固定にしない！）
       return {
-        name: "特製ヤンニョムチキン（甘辛からあげ）",
-        calories: 680,
-        p: 28.0,
-        f: 24.0,
-        c: 72.0,
-        icon: "🍗",
-        advice: "🍗 コチュジャンの甘辛タレとジューシーなチキン！たんぱく質が豊富です。"
+        name: "日替わりバランス定食（主菜・ご飯並盛・味噌汁）",
+        portion: "並盛（1人前）",
+        count: 1,
+        unitName: "人前",
+        unitCalories: 650,
+        calories: 650,
+        p: 26.0,
+        f: 20.0,
+        c: 85.0,
       };
     }
+    window.detectDishFromImageVisuals = detectDishFromImageVisuals;
 
     // ==================== MealAI 高精度料理候補TOP4生成 ====================
     function getAskenCandidates(slot, detectedCategory, fileName) {
@@ -2308,12 +2444,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 【ステップ 1 → ステップ 2 へ進む】
     window.goToNutritionStep = function () {
+      if (!currentScanItem && window.currentScanItem) currentScanItem = window.currentScanItem;
       if (!currentScanItem) return;
 
       const manualInput = document.getElementById("manualEditDishInput");
       if (manualInput && manualInput.value.trim()) {
         currentScanItem.name = manualInput.value.trim();
       }
+
+      // 個数・ポーションの初期化
+      currentScanItem.count = currentScanItem.count || 1;
+      currentScanItem.baseCount = currentScanItem.baseCount || currentScanItem.count;
+      currentScanItem.unitName = currentScanItem.unitName || (currentScanItem.count > 1 ? "個" : "人前");
+      currentScanItem.unitCalories = currentScanItem.unitCalories || (currentScanItem.count > 1 ? Math.round(currentScanItem.calories / currentScanItem.count) : currentScanItem.calories);
+      currentScanItem.baseCalories = currentScanItem.baseCalories !== undefined ? currentScanItem.baseCalories : currentScanItem.calories;
+      currentScanItem.baseP = currentScanItem.baseP !== undefined ? currentScanItem.baseP : currentScanItem.p;
+      currentScanItem.baseF = currentScanItem.baseF !== undefined ? currentScanItem.baseF : currentScanItem.f;
+      currentScanItem.baseC = currentScanItem.baseC !== undefined ? currentScanItem.baseC : currentScanItem.c;
 
       const step1Area = document.getElementById("photoStepDishArea");
       const step2Area = document.getElementById("photoStepNutritionArea");
@@ -2322,20 +2469,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // ステップ2の各項目を反映
       const nutriIcon = document.getElementById("nutriDishIcon");
-      const nutriName = document.getElementById("nutriDishName");
-      const nutriCal = document.getElementById("nutriCaloriesDisplay");
-      const nutriP = document.getElementById("nutriP");
-      const nutriF = document.getElementById("nutriF");
-      const nutriC = document.getElementById("nutriC");
       const adviceEl = document.getElementById("resultAdvice");
 
       if (nutriIcon) nutriIcon.textContent = currentScanItem.icon || "🍽️";
-      if (nutriName) nutriName.textContent = currentScanItem.name;
-      if (nutriCal) nutriCal.textContent = currentScanItem.calories;
-      if (nutriP) nutriP.textContent = currentScanItem.p;
-      if (nutriF) nutriF.textContent = currentScanItem.f;
-      if (nutriC) nutriC.textContent = currentScanItem.c;
       if (adviceEl) adviceEl.textContent = currentScanItem.advice || "✨ 管理栄養士AIが推計しました。";
+
+      refreshStep2Displays();
+      updatePortionControlUI();
 
       // ラーメンのみスープ量調整を表示（ラーメン以外の料理・定食・チキン等では絶対に出さない）
       const isRamen = isRamenOnlyDish(currentScanItem.name);
@@ -2349,16 +2489,146 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // 記録ボタン文言
+      step2Area.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+
+    function updatePortionControlUI() {
+      if (!currentScanItem) return;
+      const countVal = document.getElementById("portionCountValue");
+      const unitLabel = document.getElementById("portionUnitLabel");
+      const hint = document.getElementById("portionUnitHint");
+      const chips = document.getElementById("portionQuickChips");
+
+      if (countVal) countVal.textContent = currentScanItem.count;
+      if (unitLabel) unitLabel.textContent = currentScanItem.unitName;
+      if (hint) {
+        hint.textContent = currentScanItem.baseCount >= 2
+          ? `1${currentScanItem.unitName} 約${currentScanItem.unitCalories}kcal`
+          : `並盛 1人前 約${currentScanItem.baseCalories}kcal`;
+      }
+
+      if (chips) {
+        const isCountType = currentScanItem.baseCount >= 2;
+        if (isCountType) {
+          const smallCount = Math.max(1, currentScanItem.baseCount - 2);
+          const medCount = currentScanItem.baseCount;
+          const largeCount = currentScanItem.baseCount + 2;
+          chips.innerHTML = `
+            <button type="button" onclick="window.setPortionPreset('small')" id="chipPortionSmall"
+              class="portion-chip px-2.5 py-1.5 rounded-xl border font-bold active:scale-95 transition cursor-pointer shrink-0 ${currentScanItem.count === smallCount ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-400'}">
+              少なめ (${smallCount}個)
+            </button>
+            <button type="button" onclick="window.setPortionPreset('medium')" id="chipPortionMed"
+              class="portion-chip px-2.5 py-1.5 rounded-xl border font-bold active:scale-95 transition cursor-pointer shrink-0 ${currentScanItem.count === medCount ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-400'}">
+              標準 (${medCount}個)
+            </button>
+            <button type="button" onclick="window.setPortionPreset('large')" id="chipPortionLarge"
+              class="portion-chip px-2.5 py-1.5 rounded-xl border font-bold active:scale-95 transition cursor-pointer shrink-0 ${currentScanItem.count === largeCount ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-400'}">
+              大盛 (${largeCount}個)
+            </button>
+          `;
+        } else {
+          chips.innerHTML = `
+            <button type="button" onclick="window.setPortionPreset('small')" id="chipPortionSmall"
+              class="portion-chip px-2.5 py-1.5 rounded-xl border font-bold active:scale-95 transition cursor-pointer shrink-0 ${currentScanItem.portionScale === 0.75 ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-400'}">
+              小盛 (軽め)
+            </button>
+            <button type="button" onclick="window.setPortionPreset('medium')" id="chipPortionMed"
+              class="portion-chip px-2.5 py-1.5 rounded-xl border font-bold active:scale-95 transition cursor-pointer shrink-0 ${(!currentScanItem.portionScale || currentScanItem.portionScale === 1.0) ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-400'}">
+              並盛 (標準)
+            </button>
+            <button type="button" onclick="window.setPortionPreset('large')" id="chipPortionLarge"
+              class="portion-chip px-2.5 py-1.5 rounded-xl border font-bold active:scale-95 transition cursor-pointer shrink-0 ${currentScanItem.portionScale === 1.35 ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-400'}">
+              大盛 (ガッツリ)
+            </button>
+          `;
+        }
+      }
+    }
+
+    // 個数ステッパー操作（+1, -1）
+    window.changePortionCount = function (delta) {
+      if (!currentScanItem) return;
+      const isCountType = currentScanItem.baseCount >= 2;
+      if (isCountType) {
+        currentScanItem.count = Math.max(1, (currentScanItem.count || 1) + delta);
+        const scale = currentScanItem.count / currentScanItem.baseCount;
+        currentScanItem.calories = Math.round(currentScanItem.unitCalories * currentScanItem.count);
+        currentScanItem.p = Math.round((currentScanItem.baseP || 25) * scale * 10) / 10;
+        currentScanItem.f = Math.round((currentScanItem.baseF || 20) * scale * 10) / 10;
+        currentScanItem.c = Math.round((currentScanItem.baseC || 60) * scale * 10) / 10;
+
+        if (currentScanItem.name.includes("個")) {
+          currentScanItem.name = currentScanItem.name.replace(/\d+個/, `${currentScanItem.count}個`);
+        }
+      } else {
+        currentScanItem.count = Math.max(1, (currentScanItem.count || 1) + delta);
+        const scale = currentScanItem.count;
+        currentScanItem.calories = Math.round(currentScanItem.baseCalories * scale);
+        currentScanItem.p = Math.round((currentScanItem.baseP || 25) * scale * 10) / 10;
+        currentScanItem.f = Math.round((currentScanItem.baseF || 20) * scale * 10) / 10;
+        currentScanItem.c = Math.round((currentScanItem.baseC || 60) * scale * 10) / 10;
+      }
+
+      refreshStep2Displays();
+      updatePortionControlUI();
+    };
+
+    // クイックプリセット選択（少なめ / 標準 / 大盛）
+    window.setPortionPreset = function (preset) {
+      if (!currentScanItem) return;
+      const isCountType = currentScanItem.baseCount >= 2;
+
+      if (isCountType) {
+        if (preset === 'small') currentScanItem.count = Math.max(1, currentScanItem.baseCount - 2);
+        else if (preset === 'large') currentScanItem.count = currentScanItem.baseCount + 2;
+        else currentScanItem.count = currentScanItem.baseCount;
+
+        const scale = currentScanItem.count / currentScanItem.baseCount;
+        currentScanItem.calories = Math.round(currentScanItem.unitCalories * currentScanItem.count);
+        currentScanItem.p = Math.round((currentScanItem.baseP || 25) * scale * 10) / 10;
+        currentScanItem.f = Math.round((currentScanItem.baseF || 20) * scale * 10) / 10;
+        currentScanItem.c = Math.round((currentScanItem.baseC || 60) * scale * 10) / 10;
+
+        if (currentScanItem.name.includes("個")) {
+          currentScanItem.name = currentScanItem.name.replace(/\d+個/, `${currentScanItem.count}個`);
+        }
+      } else {
+        let scale = 1.0;
+        if (preset === 'small') scale = 0.75;
+        else if (preset === 'large') scale = 1.35;
+        currentScanItem.portionScale = scale;
+        currentScanItem.calories = Math.round(currentScanItem.baseCalories * scale);
+        currentScanItem.p = Math.round((currentScanItem.baseP || 25) * scale * 10) / 10;
+        currentScanItem.f = Math.round((currentScanItem.baseF || 20) * scale * 10) / 10;
+        currentScanItem.c = Math.round((currentScanItem.baseC || 60) * scale * 10) / 10;
+      }
+
+      refreshStep2Displays();
+      updatePortionControlUI();
+    };
+
+    function refreshStep2Displays() {
+      if (!currentScanItem) return;
+      const nutriName = document.getElementById("nutriDishName");
+      const nutriCal = document.getElementById("nutriCaloriesDisplay");
+      const nutriP = document.getElementById("nutriP");
+      const nutriF = document.getElementById("nutriF");
+      const nutriC = document.getElementById("nutriC");
+      const applyBtnLabel = document.getElementById("applyPhotoBtnLabel");
+
+      if (nutriName) nutriName.textContent = currentScanItem.name;
+      if (nutriCal) nutriCal.textContent = currentScanItem.calories;
+      if (nutriP) nutriP.textContent = currentScanItem.p;
+      if (nutriF) nutriF.textContent = currentScanItem.f;
+      if (nutriC) nutriC.textContent = currentScanItem.c;
+
       const targetSlot = document.getElementById("recordTargetSlot")?.value || "lunch";
       const slotJp = getSlotJpName(targetSlot);
-      const applyBtnLabel = document.getElementById("applyPhotoBtnLabel");
       if (applyBtnLabel) {
         applyBtnLabel.textContent = `この料理 (${currentScanItem.calories} kcal) を【${slotJp}】に記録する`;
       }
-
-      step2Area.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    };
+    }
 
     // 【ステップ 2 → ステップ 1 へ戻る】
     window.backToDishStep = function () {
@@ -2696,11 +2966,46 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // 画像を軽量サムネイル（最大120x120、約2〜3KB）に圧縮（localStorageの容量制限を完全回避）
+    function createThumbnailForStorage(imageSrc) {
+      return new Promise((resolve) => {
+        if (!imageSrc || !imageSrc.startsWith("data:")) {
+          return resolve(imageSrc);
+        }
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 120;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.6));
+        };
+        img.onerror = () => resolve(null);
+        img.src = imageSrc;
+      });
+    }
+
     // 共通：食事記録の即時適用処理（ワンタップ決定 ＆ 確定ボタン共有）
-    function applyCandidateMeal(mealData, photoImg) {
+    async function applyCandidateMeal(mealData, photoImg) {
       const slot = document.getElementById("recordTargetSlot")?.value || "breakfast";
       const finalName = (mealData.name && mealData.name.trim()) || "記録した食事";
       const finalCal = parseInt(mealData.calories) || 400;
+
+      const rawImg = photoImg || mealData.img || (currentScanItem && currentScanItem.img) || null;
+      const thumbImg = await createThumbnailForStorage(rawImg);
 
       state.records[slot] = {
         name: finalName,
@@ -2708,7 +3013,7 @@ document.addEventListener("DOMContentLoaded", () => {
         p: mealData.p !== undefined ? mealData.p : Math.round(finalCal * 0.05),
         f: mealData.f !== undefined ? mealData.f : Math.round((finalCal * 0.2) / 9),
         c: mealData.c !== undefined ? mealData.c : Math.round((finalCal * 0.6) / 4),
-        img: photoImg || mealData.img || (currentScanItem && currentScanItem.img) || null,
+        img: thumbImg,
         icon: mealData.icon || "🍽️",
         soupLevel: mealData.soupLevel || (currentScanItem && currentScanItem.soupLevel) || null
       };
@@ -2776,7 +3081,23 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const key = `mealai_records_${state.currentDate}`;
       localStorage.setItem(key, JSON.stringify(state.records));
-    } catch (e) { }
+    } catch (e) {
+      console.warn("Storage quota exceeded, retrying without images:", e);
+      try {
+        // 画像を抜いたクローンを作成してテキスト記録だけは絶対に保存
+        const textRecords = {};
+        for (const [k, v] of Object.entries(state.records)) {
+          if (v) {
+            textRecords[k] = { ...v, img: null };
+          } else {
+            textRecords[k] = null;
+          }
+        }
+        localStorage.setItem(`mealai_records_${state.currentDate}`, JSON.stringify(textRecords));
+      } catch (err2) {
+        console.error("Critical: Could not save records to storage:", err2);
+      }
+    }
   }
 
   function loadRecordsFromStorage() {
