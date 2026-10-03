@@ -11,6 +11,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="icon" type="image/png" href="icon-192.png">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>MealAI - ダイエット食事自動決定サービス</title>
   <script>
     // ① 強制的にServiceWorkerを全解除し、全キャッシュストレージを完全消去（常に最新コードの読み込みを保証）
@@ -1203,7 +1206,7 @@
                 <span>無料APIキーの取得手順（約1分・ずっと無料）：</span>
               </div>
               <ol class="list-decimal list-inside space-y-0.5 text-slate-600 text-[10.5px]">
-                <li><a href="https://ai.google.dev/gemini-api/docs?authuser=5&hl=ja" target="_blank" rel="noopener noreferrer"
+                <li><a id="geminiDocLink" href="https://ai.google.dev/gemini-api/docs?hl=ja" target="_blank" rel="noopener noreferrer"
                     class="text-indigo-600 font-bold underline hover:text-indigo-800">Gemini API (Google AI for Developers)</a> を開きます。
                 </li>
                 <li><strong>「Get API key（APIキーを取得）」</strong> を押してキーをコピーします（クレジットカード登録不要）。</li>
@@ -1533,9 +1536,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=5.1.0"></script>
-  <script src="js/calculator.js?v=5.1.0"></script>
-  <script src="js/app.js?v=5.1.0"></script>
+  <script src="js/data.js?v=5.2.0"></script>
+  <script src="js/calculator.js?v=5.2.0"></script>
+  <script src="js/app.js?v=5.2.0"></script>
 </body>
 
 </html>

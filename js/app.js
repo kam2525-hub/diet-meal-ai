@@ -1429,6 +1429,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const input = document.getElementById("geminiApiKeyInput");
       const badge = document.getElementById("geminiStatusBadge");
       const notice = document.getElementById("geminiActiveNotice");
+      const docLink = document.getElementById("geminiDocLink") || document.querySelector("#geminiSettingsDrawer a");
+      if (docLink) {
+        docLink.href = "https://ai.google.dev/gemini-api/docs?hl=ja";
+        docLink.textContent = "Gemini API (Google AI for Developers)";
+      }
       if (input) input.value = geminiApiKey;
       if (badge) {
         if (geminiApiKey) {
