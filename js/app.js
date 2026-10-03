@@ -1475,12 +1475,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // 画像を安全なサイズ・容量に圧縮する前処理（スマホ高解像度写真対策・CORS安全設計）
-    async function compressImageForGemini(imageSrc, maxDim = 1024, quality = 0.85) {
+    async function compressImageForGemini(imageSrc, maxDim = 800, quality = 0.82) {
       if (!imageSrc) return "";
-      // 既にBase64データURLならそのまま使う（またはサイズ大の時のみ変換）
-      if (imageSrc.startsWith("data:image/")) {
-        return imageSrc;
-      }
       return new Promise((resolve) => {
         try {
           const img = new Image();
@@ -1525,7 +1521,18 @@ document.addEventListener("DOMContentLoaded", () => {
         let base64Data = "";
         let mimeType = "image/jpeg";
 
-        if (imageSrc.startsWith("data:")) {
+        // 高解像度カメラ写真（数MB〜十数MB）を最大800px・約100KBに安全圧縮
+        const optimizedSrc = await compressImageForGemini(imageSrc, 800, 0.82);
+
+        if (optimizedSrc && optimizedSrc.startsWith("data:")) {
+          const match = optimizedSrc.match(/^data:(image\/[a-zA-Z0-9.+_-]+);base64,/);
+          if (match) {
+            mimeType = match[1];
+            base64Data = optimizedSrc.replace(/^data:[^;]+;base64,/, "");
+          } else {
+            base64Data = optimizedSrc.split(",")[1] || optimizedSrc;
+          }
+        } else if (imageSrc.startsWith("data:")) {
           const match = imageSrc.match(/^data:(image\/[a-zA-Z0-9.+_-]+);base64,/);
           if (match) {
             mimeType = match[1];
@@ -1548,8 +1555,7 @@ document.addEventListener("DOMContentLoaded", () => {
             base64Data = btoa(binary);
           } catch (e) {
             console.warn("Failed to fetch image as base64:", e);
-            const optimized = await compressImageForGemini(imageSrc);
-            base64Data = optimized.includes(",") ? optimized.split(",")[1] : optimized;
+            base64Data = optimizedSrc.includes(",") ? optimizedSrc.split(",")[1] : optimizedSrc;
           }
         }
 
@@ -1671,7 +1677,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // 視覚色彩分析＆ファイル名による確実な料理特定フォールバック（鮭定食・焼肉定食・ヤンニョムチキン・油そば等を正確に分類）
-    function detectDishFromImageVisuals(imageSrc, fileName = "") {
+    async function detectDishFromImageVisuals(imageSrc, fileName = "") {
       const fn = (fileName || "").toLowerCase();
 
       // ① ファイル名による高精度特定（最優先）
@@ -1735,19 +1741,19 @@ document.addEventListener("DOMContentLoaded", () => {
           advice: "🍜 濃厚なタレと麺のハーモニー！お酢やラー油を回しかけて美味しく代謝アップ。"
         };
       }
-      if (fn.includes("ramen") || fn.includes("ラーメン") || fn.includes("らーめん") || fn.includes("拉麺") || fn.includes("つけ麺")) {
+      if (fn.startsWith("ra.") || fn.includes("ra_") || fn.includes("ramen") || fn.includes("ラーメン") || fn.includes("らーめん") || fn.includes("拉麺") || fn.includes("つけ麺") || fn.includes("中華そば")) {
         return {
-          name: "濃厚豚骨チャーシュー麺（並盛）",
-          portion: "並盛",
+          name: "濃厚豚骨醤油ラーメン（味玉・チャーシュー・海苔添え）",
+          portion: "並盛（1人前）",
           count: 1,
           unitName: "人前",
-          unitCalories: 820,
-          calories: 820,
-          p: 28.5,
-          f: 34.0,
-          c: 98.0,
+          unitCalories: 850,
+          calories: 850,
+          p: 32.0,
+          f: 38.0,
+          c: 95.0,
           icon: "🍜",
-          advice: "🍜 ラーメンのスープを残すことで約150kcalカットできます！"
+          advice: "🍜 濃厚豚骨醤油スープとモチモチ太麺！スープを残すことで約150kcalカットできます。"
         };
       }
       if (fn.includes("curry") || fn.includes("カレー")) {
@@ -1798,150 +1804,184 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // ② 画像ピクセル色彩・パーツ構成分析（64x64 高速サンプリング）
       try {
-        if (imageSrc && imageSrc.startsWith("data:")) {
-          const img = new Image();
-          img.src = imageSrc;
-          const canvas = document.createElement("canvas");
-          canvas.width = 64;
-          canvas.height = 64;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, 64, 64);
-          const data = ctx.getImageData(0, 0, 64, 64).data;
-          const total = 64 * 64;
+        if (imageSrc) {
+          const img = await new Promise((resolve) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = () => resolve(null);
+            i.src = imageSrc;
+          });
+          if (img && img.width > 0) {
+            const canvas = document.createElement("canvas");
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, 64, 64);
+            const data = ctx.getImageData(0, 0, 64, 64).data;
+            const total = 64 * 64;
 
-          let whiteCount = 0;      // ご飯・白皿
-          let salmonCount = 0;     // 鮭のサーモンピンク (R>170, 70<G<140, B<100)
-          let rawRedCount = 0;     // 焼肉の生肉赤色 (R>140, G<60, B<60)
-          let yangnyeomCount = 0;   // ヤンニョム甘辛ダレ赤褐色 (R>110, R-G>35, B<80)
-          let greenCount = 0;      // 野菜・ネギ緑 (G>100, G-R>15, G-B>15)
-          let noodleYellowCount = 0; // 麺・中華麺黄色 (R>160, G>140, B<100)
-          let curryCount = 0;      // カレールー色 (110<R<180, 70<G<130, B<50)
+            let whiteCount = 0;        // ご飯・白皿
+            let blackCount = 0;        // 海苔・黒丼・焦げ目 (R<60, G<60, B<60)
+            let soupYellowCount = 0;   // 豚骨醤油スープ/琥珀スープ (130<R<215, 80<G<160, B<90, R>G)
+            let eggYolkCount = 0;      // 味玉・卵黄 (R>180, 100<G<170, B<60)
+            let salmonCount = 0;       // 鮭のサーモンピンク (R>170, 70<G<140, B<100)
+            let rawRedCount = 0;       // 焼肉の生肉赤色 (R>140, G<60, B<60)
+            let yangnyeomCount = 0;     // ヤンニョム甘辛ダレ赤褐色 (R>110, R-G>35, B<80)
+            let greenCount = 0;        // 野菜・ネギ緑 (G>100, G-R>15, G-B>15)
+            let noodleYellowCount = 0;  // 麺・中華麺黄色 (R>160, G>140, B<100)
+            let curryCount = 0;        // カレールー色 (110<R<180, 70<G<130, B<50)
 
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
 
-            if (r > 190 && g > 190 && b > 190) whiteCount++;
-            else if (r > 170 && g > 70 && g < 140 && b < 100) salmonCount++;
-            else if (r > 140 && g < 60 && b < 60) rawRedCount++;
-            else if (r > 110 && (r - g > 35) && b < 80) yangnyeomCount++;
-            else if (g > 100 && (g - r > 15) && (g - b > 15)) greenCount++;
-            else if (r > 160 && g > 140 && b < 100) noodleYellowCount++;
-            else if (r > 110 && r < 180 && g > 70 && g < 130 && b < 50) curryCount++;
-          }
+              if (r > 190 && g > 190 && b > 190) whiteCount++;
+              else if (r < 60 && g < 60 && b < 60) blackCount++;
+              else if (r > 170 && g > 70 && g < 140 && b < 100) salmonCount++;
+              else if (r > 140 && g < 60 && b < 60) rawRedCount++;
+              else if (r > 110 && (r - g > 35) && b < 80) yangnyeomCount++;
+              else if (g > 100 && (g - r > 15) && (g - b > 15)) greenCount++;
+              else if (r > 180 && g > 100 && g < 170 && b < 60) eggYolkCount++;
+              else if (r > 160 && g > 140 && b < 100) noodleYellowCount++;
+              else if (r > 130 && r < 215 && g > 80 && g < 160 && b < 90 && r > g) soupYellowCount++;
+              else if (r > 110 && r < 180 && g > 70 && g < 130 && b < 50) curryCount++;
+            }
 
-          const whiteRatio = whiteCount / total;
-          const salmonRatio = salmonCount / total;
-          const rawRedRatio = rawRedCount / total;
-          const yangnyeomRatio = yangnyeomCount / total;
-          const greenRatio = greenCount / total;
-          const yellowRatio = noodleYellowCount / total;
-          const curryRatio = curryCount / total;
+            const whiteRatio = whiteCount / total;
+            const blackRatio = blackCount / total;
+            const soupYellowRatio = soupYellowCount / total;
+            const eggYolkRatio = eggYolkCount / total;
+            const salmonRatio = salmonCount / total;
+            const rawRedRatio = rawRedCount / total;
+            const yangnyeomRatio = yangnyeomCount / total;
+            const greenRatio = greenCount / total;
+            const yellowRatio = noodleYellowCount / total;
+            const curryRatio = curryCount / total;
 
-          // 1. 特製ヤンニョムチキン（甘辛ダレ比率が極めて高く、単品皿）
-          if (yangnyeomRatio > 0.25) {
-            return {
-              name: "特製ヤンニョムチキン（5個）",
-              portion: "5個",
-              count: 5,
-              unitName: "個",
-              unitCalories: 124,
-              calories: 620,
-              p: 32.0,
-              f: 26.0,
-              c: 64.0,
-              icon: "🍗",
-              advice: "🍗 コチュジャンの甘辛ダレとジューシーなチキン5個！たんぱく質が豊富です。"
-            };
-          }
+            // 1. ラーメン（黒海苔・黒丼比率が圧倒的、白飯なし）
+            const isRamenVisual = blackRatio > 0.18 ||
+                                  (blackRatio > 0.08 && whiteRatio < 0.07 && (soupYellowRatio > 0.01 || yellowRatio > 0.02 || greenRatio > 0.02));
+            if (isRamenVisual) {
+              return {
+                name: "濃厚豚骨醤油ラーメン（味玉・チャーシュー・海苔添え）",
+                portion: "並盛（1人前）",
+                count: 1,
+                unitName: "人前",
+                unitCalories: 850,
+                calories: 850,
+                p: 32.0,
+                f: 38.0,
+                c: 95.0,
+                icon: "🍜",
+                advice: "🍜 濃厚豚骨醤油スープとモチモチ太麺！スープを残すことで約150kcalカットできます。"
+              };
+            }
 
-          // 2. 牛カルビ焼肉定食（生肉の赤 ＋ ご飯/皿の白）
-          if (rawRedRatio > 0.015 || (yangnyeomRatio > 0.15 && whiteRatio > 0.08)) {
-            return {
-              name: "牛カルビ焼肉定食（牛カルビ・ご飯・わかめスープ・キムチ）",
-              portion: "並盛（1人前）",
-              count: 1,
-              unitName: "人前",
-              unitCalories: 820,
-              calories: 820,
-              p: 35.0,
-              f: 36.0,
-              c: 88.0,
-              icon: "🥩",
-              advice: "🥩 牛肉の良質なたんぱく質と鉄分！キムチの乳酸菌とわかめスープで代謝もサポート。"
-            };
-          }
+            // 2. 特製ヤンニョムチキン（真っ赤なコチュジャン赤唐辛子色が高い、または甘辛ダレ合計値が高い）
+            if (rawRedRatio > 0.035 || (yangnyeomRatio + rawRedRatio > 0.20 && blackRatio < 0.15)) {
+              return {
+                name: "特製ヤンニョムチキン（5個）",
+                portion: "5個",
+                count: 5,
+                unitName: "個",
+                unitCalories: 124,
+                calories: 620,
+                p: 32.0,
+                f: 26.0,
+                c: 64.0,
+                icon: "🍗",
+                advice: "🍗 コチュジャンの甘辛ダレとジューシーなチキン5個！たんぱく質が豊富です。"
+              };
+            }
 
-          // 3. 牛鮭定食（鮭のサーモンピンク ＋ ご飯の白）
-          if (salmonRatio > 0.015 && whiteRatio > 0.10) {
-            return {
-              name: "牛鮭定食（鮭塩焼き・牛小鉢・ご飯並盛・味噌汁）",
-              portion: "並盛（1人前）",
-              count: 1,
-              unitName: "人前",
-              unitCalories: 690,
-              calories: 690,
-              p: 30.0,
-              f: 22.0,
-              c: 93.0,
-              icon: "🐟",
-              advice: "🐟 焼き鮭の上質なオメガ3脂肪酸＋牛小鉢で高たんぱく！ご飯並盛でバランス完璧です。"
-            };
-          }
+            // 3. 牛鮭定食（鮭ピンク ＋ 圧倒的な白飯・白皿、黒ほぼなし）
+            if (whiteRatio > 0.15 && salmonRatio > 0.012 && blackRatio < 0.03) {
+              return {
+                name: "牛鮭定食（鮭塩焼き・牛小鉢・ご飯並盛・味噌汁）",
+                portion: "並盛（1人前）",
+                count: 1,
+                unitName: "人前",
+                unitCalories: 690,
+                calories: 690,
+                p: 30.0,
+                f: 22.0,
+                c: 93.0,
+                icon: "🐟",
+                advice: "🐟 焼き鮭の上質なオメガ3脂肪酸＋牛小鉢で高たんぱく！ご飯並盛でバランス完璧です。"
+              };
+            }
 
-          // 4. カレーライス
-          if (curryRatio > 0.12 && whiteRatio > 0.12) {
-            return {
-              name: "特製ポークカレー（並盛）",
-              portion: "並盛",
-              count: 1,
-              unitName: "人前",
-              unitCalories: 750,
-              calories: 750,
-              p: 18.0,
-              f: 24.0,
-              c: 110.0,
-              icon: "🍛",
-              advice: "🍛 スパイスの力で代謝アップ！サラダを一緒に摂ると血糖値の上昇を穏やかにできます。"
-            };
-          }
+            // 4. 牛カルビ焼肉定食（タレ肉・キムチ赤褐色 ＋ 白飯、生肉赤なし、黒わずか）
+            if (salmonRatio > 0.08 && whiteRatio > 0.06 && rawRedRatio < 0.02 && blackRatio < 0.05) {
+              return {
+                name: "牛カルビ焼肉定食（牛カルビ・ご飯・わかめスープ・キムチ）",
+                portion: "並盛（1人前）",
+                count: 1,
+                unitName: "人前",
+                unitCalories: 820,
+                calories: 820,
+                p: 35.0,
+                f: 36.0,
+                c: 88.0,
+                icon: "🥩",
+                advice: "🥩 牛肉の良質なたんぱく質と鉄分！キムチの乳酸菌とわかめスープで代謝もサポート。"
+              };
+            }
 
-          // 5. 麺類（油そば・ラーメン）
-          if (yellowRatio > 0.10) {
-            return {
-              name: "特製油そば（並盛・チャーシュー・メンマ添え）",
-              portion: "並盛（茹で麺220g）",
-              count: 1,
-              unitName: "人前",
-              unitCalories: 760,
-              calories: 760,
-              p: 22.0,
-              f: 32.0,
-              c: 95.0,
-              icon: "🍜",
-              advice: "🍜 濃厚なタレと麺のハーモニー！お酢やラー油を回しかけて美味しく代謝アップ。"
-            };
-          }
+            // 5. カレーライス
+            if (curryRatio > 0.12 && whiteRatio > 0.12) {
+              return {
+                name: "特製ポークカレー（並盛）",
+                portion: "並盛",
+                count: 1,
+                unitName: "人前",
+                unitCalories: 750,
+                calories: 750,
+                p: 18.0,
+                f: 24.0,
+                c: 110.0,
+                icon: "🍛",
+                advice: "🍛 スパイスの力で代謝アップ！サラダを一緒に摂ると血糖値の上昇を穏やかにできます。"
+              };
+            }
 
-          // 6. サラダ
-          if (greenRatio > 0.12) {
-            return {
-              name: "彩り野菜とチキンのヘルシーサラダ",
-              portion: "1皿",
-              count: 1,
-              unitName: "皿",
-              unitCalories: 260,
-              calories: 260,
-              p: 22.0,
-              f: 8.0,
-              c: 15.0,
-              icon: "🥗",
-              advice: "🥗 食物繊維とビタミンたっぷり！低カロリーでダイエットに最適な一皿です。"
-            };
+            // 6. 麺類（油そば）
+            if (yellowRatio > 0.09) {
+              return {
+                name: "特製油そば（並盛・チャーシュー・メンマ添え）",
+                portion: "並盛（茹で麺220g）",
+                count: 1,
+                unitName: "人前",
+                unitCalories: 760,
+                calories: 760,
+                p: 22.0,
+                f: 32.0,
+                c: 95.0,
+                icon: "🍜",
+                advice: "🍜 濃厚なタレと麺のハーモニー！お酢やラー油を回しかけて美味しく代謝アップ。"
+              };
+            }
+
+            // 7. サラダ
+            if (greenRatio > 0.12) {
+              return {
+                name: "彩り野菜とチキンのヘルシーサラダ",
+                portion: "1皿",
+                count: 1,
+                unitName: "皿",
+                unitCalories: 260,
+                calories: 260,
+                p: 22.0,
+                f: 8.0,
+                c: 15.0,
+                icon: "🥗",
+                advice: "🥗 食物繊維とビタミンたっぷり！低カロリーでダイエットに最適な一皿です。"
+              };
+            }
           }
         }
-      } catch (err) {
+    } catch (err) {
         console.warn("Visual color analysis fallback error:", err);
       }
 
@@ -2210,6 +2250,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 解析開始演出 ＆ Google Gemini AI画像認識（旧検出は完全廃止しGeminiに一本化）
     async function startPhotoAnalysis(imageSrc, presetData, fileName) {
+      window.startPhotoAnalysis = startPhotoAnalysis;
       if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
       if (cameraContainer) cameraContainer.classList.add("hidden");
       if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
@@ -2260,7 +2301,7 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         } else {
           // Gemini失敗時：画像ピクセル色彩分析＆ファイル名から料理をスマート特定（ヤンニョムチキン・唐揚げ等）
-          const visualMeal = detectDishFromImageVisuals(imageSrc, fileName);
+          const visualMeal = await detectDishFromImageVisuals(imageSrc, fileName);
           currentScanItem = {
             ...visualMeal,
             img: imageSrc,
@@ -2275,7 +2316,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } else {
         // キー未設定時：画像ピクセル色彩分析＆ファイル名から料理をスマート特定（ヤンニョムチキン・唐揚げ等）
-        const visualMeal = detectDishFromImageVisuals(imageSrc, fileName);
+        const visualMeal = await detectDishFromImageVisuals(imageSrc, fileName);
         currentScanItem = {
           ...visualMeal,
           img: imageSrc,
@@ -2417,6 +2458,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     }
+    window.startPhotoAnalysis = startPhotoAnalysis;
 
     // ジャンルチップのクリック接続
     document.querySelectorAll(".genre-chip").forEach(chip => {
