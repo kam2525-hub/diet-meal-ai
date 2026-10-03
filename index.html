@@ -1462,125 +1462,170 @@
           </div>
         </div>
 
-        <!-- 解析結果カード（AI高精度判定：候補リスト ＆ 確定） -->
-        <div id="scanResultArea"
-          class="hidden space-y-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 sm:p-3.5 text-xs shadow-xs">
+        <!-- 🚀 2ステップ式・写真解析結果エリア（料理名確認 → 栄養素確認） -->
+        <div id="scanResultArea" class="hidden space-y-3">
 
-          <!-- ① AI候補リスト -->
-          <div class="space-y-1.5">
+          <!-- 【ステップ 1】料理名の確認・決定エリア（写真の直下は料理名だけで超スッキリ！） -->
+          <div id="photoStepDishArea"
+            class="bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-white border border-emerald-200 rounded-2xl p-3.5 sm:p-4 text-xs shadow-xs space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                <i class="fa-solid fa-wand-magic-sparkles text-emerald-600"></i>
-                <span>写真から検出した料理（「決定」で即記録）：</span>
+              <span id="stepDishBadge"
+                class="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
+                <i class="fa-solid fa-bolt text-emerald-600"></i>
+                <span id="stepDishBadgeText">Google AI 特定料理</span>
               </span>
-              <span
-                class="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">AI高精度判定</span>
+              <button type="button" id="toggleEditDishBtn" onclick="window.toggleDishEditSection && window.toggleDishEditSection()"
+                class="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold cursor-pointer underline flex items-center gap-1">
+                <i class="fa-solid fa-pen-to-square"></i>
+                <span id="toggleEditDishBtnText">料理名を変更・検索</span>
+              </button>
             </div>
-            <div id="aiCandidatesList" class="space-y-1.5">
-              <!-- JSで写真・時間帯から判定したTOP4候補を動的表示 -->
+
+            <!-- ドンと目立つ料理名表示 -->
+            <div class="bg-white rounded-xl p-3 sm:p-3.5 border border-emerald-100 shadow-2xs flex items-center space-x-3">
+              <span id="stepDishIcon" class="text-3xl shrink-0">🍽️</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-[10px] text-slate-400 font-medium">特定されたメニュー</div>
+                <div id="stepDishNameDisplay" class="text-base sm:text-lg font-black text-slate-800 truncate">
+                  料理名
+                </div>
+              </div>
+            </div>
+
+            <!-- 折りたたみ式：料理名の修正・検索エリア（普段は隠してスッキリ！） -->
+            <div id="dishEditCollapsible" class="hidden space-y-2 pt-2 border-t border-emerald-200/60">
+              <label class="block text-[11px] font-bold text-slate-700">料理名を入力または検索：</label>
+              <div class="relative">
+                <input type="text" id="manualEditDishInput"
+                  class="w-full p-2 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:border-emerald-500 font-medium"
+                  placeholder="例: ヤンニョムチキン、焼肉定食、豚骨ラーメン...">
+                <div id="stepQuickSearchResults"
+                  class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-30 max-h-44 overflow-y-auto divide-y divide-slate-100 text-xs">
+                </div>
+              </div>
+              <!-- ジャンル即時選択チップ -->
+              <div class="flex items-center gap-1 overflow-x-auto pb-1 text-[10px]" id="stepGenreChips">
+                <button type="button" class="genre-chip px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 font-medium hover:border-emerald-400 shrink-0 cursor-pointer" data-genre="からあげ">🍗 からあげ</button>
+                <button type="button" class="genre-chip px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 font-medium hover:border-emerald-400 shrink-0 cursor-pointer" data-genre="焼肉">🥩 焼肉</button>
+                <button type="button" class="genre-chip px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 font-medium hover:border-emerald-400 shrink-0 cursor-pointer" data-genre="ラーメン">🍜 ラーメン</button>
+                <button type="button" class="genre-chip px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 font-medium hover:border-emerald-400 shrink-0 cursor-pointer" data-genre="カレー">🍛 カレー</button>
+                <button type="button" class="genre-chip px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 font-medium hover:border-emerald-400 shrink-0 cursor-pointer" data-genre="弁当">🍱 お弁当</button>
+                <button type="button" class="genre-chip px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 font-medium hover:border-emerald-400 shrink-0 cursor-pointer" data-genre="サラダ">🥗 サラダ</button>
+              </div>
+            </div>
+
+            <!-- ステップ1のアクションボタン -->
+            <div class="flex items-center gap-2 pt-1">
+              <button type="button" id="step1RetakeBtn" onclick="window.retakePhotoAction && window.retakePhotoAction()"
+                class="py-2.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 font-bold rounded-xl text-xs transition cursor-pointer shrink-0">
+                <i class="fa-solid fa-rotate-left mr-1"></i>撮り直す
+              </button>
+              <button type="button" id="goToNutritionStepBtn" onclick="window.goToNutritionStep && window.goToNutritionStep()"
+                class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 active:scale-95 text-white font-black rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center space-x-1.5 cursor-pointer">
+                <span>カロリー・栄養を確認する</span>
+                <i class="fa-solid fa-arrow-right text-xs"></i>
+              </button>
             </div>
           </div>
 
-          <!-- ② 選択中の料理 ＆ カロリー微調整 -->
-          <div class="bg-white rounded-2xl p-3 border border-emerald-200 shadow-2xs space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-[10px] font-bold text-slate-500">選択中の料理 ＆ カロリー:</span>
-              <div class="flex items-center gap-1 text-[10px]">
-                <span class="text-slate-400">大盛/少なめ:</span>
-                <button type="button" id="calMinus50Btn"
-                  class="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-slate-700 active:scale-95 transition">-50</button>
-                <button type="button" id="calPlus50Btn"
-                  class="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded font-bold text-slate-700 active:scale-95 transition">+50</button>
+          <!-- 【ステップ 2】カロリー・栄養素の詳細確認 ＆ 記録エリア（次へ進むと表示） -->
+          <div id="photoStepNutritionArea"
+            class="hidden bg-white border border-emerald-200 rounded-2xl p-4 text-xs shadow-md space-y-3">
+            
+            <!-- 選択料理ヘッダー -->
+            <div class="flex items-center justify-between border-b pb-2.5">
+              <div class="flex items-center space-x-2 min-w-0">
+                <span id="nutriDishIcon" class="text-2xl shrink-0">🍽️</span>
+                <div class="min-w-0">
+                  <div class="text-[9.5px] text-slate-400 font-bold">記録する料理</div>
+                  <div id="nutriDishName" class="font-bold text-slate-800 text-xs sm:text-sm truncate">料理名</div>
+                </div>
+              </div>
+              <button type="button" onclick="window.backToDishStep && window.backToDishStep()"
+                class="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer shrink-0 flex items-center gap-1">
+                <i class="fa-solid fa-arrow-left text-[10px]"></i>
+                <span>料理名を変更</span>
+              </button>
+            </div>
+
+            <!-- カロリーと微調整 -->
+            <div class="bg-emerald-50/70 rounded-2xl p-3 sm:p-3.5 border border-emerald-100 flex items-center justify-between">
+              <div>
+                <div class="text-[10px] font-bold text-emerald-800">推定総カロリー</div>
+                <div class="flex items-baseline gap-1">
+                  <span id="nutriCaloriesDisplay" class="text-2xl sm:text-3xl font-black font-mono text-emerald-700">680</span>
+                  <span class="text-xs font-bold text-emerald-600">kcal</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 text-xs">
+                <span class="text-[10px] text-slate-500 font-bold">微調整:</span>
+                <button type="button" onclick="window.adjustCaloriesStep(-50)"
+                  class="px-2.5 py-1 bg-white border border-emerald-200 hover:bg-emerald-100 text-emerald-900 font-bold rounded-lg active:scale-95 transition cursor-pointer shadow-2xs">-50</button>
+                <button type="button" onclick="window.adjustCaloriesStep(+50)"
+                  class="px-2.5 py-1 bg-white border border-emerald-200 hover:bg-emerald-100 text-emerald-900 font-bold rounded-lg active:scale-95 transition cursor-pointer shadow-2xs">+50</button>
               </div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <input type="text" id="resultDishNameInput"
-                class="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs outline-none focus:border-emerald-500"
-                value="チキンカレーライス">
-              <div class="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shrink-0">
-                <input type="number" id="resultCaloriesInput"
-                  class="w-16 font-mono font-black text-emerald-700 text-base outline-none text-right bg-transparent"
-                  value="680">
-                <span class="text-xs font-bold text-slate-500 ml-1">kcal</span>
+            <!-- PFCバランス（3分割） -->
+            <div class="grid grid-cols-3 gap-2">
+              <div class="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2.5 text-center">
+                <div class="text-[10px] font-bold text-amber-800">たんぱく質</div>
+                <div class="text-sm font-black font-mono text-slate-800"><span id="nutriP">20.0</span><span class="text-[10px] font-bold ml-0.5">g</span></div>
+              </div>
+              <div class="bg-rose-50/80 border border-rose-200/80 rounded-xl p-2.5 text-center">
+                <div class="text-[10px] font-bold text-rose-800">脂質</div>
+                <div class="text-sm font-black font-mono text-slate-800"><span id="nutriF">15.0</span><span class="text-[10px] font-bold ml-0.5">g</span></div>
+              </div>
+              <div class="bg-blue-50/80 border border-blue-200/80 rounded-xl p-2.5 text-center">
+                <div class="text-[10px] font-bold text-blue-800">炭水化物</div>
+                <div class="text-sm font-black font-mono text-slate-800"><span id="nutriC">60.0</span><span class="text-[10px] font-bold ml-0.5">g</span></div>
               </div>
             </div>
 
-            <!-- PFC内訳 -->
-            <div
-              class="grid grid-cols-3 gap-1 bg-slate-50 p-2 rounded-xl text-[10px] text-center border border-slate-100 font-semibold">
-              <div><span class="text-amber-800">たんぱく</span> <span class="font-bold font-mono text-slate-800"
-                  id="resultP">18.5g</span></div>
-              <div><span class="text-rose-800">脂質</span> <span class="font-bold font-mono text-slate-800"
-                  id="resultF">20.0g</span></div>
-              <div><span class="text-blue-800">炭水化物</span> <span class="font-bold font-mono text-slate-800"
-                  id="resultC">105.0g</span></div>
-            </div>
-
-            <!-- スープ・汁物の摂取量選択（ラーメン・うどん・汁物等の時に動的表示） -->
+            <!-- スープ・汁物調整（ラーメンや汁物判定時） -->
             <div id="soupOptionContainer"
-              class="hidden rounded-xl p-2.5 bg-amber-50/90 border border-amber-200 space-y-2 transition mt-2">
+              class="hidden rounded-xl p-2.5 bg-amber-50/90 border border-amber-200 space-y-2 transition">
               <div class="flex items-center justify-between text-[11px] font-bold text-amber-950">
-                <span class="flex items-center gap-1.5">
-                  <span class="text-sm">🍜</span>
-                  <span>スープ・汁物の飲み干し具合：</span>
+                <span class="flex items-center gap-1">
+                  <span>🍜 スープの飲み干し具合：</span>
                 </span>
                 <span id="soupSavingsBadge"
                   class="text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full font-bold">全飲み（通常）</span>
               </div>
               <div class="grid grid-cols-3 gap-1.5 text-center text-xs">
-                <button type="button"
-                  class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-amber-500 text-white shadow-2xs border-amber-500 cursor-pointer"
-                  data-level="all">
+                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-amber-500 text-white shadow-2xs border-amber-500 cursor-pointer" data-level="all">
                   <div>全部飲んだ</div>
                   <div class="text-[9px] opacity-80 font-normal mt-0.5">±0 kcal</div>
                 </button>
-                <button type="button"
-                  class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer"
-                  data-level="half">
+                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer" data-level="half">
                   <div>半分残した</div>
                   <div class="text-[9px] text-emerald-600 font-bold mt-0.5">-75 kcal</div>
                 </button>
-                <button type="button"
-                  class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer"
-                  data-level="none">
+                <button type="button" class="soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer" data-level="none">
                   <div>麺・具のみ</div>
                   <div class="text-[9px] text-emerald-600 font-bold mt-0.5">-150 kcal</div>
                 </button>
               </div>
-              <div class="text-[10px] text-amber-800 font-medium leading-relaxed" id="soupAdviceText">
-                💡 スープを残すと、約75〜150kcal＆余分な塩分・脂質を大幅カットできます！
-              </div>
+            </div>
+
+            <!-- 管理栄養士AIアドバイス -->
+            <div class="text-[10.5px] text-emerald-950 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 leading-relaxed"
+              id="resultAdvice"></div>
+
+            <!-- ステップ2のアクションボタン -->
+            <div class="flex gap-2 pt-1">
+              <button type="button" onclick="window.backToDishStep && window.backToDishStep()"
+                class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer">
+                <i class="fa-solid fa-arrow-left mr-1"></i>戻る
+              </button>
+              <button id="applyPhotoMealBtn"
+                class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white font-bold rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center space-x-2 cursor-pointer">
+                <i class="fa-solid fa-circle-check text-base"></i>
+                <span id="applyPhotoBtnLabel">この料理を記録する</span>
+              </button>
             </div>
           </div>
 
-          <!-- ③ 候補にない場合のリアルタイム食品検索（150品目DB） -->
-          <div class="space-y-1 relative">
-            <span class="text-[10px] text-slate-500 font-semibold block">🔍 候補にない時は食品名で即座に検索（正確な数値を自動反映）：</span>
-            <div class="relative">
-              <input type="text" id="foodQuickSearchInput" placeholder="例: バナナ、納豆ご飯、カレー、唐揚げ、うどん..."
-                class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 font-medium">
-              <div id="foodQuickSearchResults"
-                class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-30 max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs">
-                <!-- 検索結果が動的に表示 -->
-              </div>
-            </div>
-          </div>
-
-          <div class="text-[10px] sm:text-[11px] text-emerald-950 bg-emerald-100/60 p-2.5 rounded-xl leading-relaxed"
-            id="resultAdvice"></div>
-
-          <div class="flex gap-2 pt-1">
-            <button id="retakeCameraBtn"
-              class="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer">
-              <i class="fa-solid fa-rotate-left mr-1"></i>撮り直す
-            </button>
-            <button id="applyPhotoMealBtn"
-              class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-95 text-white font-bold rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center space-x-2 cursor-pointer">
-              <i class="fa-solid fa-circle-check text-base"></i>
-              <span id="applyPhotoBtnLabel">この料理を記録する</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -1635,9 +1680,9 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=5.4.1"></script>
-  <script src="js/calculator.js?v=5.4.1"></script>
-  <script src="js/app.js?v=5.4.1"></script>
+  <script src="js/data.js?v=5.5.0"></script>
+  <script src="js/calculator.js?v=5.5.0"></script>
+  <script src="js/app.js?v=5.5.0"></script>
 </body>
 
 </html>

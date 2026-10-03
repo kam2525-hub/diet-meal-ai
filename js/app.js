@@ -1558,16 +1558,42 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
+    // 画像を安全なサイズ・容量に圧縮する前処理（スマホ高解像度写真対策）
+    async function compressImageForGemini(imageSrc, maxDim = 1024, quality = 0.85) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressed = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressed);
+        };
+        img.onerror = () => resolve(imageSrc);
+        img.src = imageSrc;
+      });
+    }
+
     // Google Gemini 1.5 Flash Vision 呼び出し関数 (超高精度マルチモーダルAI)
     async function analyzeWithGeminiVision(imageSrc) {
       if (!geminiApiKey) return null;
       try {
-        let mimeType = "image/jpeg";
-        if (imageSrc.startsWith("data:image/png")) mimeType = "image/png";
-        else if (imageSrc.startsWith("data:image/webp")) mimeType = "image/webp";
-        else if (imageSrc.startsWith("data:image/gif")) mimeType = "image/gif";
-
-        const base64Data = imageSrc.includes(",") ? imageSrc.split(",")[1] : imageSrc;
+        const optimizedSrc = await compressImageForGemini(imageSrc);
+        const mimeType = "image/jpeg";
+        const base64Data = optimizedSrc.includes(",") ? optimizedSrc.split(",")[1] : optimizedSrc;
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
         const prompt = `あなたは世界最高峰のプロ管理栄養士AIです。
 写真に写っている料理を極めて正確に分析し、以下のJSON形式のみを出力してください。
@@ -1575,24 +1601,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
 必ず以下のJSON形式のみを出力してください（Markdownコードブロックは不要、純粋なJSON文字列のみ）：
 {
-  "name": "具体的な料理名（例: 牛カルビ焼肉定食 ご飯・スープ・キムチ付）",
+  "name": "具体的な料理名（例: ヤンニョムチキン、牛カルビ焼肉定食 ご飯・スープ・キムチ付）",
   "calories": 780,
   "p": 32.0,
   "f": 34.0,
   "c": 84.0,
   "advice": "栄養バランスとダイエットの観点からの実践的なアドバイス（1行）",
-  "icon": "最も適切な絵文字（例: 🥩）"
+  "icon": "最も適切な絵文字（例: 🍗）"
 }`;
 
         const payload = {
           contents: [{
             parts: [
               { text: prompt },
-              { inline_data: { mime_type: mimeType, data: base64Data } }
+              { inlineData: { mimeType: mimeType, data: base64Data } }
             ]
           }],
           generationConfig: {
-            response_mime_type: "application/json"
+            responseMimeType: "application/json"
           }
         };
 
@@ -1604,16 +1630,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          console.warn("Gemini API call failed:", err);
+          console.warn("Gemini API call failed:", res.status, err);
+          const errDetail = err.error?.message || "通信エラーが発生しました";
           if (res.status === 400 || res.status === 403) {
-            alert("⚠️ Google Gemini APIキーが無効または期限切れです。設定を確認してください。");
+            alert(`⚠️ Google Gemini APIエラー (${res.status}):\n${errDetail}\n\n「AI設定」でAPIキーが正しいか確認してください。`);
           }
-          return null;
+          return { error: true, message: errDetail };
         }
 
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) return null;
+        if (!text) return { error: true, message: "解析結果が空でした" };
         let cleanText = text.trim();
         if (cleanText.startsWith("```json")) cleanText = cleanText.slice(7);
         if (cleanText.startsWith("```")) cleanText = cleanText.slice(3);
@@ -1632,7 +1659,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       } catch (e) {
         console.error("Gemini Vision exception:", e);
-        return null;
+        return { error: true, message: e.message };
       }
     }
 
@@ -1900,256 +1927,330 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const slot = document.getElementById("recordTargetSlot")?.value || "lunch";
       let geminiRes = null;
+      let isGeminiSuccess = false;
+      let isPreset = false;
 
       if (presetData) {
+        isPreset = true;
         scanStatusText.textContent = "サンプル料理データを読み込み中...";
         await new Promise(r => setTimeout(r, 200));
+        currentScanItem = {
+          ...presetData,
+          img: imageSrc,
+          baseName: presetData.name,
+          baseCalories: presetData.calories,
+          baseP: presetData.p,
+          baseF: presetData.f,
+          baseC: presetData.c,
+          baseAdvice: presetData.advice,
+          soupLevel: 'all'
+        };
       } else if (geminiApiKey) {
-        scanStatusText.textContent = "Google Gemini AIが料理・副菜・カロリーを精密解析中...";
+        scanStatusText.textContent = "Google Gemini AIが料理を解析中...";
         geminiRes = await analyzeWithGeminiVision(imageSrc);
+        if (geminiRes && !geminiRes.error) {
+          isGeminiSuccess = true;
+          currentScanItem = {
+            ...geminiRes,
+            img: imageSrc,
+            baseName: geminiRes.name,
+            baseCalories: geminiRes.calories,
+            baseP: geminiRes.p,
+            baseF: geminiRes.f,
+            baseC: geminiRes.c,
+            baseAdvice: geminiRes.advice,
+            soupLevel: 'all'
+          };
+        } else {
+          // Gemini失敗時のフォールバック（時間帯別デフォルト）
+          const slotDefaults = {
+            breakfast: { name: "和風朝食セット (ご飯・目玉焼き・味噌汁)", calories: 420, p: 15.0, f: 11.0, c: 65.0, icon: "🍚", advice: "✨ 朝のエネルギー補給に最適なたんぱく質と糖質のバランスです。" },
+            lunch: { name: "からあげ・定食メニュー", calories: 720, p: 26.0, f: 28.0, c: 90.0, icon: "🍗", advice: "🍗 たんぱく質が豊富です！夕食は脂質を控えめに調整しましょう。" },
+            dinner: { name: "バランス夕食定食", calories: 650, p: 25.0, f: 18.0, c: 80.0, icon: "🍱", advice: "✨ バランスの良い夕食です。就寝3時間前までに食べ終えるのが理想です。" },
+            snack: { name: "ヘルシードリンク・軽食", calories: 180, p: 8.0, f: 4.0, c: 25.0, icon: "☕", advice: "☕ 適度なカロリーで間食をコントロールできています。" }
+          };
+          const fb = slotDefaults[slot] || slotDefaults.lunch;
+          const errMsg = geminiRes?.message ? ` (※AI通信エラー: ${geminiRes.message})` : "";
+          currentScanItem = {
+            ...fb,
+            advice: (fb.advice + errMsg),
+            img: imageSrc,
+            baseName: fb.name,
+            baseCalories: fb.calories,
+            baseP: fb.p,
+            baseF: fb.f,
+            baseC: fb.c,
+            baseAdvice: fb.advice,
+            soupLevel: 'all'
+          };
+        }
       } else {
-        scanStatusText.textContent = "AI解析準備完了";
-        await new Promise(r => setTimeout(r, 150));
+        // キー未設定時
+        const slotDefaults = {
+          breakfast: { name: "白ご飯・目玉焼き・味噌汁", calories: 384, p: 14.1, f: 9.5, c: 58.8, icon: "🍚", advice: "💡 上の「AI設定」でGoogle無料キーを保存すると、写真から焼肉定食や副菜まで超高精度に自動判定されます。" },
+          lunch: { name: "特製からあげ・定食", calories: 720, p: 26.0, f: 28.0, c: 90.0, icon: "🍗", advice: "💡 上の「AI設定」でGoogle無料キーを保存すると、写真から焼肉定食や副菜まで超高精度に自動判定されます。" },
+          dinner: { name: "焼き魚定食 (ご飯・小鉢・味噌汁)", calories: 580, p: 28.0, f: 14.0, c: 75.0, icon: "🐟", advice: "💡 上の「AI設定」でGoogle無料キーを保存すると、写真から焼肉定食や副菜まで超高精度に自動判定されます。" },
+          snack: { name: "カフェラテ・軽食", calories: 150, p: 6.0, f: 5.0, c: 18.0, icon: "☕", advice: "💡 上の「AI設定」でGoogle無料キーを保存すると、写真から焼肉定食や副菜まで超高精度に自動判定されます。" }
+        };
+        const def = slotDefaults[slot] || slotDefaults.lunch;
+        currentScanItem = {
+          ...def,
+          img: imageSrc,
+          baseName: def.name,
+          baseCalories: def.calories,
+          baseP: def.p,
+          baseF: def.f,
+          baseC: def.c,
+          baseAdvice: def.advice,
+          soupLevel: 'all'
+        };
       }
 
       scanOverlay.classList.add("hidden");
       scanLaserLine.classList.add("hidden");
 
-      let candidates = [];
-      let label = "";
-
-      if (presetData) {
-        candidates = [{ rank: 1, ...presetData }];
-        label = `📸 ${presetData.name} (サンプル)`;
-      } else if (geminiRes) {
-        candidates = [{ rank: 1, ...geminiRes }];
-        label = `⚡ Google Gemini AI特定：${geminiRes.name}`;
-      } else {
-        // キー未設定時：Geminiキーの登録案内
-        label = "🔑 Gemini AIキー未設定（無料キーの登録で全自動特定）";
-        candidates = [
-          {
-            rank: 1,
-            name: "下の検索バーで料理名を入力して記録",
-            calories: 550,
-            p: 22.0,
-            f: 18.0,
-            c: 70.0,
-            icon: "🔍",
-            advice: "💡 上の「Google AI設定」から無料キー（クレカ不要）を保存すると、次回から写真を撮るだけで焼肉定食や副菜まで95%以上で自動判定されます。"
-          }
-        ];
-      }
-
-      renderAskenCandidates(candidates, imageSrc, label, null, slot);
-      selectCandidate(candidates[0], imageSrc);
+      // ステップ 1（料理名確認）を表示
+      setupStep1DishUI(currentScanItem, isGeminiSuccess, isPreset);
 
       scanResultArea.classList.remove("hidden");
-
-      // スマホ・PCで結果へスムーズスクロール
       setTimeout(() => {
         scanResultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }, 50);
     }
 
-    // AI料理候補リストUI生成（ワンタップ決定ボタン付き ＆ AI検出バッジ ＆ 世界の料理検索バー ＆ ジャンル即時切替チップ）
-    function renderAskenCandidates(candidates, imageSrc, detectedLabel, detectedCategory, slot) {
-      const container = document.getElementById("aiCandidatesList");
-      if (!container) return;
-      container.innerHTML = "";
+    // ==================== 2ステップ式 UI制御 ====================
 
-      if (detectedLabel) {
-        const isNotSet = detectedLabel.includes("未設定");
-        const headerBadge = document.createElement("div");
-        headerBadge.className = isNotSet
-          ? "flex items-center justify-between bg-amber-50 border border-amber-300 px-3 py-2 rounded-xl text-amber-950 font-bold text-xs shadow-2xs mb-2"
-          : "flex items-center space-x-2 bg-emerald-100/90 border border-emerald-300 px-3 py-2 rounded-xl text-emerald-950 font-bold text-xs shadow-2xs mb-2";
+    // 【ステップ 1】料理名の確認UIをセットアップ
+    function setupStep1DishUI(meal, isGemini, isPreset) {
+      const step1Area = document.getElementById("photoStepDishArea");
+      const step2Area = document.getElementById("photoStepNutritionArea");
+      const badgeText = document.getElementById("stepDishBadgeText");
+      const dishIcon = document.getElementById("stepDishIcon");
+      const dishDisplay = document.getElementById("stepDishNameDisplay");
+      const manualInput = document.getElementById("manualEditDishInput");
+      const editCollapsible = document.getElementById("dishEditCollapsible");
 
-        if (isNotSet) {
-          headerBadge.innerHTML = `
-            <div class="flex items-center space-x-2 min-w-0">
-              <i class="fa-solid fa-bolt text-amber-600 text-sm shrink-0"></i>
-              <span class="truncate">Google AI（Gemini）キー未設定</span>
-            </div>
-            <button type="button" onclick="window.openGeminiModal && window.openGeminiModal();" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-lg text-[10px] font-bold shrink-0 cursor-pointer transition">
-              設定を開く（無料）
-            </button>
-          `;
+      if (step1Area) step1Area.classList.remove("hidden");
+      if (step2Area) step2Area.classList.add("hidden");
+      if (editCollapsible) editCollapsible.classList.add("hidden");
+
+      if (dishIcon) dishIcon.textContent = meal.icon || "🍽️";
+      if (dishDisplay) dishDisplay.textContent = meal.name;
+      if (manualInput) manualInput.value = meal.name;
+
+      if (badgeText) {
+        if (isGemini) {
+          badgeText.textContent = "Google Gemini AI特定";
+        } else if (isPreset) {
+          badgeText.textContent = "サンプル料理";
+        } else if (geminiApiKey) {
+          badgeText.textContent = "標準推計（料理名を変更可能）";
         } else {
-          headerBadge.innerHTML = `
-            <i class="fa-solid fa-wand-magic-sparkles text-emerald-600 text-sm shrink-0"></i>
-            <span>AI解析判定：<strong>${detectedLabel}</strong></span>
-          `;
-        }
-        container.appendChild(headerBadge);
-      }
-
-      // 世界の料理・即時検索バー（あすけん方式：写真＋文字検索で世界中のどんな料理も即座に特定）
-      const searchBox = document.createElement("div");
-      searchBox.className = "relative mb-2";
-      searchBox.innerHTML = `
-        <div class="flex items-center bg-slate-50 border border-slate-300 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200 rounded-xl px-2.5 py-1.5 transition">
-          <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs mr-2 shrink-0"></i>
-          <input type="text" id="worldFoodSearchInput" class="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none font-medium" placeholder="料理名・世界中の料理を検索（例: 焼肉定食、ガパオ、タコス...）">
-          <button type="button" id="clearWorldSearchBtn" class="hidden text-slate-400 hover:text-slate-600 px-1 text-xs shrink-0 cursor-pointer">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-      `;
-      container.appendChild(searchBox);
-
-      // ジャンル即時切り替えバー（別の料理を選びたい場合もワンタップで即候補再生成！）
-      const quickCategories = [
-        { key: "yakiniku", label: "🥩 焼肉定食" },
-        { key: "curry", label: "🍛 カレー" },
-        { key: "ramen", label: "🍜 ラーメン" },
-        { key: "sushi", label: "🍣 寿司・海鮮" },
-        { key: "salad", label: "🥗 サラダ" },
-        { key: "meat", label: "🥩 ハンバーグ" },
-        { key: "burger", label: "🍔 バーガー" },
-        { key: "pasta", label: "🍝 パスタ" },
-        { key: "pizza", label: "🍕 ピザ" },
-        { key: "donburi", label: "🍚 丼もの" },
-        { key: "bento", label: "🍱 幕の内弁当" },
-        { key: "karaage", label: "🍗 から揚げ" },
-        { key: "bread", label: "🥪 サンドイッチ" },
-        { key: "cake", label: "🍰 スイーツ" }
-      ];
-
-      const chipContainer = document.createElement("div");
-      chipContainer.className = "flex items-center gap-1.5 overflow-x-auto py-1 px-0.5 mb-2 no-scrollbar";
-      chipContainer.innerHTML = `
-        <span class="text-[10px] text-slate-500 font-bold shrink-0 flex items-center gap-1">
-          <i class="fa-solid fa-arrows-rotate text-[9px]"></i>切替:
-        </span>
-      `;
-      quickCategories.forEach(cat => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        const isActive = (cat.key === detectedCategory);
-        btn.className = `px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition cursor-pointer border ${isActive ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'}`;
-        btn.textContent = cat.label;
-        btn.addEventListener("click", () => {
-          const res = getAskenCandidates(slot || "lunch", cat.key);
-          renderCandidateRows(res.candidates, imageSrc);
-          selectCandidate(res.candidates[0], imageSrc);
-          chipContainer.querySelectorAll("button").forEach(b => {
-            b.className = "px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition cursor-pointer border bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200";
-          });
-          btn.className = "px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 transition cursor-pointer border bg-emerald-600 text-white border-emerald-600 shadow-xs";
-        });
-        chipContainer.appendChild(btn);
-      });
-      container.appendChild(chipContainer);
-
-      const rowsWrapper = document.createElement("div");
-      rowsWrapper.id = "askenCandidateRowsWrapper";
-      rowsWrapper.className = "space-y-2";
-      container.appendChild(rowsWrapper);
-
-      function renderCandidateRows(itemList, img) {
-        rowsWrapper.innerHTML = "";
-        itemList.forEach((cand, idx) => {
-          const row = document.createElement("div");
-          row.className = `asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 ${idx === 0 ? 'bg-emerald-50 border-emerald-400 shadow-2xs font-bold' : 'bg-white border-slate-200 hover:bg-slate-50'}`;
-          row.innerHTML = `
-            <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0 flex-1">
-              <span class="w-5 h-5 rounded-full ${idx === 0 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'} text-[10px] font-black flex items-center justify-center shrink-0">${idx + 1}</span>
-              <span class="text-base sm:text-lg shrink-0">${cand.icon || '🍽️'}</span>
-              <div class="min-w-0">
-                <div class="font-bold text-slate-800 text-xs sm:text-sm truncate cand-name">${cand.name}</div>
-                <div class="text-[10px] text-slate-500 font-mono mt-0.5">P:${cand.p}g · F:${cand.f}g · C:${cand.c}g ${cand.country ? '· ' + cand.country : ''}</div>
-              </div>
-            </div>
-            <div class="flex items-center space-x-2 shrink-0 ml-2">
-              <div class="text-right">
-                <span class="font-mono font-black text-emerald-700 text-xs sm:text-sm">${cand.calories}</span>
-                <span class="text-[9px] text-slate-500 block -mt-1">kcal</span>
-              </div>
-              <button type="button" class="quick-apply-btn px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-[11px] transition shadow-xs flex items-center gap-1 cursor-pointer">
-                <span>決定</span>
-                <i class="fa-solid fa-check text-[10px]"></i>
-              </button>
-            </div>
-          `;
-
-          row.addEventListener("click", (e) => {
-            if (e.target.closest(".quick-apply-btn")) return;
-            rowsWrapper.querySelectorAll(".asken-candidate-card").forEach(c => {
-              c.className = "asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-white border-slate-200 hover:bg-slate-50";
-              const badge = c.querySelector("span:first-child");
-              if (badge) badge.className = "w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center shrink-0";
-            });
-            row.className = "asken-candidate-card p-2.5 sm:p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 bg-emerald-50 border-emerald-400 shadow-2xs font-bold";
-            const badge = row.querySelector("span:first-child");
-            if (badge) badge.className = "w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center shrink-0";
-            selectCandidate(cand, img);
-          });
-
-          const quickBtn = row.querySelector(".quick-apply-btn");
-          if (quickBtn) {
-            quickBtn.addEventListener("click", (e) => {
-              e.stopPropagation();
-              applyCandidateMeal({ ...cand, img: img }, img);
-            });
-          }
-
-          rowsWrapper.appendChild(row);
-        });
-      }
-
-      renderCandidateRows(candidates, imageSrc);
-
-      // リアルタイム検索イベントリスナー
-      const searchInput = searchBox.querySelector("#worldFoodSearchInput");
-      const clearBtn = searchBox.querySelector("#clearWorldSearchBtn");
-
-      if (searchInput) {
-        searchInput.addEventListener("input", () => {
-          const val = searchInput.value.trim();
-          if (clearBtn) clearBtn.classList.toggle("hidden", val.length === 0);
-
-          if (!val) {
-            renderCandidateRows(candidates, imageSrc);
-            selectCandidate(candidates[0], imageSrc);
-            return;
-          }
-
-          // 1. 世界の料理データベースから検索
-          const queryLower = val.toLowerCase();
-          const dbMatches = (window.WORLD_FOOD_DATABASE || []).filter(item => {
-            return item.name.toLowerCase().includes(queryLower) ||
-              (item.country && item.country.toLowerCase().includes(queryLower));
-          }).slice(0, 4);
-
-          // 2. もしデータベースにない未知の料理なら「動的AI推計エンジン」で即時生成！
-          let searchResults = [];
-          if (dbMatches.length > 0) {
-            searchResults = dbMatches;
-          } else if (window.estimateWorldFoodNutrition) {
-            const dynamicItem = window.estimateWorldFoodNutrition(val);
-            if (dynamicItem) {
-              searchResults = [dynamicItem];
-            }
-          }
-
-          if (searchResults.length > 0) {
-            renderCandidateRows(searchResults, imageSrc);
-            selectCandidate(searchResults[0], imageSrc);
-          }
-        });
-
-        if (clearBtn) {
-          clearBtn.addEventListener("click", () => {
-            searchInput.value = "";
-            clearBtn.classList.add("hidden");
-            renderCandidateRows(candidates, imageSrc);
-            selectCandidate(candidates[0], imageSrc);
-            searchInput.focus();
-          });
+          badgeText.textContent = "標準メニュー（AIキーで自動特定）";
         }
       }
     }
+
+    // 料理名修正アコーディオンの開閉トグル
+    window.toggleDishEditSection = function () {
+      const col = document.getElementById("dishEditCollapsible");
+      const btnText = document.getElementById("toggleEditDishBtnText");
+      if (!col) return;
+      col.classList.toggle("hidden");
+      const isOpen = !col.classList.contains("hidden");
+      if (btnText) {
+        btnText.textContent = isOpen ? "入力欄を閉じる" : "料理名を変更・検索";
+      }
+      if (isOpen) {
+        const input = document.getElementById("manualEditDishInput");
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      }
+    };
+
+    // 料理名入力サジェスト＆ジャンルチップ
+    const manualEditInput = document.getElementById("manualEditDishInput");
+    const stepQuickResults = document.getElementById("stepQuickSearchResults");
+
+    if (manualEditInput && stepQuickResults) {
+      manualEditInput.addEventListener("input", (e) => {
+        const val = e.target.value.trim();
+        const display = document.getElementById("stepDishNameDisplay");
+        if (display && val) display.textContent = val;
+        if (currentScanItem) currentScanItem.name = val;
+
+        if (!val) {
+          stepQuickResults.classList.add("hidden");
+          stepQuickResults.innerHTML = "";
+          return;
+        }
+
+        const queryLower = val.toLowerCase();
+        const matched = (window.WORLD_FOOD_DATABASE || []).filter(item =>
+          item.name.toLowerCase().includes(queryLower)
+        ).slice(0, 5);
+
+        if (matched.length > 0) {
+          stepQuickResults.innerHTML = matched.map(m => `
+            <div class="p-2 hover:bg-emerald-50 cursor-pointer flex items-center justify-between step-search-row"
+                 data-name="${m.name}" data-cal="${m.calories}" data-p="${m.p}" data-f="${m.f}" data-c="${m.c}" data-icon="${m.icon || '🍽️'}">
+              <span class="font-bold text-slate-800">${m.icon || '🍽️'} ${m.name}</span>
+              <span class="font-mono text-emerald-700 text-xs font-bold">${m.calories} kcal</span>
+            </div>
+          `).join("");
+          stepQuickResults.classList.remove("hidden");
+
+          stepQuickResults.querySelectorAll(".step-search-row").forEach(row => {
+            row.onclick = () => {
+              const name = row.dataset.name;
+              const cal = parseInt(row.dataset.cal);
+              const p = parseFloat(row.dataset.p);
+              const f = parseFloat(row.dataset.f);
+              const c = parseFloat(row.dataset.c);
+              const icon = row.dataset.icon;
+
+              manualEditInput.value = name;
+              if (display) display.textContent = name;
+              const dishIcon = document.getElementById("stepDishIcon");
+              if (dishIcon) dishIcon.textContent = icon;
+
+              if (currentScanItem) {
+                currentScanItem.name = name;
+                currentScanItem.calories = cal;
+                currentScanItem.p = p;
+                currentScanItem.f = f;
+                currentScanItem.c = c;
+                currentScanItem.icon = icon;
+                currentScanItem.baseCalories = cal;
+                currentScanItem.baseP = p;
+                currentScanItem.baseF = f;
+                currentScanItem.baseC = c;
+              }
+              stepQuickResults.classList.add("hidden");
+            };
+          });
+        } else {
+          stepQuickResults.classList.add("hidden");
+        }
+      });
+    }
+
+    // ジャンルチップのクリック接続
+    document.querySelectorAll(".genre-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const genre = chip.dataset.genre;
+        const matched = (window.WORLD_FOOD_DATABASE || []).find(item => item.name.includes(genre));
+        if (matched && currentScanItem) {
+          currentScanItem.name = matched.name;
+          currentScanItem.calories = matched.calories;
+          currentScanItem.p = matched.p;
+          currentScanItem.f = matched.f;
+          currentScanItem.c = matched.c;
+          currentScanItem.icon = matched.icon || '🍽️';
+          currentScanItem.baseCalories = matched.calories;
+
+          const display = document.getElementById("stepDishNameDisplay");
+          const input = document.getElementById("manualEditDishInput");
+          const iconEl = document.getElementById("stepDishIcon");
+          if (display) display.textContent = matched.name;
+          if (input) input.value = matched.name;
+          if (iconEl) iconEl.textContent = matched.icon || '🍽️';
+        }
+      });
+    });
+
+    // 【ステップ 1 → ステップ 2 へ進む】
+    window.goToNutritionStep = function () {
+      if (!currentScanItem) return;
+
+      const manualInput = document.getElementById("manualEditDishInput");
+      if (manualInput && manualInput.value.trim()) {
+        currentScanItem.name = manualInput.value.trim();
+      }
+
+      const step1Area = document.getElementById("photoStepDishArea");
+      const step2Area = document.getElementById("photoStepNutritionArea");
+      if (step1Area) step1Area.classList.add("hidden");
+      if (step2Area) step2Area.classList.remove("hidden");
+
+      // ステップ2の各項目を反映
+      const nutriIcon = document.getElementById("nutriDishIcon");
+      const nutriName = document.getElementById("nutriDishName");
+      const nutriCal = document.getElementById("nutriCaloriesDisplay");
+      const nutriP = document.getElementById("nutriP");
+      const nutriF = document.getElementById("nutriF");
+      const nutriC = document.getElementById("nutriC");
+      const adviceEl = document.getElementById("resultAdvice");
+
+      if (nutriIcon) nutriIcon.textContent = currentScanItem.icon || "🍽️";
+      if (nutriName) nutriName.textContent = currentScanItem.name;
+      if (nutriCal) nutriCal.textContent = currentScanItem.calories;
+      if (nutriP) nutriP.textContent = currentScanItem.p;
+      if (nutriF) nutriF.textContent = currentScanItem.f;
+      if (nutriC) nutriC.textContent = currentScanItem.c;
+      if (adviceEl) adviceEl.textContent = currentScanItem.advice || "✨ 管理栄養士AIが推計しました。";
+
+      // スープ系判定
+      const isSoup = isSoupOrNoodleDish(currentScanItem.name);
+      const soupContainer = document.getElementById("soupOptionContainer");
+      if (soupContainer) {
+        if (isSoup) {
+          soupContainer.classList.remove("hidden");
+          applySoupAdjustment('all');
+        } else {
+          soupContainer.classList.add("hidden");
+        }
+      }
+
+      // 記録ボタン文言
+      const targetSlot = document.getElementById("recordTargetSlot")?.value || "lunch";
+      const slotJp = getSlotJpName(targetSlot);
+      const applyBtnLabel = document.getElementById("applyPhotoBtnLabel");
+      if (applyBtnLabel) {
+        applyBtnLabel.textContent = `この料理 (${currentScanItem.calories} kcal) を【${slotJp}】に記録する`;
+      }
+
+      step2Area.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+
+    // 【ステップ 2 → ステップ 1 へ戻る】
+    window.backToDishStep = function () {
+      const step1Area = document.getElementById("photoStepDishArea");
+      const step2Area = document.getElementById("photoStepNutritionArea");
+      if (step2Area) step2Area.classList.add("hidden");
+      if (step1Area) step1Area.classList.remove("hidden");
+      step1Area.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+
+    // カロリー微調整（-50 / +50）
+    window.adjustCaloriesStep = function (delta) {
+      if (!currentScanItem) return;
+      currentScanItem.calories = Math.max(50, (currentScanItem.calories || 0) + delta);
+      const calDisplay = document.getElementById("nutriCaloriesDisplay");
+      if (calDisplay) calDisplay.textContent = currentScanItem.calories;
+
+      const targetSlot = document.getElementById("recordTargetSlot")?.value || "lunch";
+      const slotJp = getSlotJpName(targetSlot);
+      const applyBtnLabel = document.getElementById("applyPhotoBtnLabel");
+      if (applyBtnLabel) {
+        applyBtnLabel.textContent = `この料理 (${currentScanItem.calories} kcal) を【${slotJp}】に記録する`;
+      }
+    };
+
+    // 撮り直すアクション
+    window.retakePhotoAction = function () {
+      const scanPreviewArea = document.getElementById("scanPreviewArea");
+      const scanResultArea = document.getElementById("scanResultArea");
+      const sampleBox = document.querySelector("#photoTabContent .sample-presets-box");
+      const primaryCameraLauncher = document.getElementById("primaryCameraLauncher");
+
+      if (scanPreviewArea) scanPreviewArea.classList.add("hidden");
+      if (scanResultArea) scanResultArea.classList.add("hidden");
+      if (sampleBox) sampleBox.classList.remove("hidden");
+      if (primaryCameraLauncher) primaryCameraLauncher.classList.remove("hidden");
+    };
 
     // スープ・汁物系料理の判定（ラーメン、うどん、そば、スープ、鍋、味噌汁等）
     function isSoupOrNoodleDish(name) {
@@ -2201,114 +2302,33 @@ document.addEventListener("DOMContentLoaded", () => {
       currentScanItem.f = finalF;
       currentScanItem.name = finalName;
 
-      const nameInput = document.getElementById("resultDishNameInput");
-      const calInput = document.getElementById("resultCaloriesInput");
-      const fEl = document.getElementById("resultF");
+      const nutriName = document.getElementById("nutriDishName");
+      const nutriCal = document.getElementById("nutriCaloriesDisplay");
+      const nutriF = document.getElementById("nutriF");
       const badgeEl = document.getElementById("soupSavingsBadge");
       const adviceEl = document.getElementById("resultAdvice");
-      const soupAdviceEl = document.getElementById("soupAdviceText");
 
-      if (nameInput) nameInput.value = finalName;
-      if (calInput) calInput.value = finalCal;
-      if (fEl) fEl.textContent = `${finalF}g`;
+      if (nutriName) nutriName.textContent = finalName;
+      if (nutriCal) nutriCal.textContent = finalCal;
+      if (nutriF) nutriF.textContent = finalF;
       if (badgeEl) badgeEl.textContent = badgeText;
       if (adviceEl) adviceEl.textContent = adviceText;
-      if (soupAdviceEl) soupAdviceEl.textContent = adviceText;
 
-      // 記録ボタンの文言も動的に更新
-      const targetSlot = document.getElementById("recordTargetSlot")?.value || "breakfast";
+      const targetSlot = document.getElementById("recordTargetSlot")?.value || "lunch";
       const slotJp = getSlotJpName(targetSlot);
       const applyBtnLabel = document.getElementById("applyPhotoBtnLabel");
       if (applyBtnLabel) {
         applyBtnLabel.textContent = `この料理 (${finalCal} kcal) を【${slotJp}】に記録する`;
       }
 
-      // ボタンのスタイル更新
       document.querySelectorAll(".soup-level-btn").forEach(btn => {
         const bl = btn.dataset.level;
         if (bl === level) {
           btn.className = "soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-amber-500 text-white shadow-2xs border-amber-500 cursor-pointer";
-          const sub = btn.querySelector("div:last-child");
-          if (sub) sub.className = "text-[9px] opacity-90 font-normal mt-0.5 text-white";
         } else {
           btn.className = "soup-level-btn py-1.5 px-1 rounded-xl border font-bold text-xs transition bg-white border-slate-200 text-slate-700 hover:bg-amber-50 cursor-pointer";
-          const sub = btn.querySelector("div:last-child");
-          if (sub) sub.className = bl === 'all' ? "text-[9px] text-slate-500 font-normal mt-0.5" : "text-[9px] text-emerald-600 font-bold mt-0.5";
         }
       });
-    }
-
-    function selectCandidate(data, imageSrc) {
-      currentScanItem = {
-        ...data,
-        img: imageSrc || data.img || null,
-        baseName: data.name,
-        baseCalories: data.calories,
-        baseP: data.p,
-        baseF: data.f,
-        baseC: data.c,
-        baseAdvice: data.advice,
-        soupLevel: 'all'
-      };
-      const nameInput = document.getElementById("resultDishNameInput");
-      const calInput = document.getElementById("resultCaloriesInput");
-      if (nameInput) nameInput.value = data.name;
-      if (calInput) calInput.value = data.calories;
-
-      document.getElementById("resultP").textContent = `${data.p}g`;
-      document.getElementById("resultF").textContent = `${data.f}g`;
-      document.getElementById("resultC").textContent = `${data.c}g`;
-      document.getElementById("resultAdvice").textContent = data.advice || "✨ 食品標準データベースに基づき正確に算出しました。";
-
-      // スープ系料理判定とUI表示
-      const isSoup = isSoupOrNoodleDish(data.name);
-      const soupContainer = document.getElementById("soupOptionContainer");
-      if (soupContainer) {
-        if (isSoup) {
-          soupContainer.classList.remove("hidden");
-          applySoupAdjustment('all');
-        } else {
-          soupContainer.classList.add("hidden");
-        }
-      }
-
-      // 記録ボタンの文言も動的に更新
-      const targetSlot = document.getElementById("recordTargetSlot")?.value || "breakfast";
-      const slotJp = getSlotJpName(targetSlot);
-      const applyBtnLabel = document.getElementById("applyPhotoBtnLabel");
-      if (applyBtnLabel) {
-        applyBtnLabel.textContent = `この料理 (${data.calories} kcal) を【${slotJp}】に記録する`;
-      }
-    }
-
-    // スープ量調整ボタンのクリックイベント接続
-    document.querySelectorAll(".soup-level-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const level = btn.dataset.level || 'all';
-        applySoupAdjustment(level);
-      });
-    });
-
-    // クイック微調整（-50 / +50）
-    const minus50 = document.getElementById("calMinus50Btn");
-    const plus50 = document.getElementById("calPlus50Btn");
-    if (minus50) {
-      minus50.onclick = () => {
-        const inp = document.getElementById("resultCaloriesInput");
-        if (inp) {
-          inp.value = Math.max(0, (parseInt(inp.value) || 0) - 50);
-          if (currentScanItem) currentScanItem.calories = parseInt(inp.value);
-        }
-      };
-    }
-    if (plus50) {
-      plus50.onclick = () => {
-        const inp = document.getElementById("resultCaloriesInput");
-        if (inp) {
-          inp.value = (parseInt(inp.value) || 0) + 50;
-          if (currentScanItem) currentScanItem.calories = parseInt(inp.value);
-        }
-      };
     }
 
     // ==================== リアルタイム食品検索エンジン ====================
@@ -2597,16 +2617,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (applyPhotoMealBtn) {
       applyPhotoMealBtn.addEventListener("click", () => {
         if (!currentScanItem) return;
-
-        const nameInput = document.getElementById("resultDishNameInput");
-        const calInput = document.getElementById("resultCaloriesInput");
-        const finalName = (nameInput && nameInput.value.trim()) || currentScanItem.name;
-        const finalCal = (calInput && parseInt(calInput.value)) || currentScanItem.calories;
-
         applyCandidateMeal({
           ...currentScanItem,
-          name: finalName,
-          calories: finalCal
+          name: currentScanItem.name,
+          calories: currentScanItem.calories
         }, currentScanItem.img);
       });
     }
