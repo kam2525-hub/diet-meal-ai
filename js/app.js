@@ -1149,6 +1149,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function resetCameraView() {
       stopLiveCamera();
+      const scanNonFoodAlert = document.getElementById("scanNonFoodAlert");
+      if (scanNonFoodAlert) scanNonFoodAlert.classList.add("hidden");
       if (scanPreviewArea) scanPreviewArea.classList.add("hidden");
       if (scanResultArea) scanResultArea.classList.add("hidden");
       if (primaryCameraLauncher) primaryCameraLauncher.classList.remove("hidden");
@@ -1157,6 +1159,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (directCameraInput) directCameraInput.value = "";
       if (albumFileInput) albumFileInput.value = "";
     }
+    window.retakePhotoFromModal = resetCameraView;
 
     // タブ切り替え（カメラ / 手動 / 定番）
     const tabPhotoBtn = document.getElementById("tabPhotoBtn");
@@ -1683,27 +1686,38 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const prompt = `あなたは世界最高峰のプロ管理栄養士・食品AIアナリストです。
-画像全体を多角的に解析し、以下の4ステップ思考を経て、必ず指定のJSON形式のみを出力してください。
+画像全体を観察し、まず【食べ物や飲み物（食事）が写っているか】を厳格に判定してください。
 
-【ステップ1：料理の特定（物体認識・分類）】
+【最重要判定ルール：食べ物・飲み物以外の物体の除外】
+画像に写っている主要な被写体が「食べ物・飲み物（料理・食品・飲料・デザート等）」ではない場合（例: 水筒、マイボトル、タンブラー単体、空の食器、スマートフォン、パソコン、文房具、家具、人物、家電、衣服、日用品など）、無理にカロリー計算を行わず、必ず以下のJSONのみを出力してください:
+{
+  "isFood": false,
+  "nonFoodName": "検出された物体の具体的な名称（例: 水筒・マイボトル、スマートフォン、ノートPCなど）",
+  "message": "画像から食べ物や飲み物が検出されませんでした。お食事の写真を撮影またはアップロードしてください。"
+}
+
+【食べ物や飲み物が写っている場合のみ】：
+以下の4ステップ思考を経て、指定のJSON形式のみを出力してください。
+ステップ1：料理の特定（物体認識・分類）
 - 画像全体から料理の種類（「油そば」「牛鮭定食」「特製ヤンニョムチキン」「牛カルビ焼肉定食」「豚骨ラーメン」「からあげ定食」など）を精密識別。
 - 麺の太さ・形状、スープの有無（汁なし系・つけ麺・ラーメンの違い）、添えられている具材（薬味、辛味ペースト、レモンなど）や定食の小鉢・汁物・ご飯の有無を細部まで観察。
 
-【ステップ2：食材のパーツ分け（セグメンテーション）】
+ステップ2：食材のパーツ分け（セグメンテーション）
 - 主食：ご飯、中華麺、うどん、パンなど
 - 主菜・主タンパク源：焼き鮭、牛カルビ肉、鶏からあげ、チキン、豚チャーシューなど
 - 副菜・トッピング：メンマ、刻みネギ、牛小鉢、味噌汁、キムチ、野菜など
 - 調味料・油脂：底のタレ、絡められた油、甘辛ヤンニョムダレ、ドレッシングなど
 
-【ステップ3：ボリューム（重量・体積）の精密推定】
+ステップ3：ボリューム（重量・体積）の精密推定
 - 器（丼、角皿、お椀、お盆）や箸・スプーン等のサイズ感をスケール（物差し）として活用。
 - 個数（ヤンニョムチキン5個、からあげ4個、餃子6個など）や、盛り付けの深さ・広がり（ご飯並盛約200〜250g・大盛約300g、茹で麺約200〜250g等）を見積もる。
 
-【ステップ4：栄養データベースとの照合・合算】
+ステップ4：栄養データベースとの照合・合算
 - 推定した各食材の重量を、一般的な食品成分表や外食メニュー標準レシピデータに当てはめ、見えない吸油や調味料も考慮して総カロリーとPFC（たんぱく質・脂質・炭水化物）を合算。
 
 【JSON出力フォーマット（純粋なJSON文字列のみ、Markdownコードブロックや余分なテキストは一切不要）】：
 {
+  "isFood": true,
   "name": "具体的な料理名（個数・盛り付け量を明記。例: 特製ヤンニョムチキン（5個）、牛鮭定食（鮭塩焼き・牛小鉢・ご飯並盛・味噌汁）、牛カルビ焼肉定食（牛カルビ・ご飯・スープ・キムチ）、特製油そば（並盛・チャーシュー・メンマ添え））",
   "portion": "5個 または 並盛",
   "count": 5,
@@ -1769,6 +1783,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (cleanText.endsWith("```")) cleanText = cleanText.slice(0, -3);
             cleanText = cleanText.trim();
             const parsed = JSON.parse(cleanText);
+
+            if (parsed.isFood === false) {
+              return {
+                isFood: false,
+                nonFoodName: parsed.nonFoodName || "水筒・日用品",
+                message: parsed.message || "画像から食べ物や飲み物が検出されませんでした。"
+              };
+            }
 
             const parsedCal = parseInt(parsed.calories) || 600;
             const parsedCount = parseInt(parsed.count) || (parsed.name && parsed.name.includes("個") ? (parseInt(parsed.name.match(/(\d+)個/)?.[1]) || 5) : 1);
@@ -1984,6 +2006,17 @@ document.addEventListener("DOMContentLoaded", () => {
             const greenRatio = greenCount / total;
             const yellowRatio = noodleYellowCount / total;
             const curryRatio = curryCount / total;
+            const foodFeatureSum = soupYellowRatio + eggYolkRatio + salmonRatio + rawRedRatio + yangnyeomRatio + greenRatio + yellowRatio + curryRatio;
+
+            // 0. 食べ物以外の物体（水筒・スマホ・オフィス小物などの非食品判定）
+            // 料理特有の色（スープ・卵黄・鮭ピンク・生肉・タレ・野菜・麺・カレー等）が極小かつ白飯・白皿もわずかな場合
+            if (foodFeatureSum < 0.018 && whiteRatio < 0.12) {
+              return {
+                isFood: false,
+                nonFoodName: "水筒・日用品",
+                message: "画像から食べ物や飲み物が検出されませんでした（水筒や日用品などの可能性があります）。"
+              };
+            }
 
             // 1. ラーメン（黒海苔・黒丼比率が圧倒的、白飯なし）
             const isRamenVisual = blackRatio > 0.18 ||
@@ -2389,6 +2422,9 @@ document.addEventListener("DOMContentLoaded", () => {
       scanLaserLine.classList.remove("hidden");
       scanResultArea.classList.add("hidden");
 
+      const scanNonFoodAlert = document.getElementById("scanNonFoodAlert");
+      if (scanNonFoodAlert) scanNonFoodAlert.classList.add("hidden");
+
       const slot = document.getElementById("recordTargetSlot")?.value || "lunch";
       let geminiRes = null;
       let isGeminiSuccess = false;
@@ -2413,6 +2449,10 @@ document.addEventListener("DOMContentLoaded", () => {
         scanStatusText.textContent = "Google Gemini AIが料理を解析中...";
         geminiRes = await analyzeWithGeminiVision(imageSrc);
         if (geminiRes && !geminiRes.error) {
+          if (geminiRes.isFood === false) {
+            showNonFoodAlert(geminiRes.nonFoodName, geminiRes.message);
+            return;
+          }
           isGeminiSuccess = true;
           currentScanItem = {
             ...geminiRes,
@@ -2432,6 +2472,10 @@ document.addEventListener("DOMContentLoaded", () => {
           updateGeminiStatusUI();
 
           const visualMeal = await detectDishFromImageVisuals(imageSrc, fileName);
+          if (visualMeal?.isFood === false) {
+            showNonFoodAlert(visualMeal.nonFoodName, visualMeal.message);
+            return;
+          }
           currentScanItem = {
             ...visualMeal,
             img: imageSrc,
@@ -2447,6 +2491,10 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         // キー未設定時：画像ピクセル色彩分析＆ファイル名から料理をスマート特定（ヤンニョムチキン・唐揚げ等）
         const visualMeal = await detectDishFromImageVisuals(imageSrc, fileName);
+        if (visualMeal?.isFood === false) {
+          showNonFoodAlert(visualMeal.nonFoodName, visualMeal.message);
+          return;
+        }
         currentScanItem = {
           ...visualMeal,
           img: imageSrc,
@@ -2471,6 +2519,76 @@ document.addEventListener("DOMContentLoaded", () => {
         scanResultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }, 50);
     }
+
+    // 食べ物以外の物体（水筒・スマホ等）が撮影された場合のアラート表示
+    function showNonFoodAlert(nonFoodName, message) {
+      const scanNonFoodAlert = document.getElementById("scanNonFoodAlert");
+      const alertTitle = document.getElementById("nonFoodAlertTitle");
+      const alertDesc = document.getElementById("nonFoodAlertDesc");
+      const scanResultArea = document.getElementById("scanResultArea");
+      const scanOverlay = document.getElementById("scanOverlay");
+      const scanLaserLine = document.getElementById("scanLaserLine");
+
+      if (scanOverlay) scanOverlay.classList.add("hidden");
+      if (scanLaserLine) scanLaserLine.classList.add("hidden");
+      if (scanResultArea) scanResultArea.classList.add("hidden");
+
+      if (alertTitle) {
+        alertTitle.textContent = "食べ物・飲み物が検出されませんでした";
+      }
+      if (alertDesc) {
+        const detectedStr = nonFoodName ? `「${nonFoodName}」` : "食べ物以外の物体";
+        alertDesc.textContent = message || `写真に料理や飲み物が写っていないようです（${detectedStr}が検出されました）。お食事の写真を撮影または選択してください。`;
+      }
+
+      if (scanNonFoodAlert) {
+        scanNonFoodAlert.classList.remove("hidden");
+        scanNonFoodAlert.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+    window.showNonFoodAlert = showNonFoodAlert;
+
+    // 水筒等の写真から「手動で料理名・中身を入力」を選択した場合
+    window.continueAnywayWithManual = function () {
+      const scanNonFoodAlert = document.getElementById("scanNonFoodAlert");
+      if (scanNonFoodAlert) scanNonFoodAlert.classList.add("hidden");
+
+      currentScanItem = {
+        name: "ドリンク・水筒の中身",
+        portion: "1本（約500ml）",
+        count: 1,
+        unitName: "本",
+        unitCalories: 150,
+        calories: 150,
+        p: 15.0,
+        f: 2.0,
+        c: 18.0,
+        advice: "水筒やマイボトルの中身（プロテイン、お茶、カフェラテなど）に合わせて料理名を変更・登録してください。",
+        icon: "🥤",
+        img: scannedImagePreview?.src || null,
+        baseName: "ドリンク・水筒の中身",
+        baseCalories: 150,
+        baseP: 15.0,
+        baseF: 2.0,
+        baseC: 18.0,
+        baseAdvice: "水筒やマイボトルの中身（プロテイン、お茶、カフェラテなど）に合わせて料理名を変更・登録してください。",
+        soupLevel: 'all'
+      };
+
+      setupStep1DishUI(currentScanItem, false, false, null);
+      const col = document.getElementById("dishEditCollapsible");
+      if (col) col.classList.remove("hidden");
+      const btnText = document.getElementById("toggleEditDishBtnText");
+      if (btnText) btnText.textContent = "入力欄を閉じる";
+      const manualInput = document.getElementById("manualEditDishInput");
+      if (manualInput) {
+        manualInput.focus();
+        manualInput.select();
+      }
+
+      scanResultArea.classList.remove("hidden");
+      scanResultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
 
     // ==================== 2ステップ式 UI制御 ====================
 

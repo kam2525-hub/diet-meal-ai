@@ -1439,6 +1439,30 @@
           </div>
         </div>
 
+        <!-- ⚠️ 食べ物ではない物体（水筒・スマホ等）が検出された場合の警告エリア -->
+        <div id="scanNonFoodAlert" class="hidden p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl space-y-3 text-center">
+          <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xl mx-auto shadow-xs">
+            <i class="fa-solid fa-utensils"></i>
+          </div>
+          <div class="space-y-1">
+            <h3 class="font-bold text-amber-950 text-sm" id="nonFoodAlertTitle">食べ物・飲み物が検出されませんでした</h3>
+            <p class="text-xs text-amber-800 leading-relaxed" id="nonFoodAlertDesc">
+              写真に料理や飲み物が写っていないようです（水筒などが検出されました）。お食事の写真を撮影してください。
+            </p>
+          </div>
+          <div class="pt-1 flex gap-2 justify-center">
+            <button type="button" onclick="window.retakePhotoFromModal && window.retakePhotoFromModal()"
+              class="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+              <i class="fa-solid fa-camera"></i>
+              <span>食事を撮り直す</span>
+            </button>
+            <button type="button" onclick="window.continueAnywayWithManual && window.continueAnywayWithManual()"
+              class="px-3 py-2.5 bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 font-bold rounded-xl text-xs transition cursor-pointer">
+              <span>手動で料理名を入力</span>
+            </button>
+          </div>
+        </div>
+
         <!-- 🚀 2ステップ式・写真解析結果エリア（料理名確認 → 栄養素確認） -->
         <div id="scanResultArea" class="hidden space-y-3">
 
