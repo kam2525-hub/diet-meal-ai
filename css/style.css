@@ -84,11 +84,34 @@ button:active {
   opacity: 0.85;
 }
 
-/* AIマスコット「モグ丸」アニメーション */
+/* AIマスコット「モグ丸」アニメーション & スマホ最適化サイズ */
+#mascotCompanionCard {
+  min-height: 48px;
+  max-height: 58px;
+}
+
+#mascotAvatar {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  max-width: 42px !important;
+  min-height: 42px !important;
+  max-height: 42px !important;
+  flex: 0 0 42px !important;
+}
+
+#mascotAvatar svg {
+  width: 42px !important;
+  height: 42px !important;
+  max-width: 42px !important;
+  max-height: 42px !important;
+  display: block;
+}
+
 .mascot-container {
   animation: mascotFloat 3.2s ease-in-out infinite;
   transform-origin: center bottom;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 
 .mascot-bounce {

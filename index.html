@@ -118,7 +118,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome / Lucide icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/style.css?v=4.1.0">
+  <link rel="stylesheet" href="css/style.css?v=5.9.2">
   <!-- Google Gemini AI Vision (最先端高精度画像認識エンジン) -->
   <script>
     tailwind.config = {
@@ -369,11 +369,12 @@
 
       <!-- AIパートナー「モグ丸」コンパニオンエリア -->
       <div id="mascotCompanionCard"
-        class="flex items-center gap-3 py-2.5 px-3 sm:py-3 sm:px-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition active:scale-[0.99] cursor-pointer relative overflow-hidden group select-none shadow-sm"
+        style="max-height: 56px;"
+        class="flex items-center gap-2.5 py-1.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition active:scale-[0.99] cursor-pointer relative overflow-hidden group select-none shadow-sm"
         onclick="window.interactWithMascot && window.interactWithMascot()" title="タップしてお話しする">
         <!-- SVGマスコット（モグ丸） -->
-        <div style="width: 58px; height: 58px;" class="relative shrink-0 flex items-center justify-center mascot-container" id="mascotAvatar">
-          <svg viewBox="0 -8 100 108" class="w-full h-full filter drop-shadow" style="width: 58px; height: 58px;">
+        <div style="width: 42px; height: 42px; min-width: 42px; max-width: 42px; flex: 0 0 42px;" class="relative shrink-0 flex items-center justify-center mascot-container" id="mascotAvatar">
+          <svg viewBox="0 -8 100 108" class="w-full h-full filter drop-shadow" style="width: 42px; height: 42px; min-width: 42px; max-width: 42px;">
             <defs>
               <linearGradient id="mogumaruGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stop-color="#34d399" />
@@ -1688,7 +1689,7 @@
 
   <script src="js/data.js?v=5.7.0"></script>
   <script src="js/calculator.js?v=5.7.0"></script>
-  <script src="js/app.js?v=5.7.0"></script>
+  <script src="js/app.js?v=5.9.2"></script>
 </body>
 
 </html>
