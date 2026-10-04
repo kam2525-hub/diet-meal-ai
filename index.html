@@ -1518,14 +1518,19 @@
               </button>
             </div>
 
-            <!-- ドンと目立つ料理名表示 -->
-            <div class="bg-white rounded-xl p-3 sm:p-3.5 border border-emerald-100 shadow-2xs flex items-center space-x-3">
-              <span id="stepDishIcon" class="text-3xl shrink-0">🍽️</span>
-              <div class="min-w-0 flex-1">
-                <div class="text-[10px] text-slate-400 font-medium">特定されたメニュー</div>
-                <div id="stepDishNameDisplay" class="text-base sm:text-lg font-black text-slate-800 truncate">
-                  料理名
+            <!-- ドンと目立つ料理名表示（改行対応で長い定食・自炊名も絶対に切れない） -->
+            <div class="bg-white rounded-xl p-3 sm:p-3.5 border border-emerald-100 shadow-2xs space-y-2">
+              <div class="flex items-start space-x-3">
+                <span id="stepDishIcon" class="text-3xl shrink-0 pt-0.5">🍽️</span>
+                <div class="min-w-0 flex-1">
+                  <div class="text-[10px] text-slate-400 font-medium">特定されたメニュー</div>
+                  <div id="stepDishNameDisplay" class="text-base sm:text-lg font-black text-slate-800 break-words leading-snug">
+                    料理名
+                  </div>
                 </div>
+              </div>
+              <!-- 認識された各品目のプレビュータグ（ご飯・主菜・汁物などが一目でわかる） -->
+              <div id="stepDishItemsPreview" class="flex flex-wrap gap-1.5 pt-2 border-t border-emerald-50 hidden">
               </div>
             </div>
 
@@ -1569,17 +1574,17 @@
           <div id="photoStepNutritionArea"
             class="hidden bg-white border border-emerald-200 rounded-2xl p-4 text-xs shadow-md space-y-3">
             
-            <!-- 選択料理ヘッダー -->
-            <div class="flex items-center justify-between border-b pb-2.5">
-              <div class="flex items-center space-x-2 min-w-0">
-                <span id="nutriDishIcon" class="text-2xl shrink-0">🍽️</span>
-                <div class="min-w-0">
+            <!-- 選択料理ヘッダー（長い定食・自炊名でも切れないように折り返し） -->
+            <div class="flex items-start justify-between border-b pb-2.5 gap-2">
+              <div class="flex items-start space-x-2 min-w-0 flex-1">
+                <span id="nutriDishIcon" class="text-2xl shrink-0 pt-0.5">🍽️</span>
+                <div class="min-w-0 flex-1">
                   <div class="text-[9.5px] text-slate-400 font-bold">記録する料理</div>
-                  <div id="nutriDishName" class="font-bold text-slate-800 text-xs sm:text-sm truncate">料理名</div>
+                  <div id="nutriDishName" class="font-bold text-slate-800 text-xs sm:text-sm break-words leading-snug">料理名</div>
                 </div>
               </div>
               <button type="button" onclick="window.backToDishStep && window.backToDishStep()"
-                class="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer shrink-0 flex items-center gap-1">
+                class="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer shrink-0 flex items-center gap-1 pt-0.5">
                 <i class="fa-solid fa-arrow-left text-[10px]"></i>
                 <span>料理名を変更</span>
               </button>
@@ -1600,6 +1605,25 @@
                   class="px-2.5 py-1 bg-white border border-emerald-200 hover:bg-emerald-100 text-emerald-900 font-bold rounded-lg active:scale-95 transition cursor-pointer shadow-2xs">-50</button>
                 <button type="button" onclick="window.adjustCaloriesStep(+50)"
                   class="px-2.5 py-1 bg-white border border-emerald-200 hover:bg-emerald-100 text-emerald-900 font-bold rounded-lg active:scale-95 transition cursor-pointer shadow-2xs">+50</button>
+              </div>
+            </div>
+
+            <!-- 🍱 料理一つ一つの個別ボリューム調整エリア（定食・自炊・複数品目対応） -->
+            <div id="dishItemsSection" class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                  <i class="fa-solid fa-layer-group text-emerald-600"></i>
+                  <span>品目ごとの個別量調整（自炊・定食）：</span>
+                </span>
+                <button type="button" onclick="window.openAddDishItemModal && window.openAddDishItemModal()"
+                  class="text-[10px] text-emerald-700 hover:text-emerald-900 bg-white hover:bg-emerald-50 border border-emerald-300 px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs">
+                  <i class="fa-solid fa-plus text-[9px]"></i>
+                  <span>おかず追加</span>
+                </button>
+              </div>
+              <!-- 品目一覧リスト -->
+              <div id="dishItemsListContainer" class="space-y-2">
+                <!-- 動的に各品目のカード（ご飯・鮭・味噌汁等）が挿入されます -->
               </div>
             </div>
 
@@ -1763,9 +1787,104 @@
     </div>
   </div>
 
+  <!-- 自炊・定食のおかず追加モーダル -->
+  <div id="addDishItemModal"
+    class="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-3 sm:p-4">
+    <div
+      class="bg-white rounded-2xl max-w-sm w-full p-4 space-y-3 shadow-2xl flex flex-col max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-2">
+        <div class="flex items-center space-x-2">
+          <span class="text-emerald-600 text-base"><i class="fa-solid fa-plus-circle"></i></span>
+          <h3 class="text-xs sm:text-sm font-bold text-slate-800">おかず・品目を追加</h3>
+        </div>
+        <button type="button" onclick="window.closeAddDishItemModal && window.closeAddDishItemModal()"
+          class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- 定番の自炊追加おかず（ワンタップ） -->
+      <div class="space-y-1.5">
+        <label class="text-[11px] font-bold text-slate-600">よく追加する定番おかず：</label>
+        <div class="grid grid-cols-2 gap-1.5 text-[11px]" id="quickAddDishChips">
+          <button type="button" onclick="window.quickAddPresetDish('納豆', 90, 8.0, 5.0, 6.0, '🥢', 'side')"
+            class="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left font-bold text-slate-700 transition cursor-pointer flex items-center justify-between">
+            <span>🥢 納豆 (1P)</span>
+            <span class="text-[10px] text-emerald-700 font-mono">90kcal</span>
+          </button>
+          <button type="button" onclick="window.quickAddPresetDish('生卵・温泉卵', 80, 7.0, 5.5, 0.2, '🥚', 'side')"
+            class="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left font-bold text-slate-700 transition cursor-pointer flex items-center justify-between">
+            <span>🥚 生卵/温玉</span>
+            <span class="text-[10px] text-emerald-700 font-mono">80kcal</span>
+          </button>
+          <button type="button" onclick="window.quickAddPresetDish('白ご飯 (並盛)', 310, 5.0, 0.6, 74.0, '🍚', 'rice')"
+            class="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left font-bold text-slate-700 transition cursor-pointer flex items-center justify-between">
+            <span>🍚 白ご飯 (並)</span>
+            <span class="text-[10px] text-emerald-700 font-mono">310kcal</span>
+          </button>
+          <button type="button" onclick="window.quickAddPresetDish('お味噌汁', 45, 3.0, 1.2, 4.5, '🥣', 'soup')"
+            class="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left font-bold text-slate-700 transition cursor-pointer flex items-center justify-between">
+            <span>🥣 お味噌汁</span>
+            <span class="text-[10px] text-emerald-700 font-mono">45kcal</span>
+          </button>
+          <button type="button" onclick="window.quickAddPresetDish('プロテイン', 120, 20.0, 1.5, 3.0, '🥛', 'side')"
+            class="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left font-bold text-slate-700 transition cursor-pointer flex items-center justify-between">
+            <span>🥛 プロテイン</span>
+            <span class="text-[10px] text-emerald-700 font-mono">120kcal</span>
+          </button>
+          <button type="button" onclick="window.quickAddPresetDish('ミニサラダ', 30, 1.0, 0.2, 6.0, '🥗', 'side')"
+            class="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left font-bold text-slate-700 transition cursor-pointer flex items-center justify-between">
+            <span>🥗 サラダ</span>
+            <span class="text-[10px] text-emerald-700 font-mono">30kcal</span>
+          </button>
+          <button type="button" onclick="window.quickAddPresetDish('ヨーグルト', 65, 3.5, 3.0, 5.0, '🥣', 'side')"
+            class="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left font-bold text-slate-700 transition cursor-pointer flex items-center justify-between">
+            <span>🥣 ヨーグルト</span>
+            <span class="text-[10px] text-emerald-700 font-mono">65kcal</span>
+          </button>
+          <button type="button" onclick="window.quickAddPresetDish('冷奴 (豆腐)', 60, 5.5, 3.5, 2.0, '🥢', 'side')"
+            class="p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-left font-bold text-slate-700 transition cursor-pointer flex items-center justify-between">
+            <span>🥢 冷奴・豆腐</span>
+            <span class="text-[10px] text-emerald-700 font-mono">60kcal</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 手動でおかずを入力して追加 -->
+      <div class="space-y-2 pt-2 border-t border-slate-100 text-xs">
+        <label class="text-[11px] font-bold text-slate-600">自由に入力して追加：</label>
+        <div class="space-y-1.5">
+          <input type="text" id="customDishItemName" placeholder="おかず・料理名（例: 鮭の切り身、キムチ）"
+            class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+          <div class="grid grid-cols-2 gap-1.5">
+            <div>
+              <span class="text-[10px] text-slate-500 font-medium">カロリー (kcal)</span>
+              <input type="number" id="customDishItemCal" placeholder="例: 150"
+                class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-mono font-bold">
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 font-medium">分類</span>
+              <select id="customDishItemType" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-700">
+                <option value="main">🥩 主菜・肉魚</option>
+                <option value="rice">🍚 ご飯・主食</option>
+                <option value="soup">🥣 汁物・スープ</option>
+                <option value="side" selected>🥢 副菜・小鉢</option>
+              </select>
+            </div>
+          </div>
+          <button type="button" onclick="window.submitCustomDishItem && window.submitCustomDishItem()"
+            class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer mt-1">
+            <i class="fa-solid fa-plus"></i>
+            <span>このおかずを追加する</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="js/data.js?v=5.7.0"></script>
   <script src="js/calculator.js?v=5.7.0"></script>
-  <script src="js/app.js?v=5.9.2"></script>
+  <script src="js/app.js?v=6.0.0"></script>
 </body>
 
 </html>

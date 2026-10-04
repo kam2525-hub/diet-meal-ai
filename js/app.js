@@ -512,15 +512,20 @@ document.addEventListener("DOMContentLoaded", () => {
           filledView.innerHTML = `
             <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
               ${record.img ? `<img src="${record.img}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-emerald-300 shadow-xs shrink-0">` : `<span class="text-xl sm:text-2xl shrink-0">${record.icon || '🍽️'}</span>`}
-              <div class="min-w-0">
-                <div class="font-bold text-slate-800 text-xs sm:text-sm truncate flex items-center gap-1.5 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <div class="font-bold text-slate-800 text-xs sm:text-sm break-words flex items-center gap-1.5 flex-wrap">
                   <span>${record.name}</span>
                   ${record.soupLevel === 'half' ? '<span class="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-md font-bold">🍜 スープ半分残し</span>' : ''}
                   ${record.soupLevel === 'none' ? '<span class="text-[9px] bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.2 rounded-md font-bold">🍜 麺・具のみ完食</span>' : ''}
                 </div>
-                <div class="text-[10px] sm:text-[11px] text-slate-600 mt-0.5 flex flex-wrap gap-1 items-center">
+                ${record.items && record.items.length > 1 ? `
+                <div class="flex flex-wrap gap-1 mt-1">
+                  ${record.items.map(it => `<span class="text-[9px] bg-white/90 border border-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded-md font-medium inline-flex items-center gap-0.5"><span>${it.icon || '🍽️'}</span><span>${it.name}</span></span>`).join('')}
+                </div>
+                ` : ''}
+                <div class="text-[10px] sm:text-[11px] text-slate-600 mt-1 flex flex-wrap gap-1 items-center">
                   <span class="font-mono font-bold text-emerald-800">${record.calories} kcal</span>
-                  <span class="text-slate-500">(P:${record.p}g · F:${record.f}g · C:${record.c}g)</span>
+                  <span class="text-slate-500 font-mono">(P:${record.p}g · F:${record.f}g · C:${record.c}g)</span>
                 </div>
               </div>
             </div>
@@ -1829,7 +1834,19 @@ document.addEventListener("DOMContentLoaded", () => {
 【JSON出力フォーマット（純粋なJSON文字列のみ、Markdownコードブロックや余分なテキストは一切不要）】：
 {
   "isFood": true,
-  "name": "具体的な料理名（個数・盛り付け量を明記。例: 特製ヤンニョムチキン（5個）、牛鮭定食（鮭塩焼き・牛小鉢・ご飯並盛・味噌汁）、牛カルビ焼肉定食（牛カルビ・ご飯・スープ・キムチ）、特製油そば（並盛・チャーシュー・メンマ添え））",
+  "name": "具体的な料理名（定食や自炊の場合は含まれる主な品目を記載。例: 牛鮭定食（鮭塩焼き・牛小鉢・ご飯並盛・味噌汁）、自炊朝食プレート（目玉焼き・トースト・サラダ））",
+  "items": [
+    {
+      "name": "品目名（例: 白ご飯、鮭の塩焼き、豆腐とわかめの味噌汁、牛小鉢、目玉焼き、サラダ等）",
+      "portion": "推定量（例: 並盛約200g、1切れ、1杯、1個等）",
+      "portionType": "rice (ご飯・主食) | main (肉・魚・主菜) | soup (汁物・スープ) | side (副菜・小鉢・サラダ) | count (唐揚げ等の個数もの) | other",
+      "calories": 310,
+      "p": 5.0,
+      "f": 0.6,
+      "c": 74.0,
+      "icon": "最も適切な絵文字（🍚, 🐟, 🥩, 🥣, 🥗, 🥚, 🍞, 🍗, 🍜等）"
+    }
+  ],
   "portion": "5個 または 並盛",
   "count": 5,
   "unitName": "個",
@@ -1838,9 +1855,9 @@ document.addEventListener("DOMContentLoaded", () => {
   "p": 32.0,
   "f": 26.0,
   "c": 64.0,
-  "breakdown": "パーツ内訳（例: チキン5個 約520kcal ＋ 甘辛ダレ・吸油 約100kcal）",
+  "breakdown": "パーツ内訳（例: 白ご飯310kcal + 鮭塩焼き180kcal + 味噌汁45kcal 等）",
   "advice": "管理栄養士からの実践的ダイエットアドバイス（1行）",
-  "icon": "最も適切な絵文字（🍗, 🐟, 🥩, 🍜, 🍛等）"
+  "icon": "最も適切な絵文字（🍱, 🐟, 🥩, 🍜, 🍛等）"
 }`;
 
         const payload = {
@@ -1908,8 +1925,50 @@ document.addEventListener("DOMContentLoaded", () => {
             const parsedUnitName = parsed.unitName || (parsedCount > 1 ? "個" : "人前");
             const parsedUnitCal = parseInt(parsed.unitCalories) || (parsedCount > 1 ? Math.round(parsedCal / parsedCount) : parsedCal);
 
+            // 品目リスト（items）の正規化（料理一つ一つの認識＆個別量調整用）
+            let rawItems = Array.isArray(parsed.items) && parsed.items.length > 0 ? parsed.items : [];
+            if (rawItems.length === 0) {
+              // 単一料理の場合は自身を品目として初期化
+              rawItems = [{
+                name: parsed.name || "解析された料理",
+                portion: parsed.portion || "1人前",
+                portionType: (parsed.name && (parsed.name.includes("個") || parsedCount > 1)) ? "count" : "main",
+                calories: parsedCal,
+                p: parseFloat(parsed.p) || 24,
+                f: parseFloat(parsed.f) || 20,
+                c: parseFloat(parsed.c) || 70,
+                icon: parsed.icon || "🍽️"
+              }];
+            }
+
+            const normalizedItems = rawItems.map((item, idx) => {
+              const c = parseInt(item.calories) || Math.round(parsedCal / rawItems.length);
+              const p = parseFloat(item.p) || 0;
+              const f = parseFloat(item.f) || 0;
+              const carb = parseFloat(item.c) || 0;
+              const pType = item.portionType || (item.name.includes("飯") || item.name.includes("米") || item.name.includes("パン") ? "rice" : (item.name.includes("汁") || item.name.includes("スープ") ? "soup" : "main"));
+              return {
+                id: `item_${Date.now()}_${idx}`,
+                name: item.name || `品目 ${idx + 1}`,
+                portion: item.portion || "普通",
+                portionType: pType,
+                calories: c,
+                baseCalories: c,
+                p: p,
+                baseP: p,
+                f: f,
+                baseF: f,
+                c: carb,
+                baseC: carb,
+                icon: item.icon || (pType === "rice" ? "🍚" : (pType === "soup" ? "🥣" : (pType === "side" ? "🥢" : "🍽️"))),
+                scale: 1.0,
+                preset: "medium"
+              };
+            });
+
             return {
               name: parsed.name || "解析された料理",
+              items: normalizedItems,
               portion: parsed.portion || (parsedCount > 1 ? `${parsedCount}${parsedUnitName}` : "並盛"),
               count: parsedCount,
               unitName: parsedUnitName,
@@ -1935,6 +1994,131 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     window.analyzeWithGeminiVision = analyzeWithGeminiVision;
+
+    // 自炊・定食・一般料理の各品目（items）を完全正規化するエンジン
+    function ensureNormalizedMealItems(dish) {
+      if (!dish) return dish;
+
+      // 既に items 配列がある場合は各プロパティを整えて返却
+      if (Array.isArray(dish.items) && dish.items.length > 0) {
+        dish.items = dish.items.map((item, idx) => {
+          const cal = parseInt(item.calories) || 100;
+          const p = parseFloat(item.p || 0);
+          const f = parseFloat(item.f || 0);
+          const c = parseFloat(item.c || 0);
+          const pType = item.portionType || (item.name.includes("飯") || item.name.includes("米") || item.name.includes("パン") ? "rice" : (item.name.includes("汁") || item.name.includes("スープ") ? "soup" : (item.name.includes("サラダ") || item.name.includes("小鉢") ? "side" : "main")));
+          return {
+            id: item.id || `item_${Date.now()}_${idx}`,
+            name: item.name || `品目 ${idx + 1}`,
+            portion: item.portion || "普通",
+            portionType: pType,
+            calories: cal,
+            baseCalories: item.baseCalories !== undefined ? item.baseCalories : cal,
+            p: p,
+            baseP: item.baseP !== undefined ? item.baseP : p,
+            f: f,
+            baseF: item.baseF !== undefined ? item.baseF : f,
+            c: c,
+            baseC: item.baseC !== undefined ? item.baseC : c,
+            icon: item.icon || (pType === "rice" ? "🍚" : (pType === "soup" ? "🥣" : (pType === "side" ? "🥢" : "🍽️"))),
+            scale: item.scale !== undefined ? item.scale : 1.0,
+            preset: item.preset || "medium"
+          };
+        });
+        return dish;
+      }
+
+      // 料理名に応じた品目自動分割（自炊・定食・ラーメン等のスマート分解）
+      const name = dish.name || "";
+      let items = [];
+
+      if (name.includes("鮭") || name.includes("さけ")) {
+        items = [
+          { name: "白ご飯", portion: "並盛 (約200g)", portionType: "rice", calories: 310, p: 5.0, f: 0.6, c: 74.0, icon: "🍚" },
+          { name: "鮭の塩焼き", portion: "1切れ (中)", portionType: "main", calories: 180, p: 22.0, f: 9.5, c: 0.1, icon: "🐟" },
+          { name: "お味噌汁", portion: "1杯", portionType: "soup", calories: 45, p: 3.0, f: 1.2, c: 4.5, icon: "🥣" },
+          { name: "牛小鉢", portion: "小鉢1皿", portionType: "side", calories: 155, p: 6.0, f: 10.7, c: 14.4, icon: "🥩" }
+        ];
+      } else if (name.includes("からあげ") || name.includes("唐揚")) {
+        const count = dish.count || 4;
+        items = [
+          { name: "鶏のからあげ", portion: `${count}個`, portionType: "count", count: count, unitName: "個", unitCalories: Math.round(340 / count), calories: 340, p: 24.0, f: 22.0, c: 10.0, icon: "🍗" },
+          { name: "白ご飯", portion: "並盛 (約200g)", portionType: "rice", calories: 310, p: 5.0, f: 0.6, c: 74.0, icon: "🍚" },
+          { name: "お味噌汁", portion: "1杯", portionType: "soup", calories: 45, p: 3.0, f: 1.2, c: 4.5, icon: "🥣" },
+          { name: "キャベツ・副菜", portion: "小皿", portionType: "side", calories: 25, p: 1.0, f: 0.2, c: 5.5, icon: "🥗" }
+        ];
+      } else if (name.includes("焼肉") || name.includes("カルビ")) {
+        items = [
+          { name: "牛カルビ焼き", portion: "1皿 (約100g)", portionType: "main", calories: 420, p: 18.0, f: 32.0, c: 5.0, icon: "🥩" },
+          { name: "白ご飯", portion: "並盛 (約200g)", portionType: "rice", calories: 310, p: 5.0, f: 0.6, c: 74.0, icon: "🍚" },
+          { name: "わかめスープ", portion: "1杯", portionType: "soup", calories: 30, p: 1.5, f: 0.8, c: 3.0, icon: "🥣" },
+          { name: "白菜キムチ", portion: "小皿", portionType: "side", calories: 25, p: 1.5, f: 0.2, c: 4.0, icon: "🥬" }
+        ];
+      } else if (name.includes("ヤンニョム")) {
+        const count = dish.count || 5;
+        items = [
+          { name: "特製ヤンニョムチキン", portion: `${count}個`, portionType: "count", count: count, unitName: "個", unitCalories: 124, calories: 620, p: 32.0, f: 26.0, c: 64.0, icon: "🍗" }
+        ];
+      } else if (name.includes("油そば") || name.includes("まぜそば")) {
+        items = [
+          { name: "油そば（極太麺・特製タレ）", portion: "並盛 (茹で220g)", portionType: "main", calories: 650, p: 16.0, f: 27.0, c: 88.0, icon: "🍜" },
+          { name: "具材（チャーシュー・メンマ等）", portion: "1式", portionType: "side", calories: 110, p: 6.0, f: 5.0, c: 7.0, icon: "🥩" }
+        ];
+      } else if (name.includes("ラーメン") || name.includes("らーめん") || name.includes("拉麺")) {
+        items = [
+          { name: "豚骨醤油ラーメン（麺・味玉・具材）", portion: "並盛 (1玉)", portionType: "main", calories: 650, p: 26.0, f: 26.0, c: 85.0, icon: "🍜" },
+          { name: "濃厚豚骨醤油スープ", portion: "1杯分", portionType: "soup", calories: 200, p: 6.0, f: 12.0, c: 10.0, icon: "🥣" }
+        ];
+      } else if (name.includes("定食")) {
+        items = [
+          { name: "白ご飯", portion: "並盛 (約200g)", portionType: "rice", calories: 310, p: 5.0, f: 0.6, c: 74.0, icon: "🍚" },
+          { name: "メイン主菜", portion: "1皿", portionType: "main", calories: Math.max(100, dish.calories - 380), p: Math.max(10, (dish.p || 25) - 8), f: Math.max(5, (dish.f || 15) - 2), c: 10.0, icon: "🥩" },
+          { name: "お味噌汁", portion: "1杯", portionType: "soup", calories: 45, p: 3.0, f: 1.2, c: 4.5, icon: "🥣" },
+          { name: "副菜小鉢", portion: "小鉢1皿", portionType: "side", calories: 35, p: 1.5, f: 0.5, c: 6.0, icon: "🥗" }
+        ];
+      } else {
+        // 単一の料理
+        items = [
+          {
+            name: dish.name || "料理",
+            portion: dish.portion || "1人前",
+            portionType: (dish.count && dish.count >= 2) ? "count" : "main",
+            count: dish.count || 1,
+            unitName: dish.unitName || "個",
+            unitCalories: dish.unitCalories || dish.calories,
+            calories: dish.calories,
+            p: dish.p || 20,
+            f: dish.f || 15,
+            c: dish.c || 50,
+            icon: dish.icon || "🍽️"
+          }
+        ];
+      }
+
+      dish.items = items.map((item, idx) => ({
+        id: `item_${Date.now()}_${idx}`,
+        name: item.name,
+        portion: item.portion || "普通",
+        portionType: item.portionType || "main",
+        count: item.count,
+        unitName: item.unitName,
+        unitCalories: item.unitCalories,
+        calories: item.calories,
+        baseCalories: item.calories,
+        p: item.p,
+        baseP: item.p,
+        f: item.f,
+        baseF: item.f,
+        c: item.c,
+        baseC: item.c,
+        icon: item.icon || "🍽️",
+        scale: 1.0,
+        preset: "medium"
+      }));
+
+      return dish;
+    }
+    window.ensureNormalizedMealItems = ensureNormalizedMealItems;
 
     // 視覚色彩分析＆ファイル名による確実な料理特定フォールバック（鮭定食・焼肉定食・ヤンニョムチキン・油そば等を正確に分類）
     async function detectDishFromImageVisuals(imageSrc, fileName = "") {
@@ -2713,14 +2897,34 @@ document.addEventListener("DOMContentLoaded", () => {
       const dishDisplay = document.getElementById("stepDishNameDisplay");
       const manualInput = document.getElementById("manualEditDishInput");
       const editCollapsible = document.getElementById("dishEditCollapsible");
+      const itemsPreview = document.getElementById("stepDishItemsPreview");
 
       if (step1Area) step1Area.classList.remove("hidden");
       if (step2Area) step2Area.classList.add("hidden");
       if (editCollapsible) editCollapsible.classList.add("hidden");
 
-      if (dishIcon) dishIcon.textContent = meal.icon || "🍽️";
-      if (dishDisplay) dishDisplay.textContent = meal.name;
-      if (manualInput) manualInput.value = meal.name;
+      // 品目を正規化
+      currentScanItem = ensureNormalizedMealItems(currentScanItem || meal);
+
+      if (dishIcon) dishIcon.textContent = currentScanItem.icon || "🍽️";
+      if (dishDisplay) dishDisplay.textContent = currentScanItem.name;
+      if (manualInput) manualInput.value = currentScanItem.name;
+
+      // 認識された各品目（ご飯・鮭・味噌汁等）のプレビュータグを描画
+      if (itemsPreview) {
+        if (currentScanItem.items && currentScanItem.items.length > 0) {
+          itemsPreview.classList.remove("hidden");
+          itemsPreview.innerHTML = currentScanItem.items.map(item => `
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-900 text-[11px] font-bold shadow-2xs">
+              <span>${item.icon || '🍽️'}</span>
+              <span>${item.name}</span>
+              <span class="text-emerald-700 font-mono text-[10px] font-normal">(${item.calories}kcal)</span>
+            </span>
+          `).join("");
+        } else {
+          itemsPreview.classList.add("hidden");
+        }
+      }
 
       if (badgeText) {
         if (isGemini) {
@@ -2868,6 +3072,8 @@ document.addEventListener("DOMContentLoaded", () => {
         currentScanItem.name = manualInput.value.trim();
       }
 
+      currentScanItem = ensureNormalizedMealItems(currentScanItem);
+
       // 個数・ポーションの初期化
       currentScanItem.count = currentScanItem.count || 1;
       currentScanItem.baseCount = currentScanItem.baseCount || currentScanItem.count;
@@ -2890,6 +3096,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (nutriIcon) nutriIcon.textContent = currentScanItem.icon || "🍽️";
       if (adviceEl) adviceEl.textContent = currentScanItem.advice || "✨ 管理栄養士AIが推計しました。";
 
+      // 品目別調整UIを描画
+      renderDishItemsUI();
+
       refreshStep2Displays();
       updatePortionControlUI();
 
@@ -2906,6 +3115,243 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       step2Area.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+
+    // ==================== 品目個別ボリューム調整エンジン（自炊・定食対応） ====================
+    function renderDishItemsUI() {
+      if (!currentScanItem) return;
+      const container = document.getElementById("dishItemsListContainer");
+      const section = document.getElementById("dishItemsSection");
+      const portionControlBox = document.getElementById("portionControlBox");
+      if (!container) return;
+
+      const items = currentScanItem.items || [];
+      if (items.length === 0) {
+        if (section) section.classList.add("hidden");
+        if (portionControlBox) portionControlBox.classList.remove("hidden");
+        return;
+      }
+
+      if (section) section.classList.remove("hidden");
+      // 2品目以上ある（自炊・定食）場合は、各品目の調整がメインになるので全体の単一ステッパーは隠す
+      if (portionControlBox) {
+        if (items.length >= 2) {
+          portionControlBox.classList.add("hidden");
+        } else {
+          portionControlBox.classList.remove("hidden");
+        }
+      }
+
+      container.innerHTML = items.map((item) => {
+        const isRice = item.portionType === "rice" || item.name.includes("ご飯") || item.name.includes("米") || item.name.includes("パン");
+        const isSoup = item.portionType === "soup" || item.name.includes("汁") || item.name.includes("スープ");
+        const isCount = item.portionType === "count" || (item.count && item.count >= 2);
+
+        // プリセットラベルとスケール倍率（ユーザーの要望通り：ご飯は少なめ/大盛り、鮭は小さめ/大きめ、味噌汁は少なめ/多め）
+        let smallLabel = isRice ? "少なめ (150g)" : (isSoup ? "少なめ (具のみ)" : (isCount ? "少なめ" : "小さめ"));
+        let medLabel = isRice ? "普通 (200g)" : (isSoup ? "普通 (1杯)" : (isCount ? "普通" : "普通"));
+        let largeLabel = isRice ? "大盛 (300g)" : (isSoup ? "多め (具沢山)" : (isCount ? "多め" : "大きめ"));
+
+        let smallScale = isRice ? 0.75 : (isSoup ? 0.6 : 0.7);
+        let medScale = 1.0;
+        let largeScale = isRice ? 1.4 : (isSoup ? 1.3 : 1.35);
+
+        const curPreset = item.preset || "medium";
+
+        return `
+          <div class="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-200/90 shadow-2xs space-y-2" data-item-id="${item.id}">
+            <div class="flex items-center justify-between gap-1.5">
+              <div class="flex items-center gap-2 min-w-0 flex-1">
+                <span class="text-xl shrink-0">${item.icon || '🍽️'}</span>
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-slate-800 text-xs sm:text-[13px] break-words">${item.name}</div>
+                  <div class="text-[10px] sm:text-[11px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap">
+                    <span class="font-mono font-black text-emerald-700">${item.calories} kcal</span>
+                    <span class="text-slate-400 font-mono">(P:${item.p}g · F:${item.f}g · C:${item.c}g)</span>
+                  </div>
+                </div>
+              </div>
+              ${items.length > 1 ? `
+              <button type="button" onclick="window.removeDishItem('${item.id}')"
+                class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer shrink-0 text-xs"
+                title="このおかずを除外">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+              ` : ''}
+            </div>
+
+            <!-- 量調整ボタン -->
+            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-100 flex-wrap sm:flex-nowrap">
+              <div class="flex items-center gap-1 text-[10px] font-bold flex-1">
+                <button type="button" onclick="window.setDishItemPreset('${item.id}', 'small', ${smallScale})"
+                  class="flex-1 py-1 px-1.5 rounded-lg border text-center transition cursor-pointer active:scale-95 ${curPreset === 'small' ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}">
+                  ${smallLabel}
+                </button>
+                <button type="button" onclick="window.setDishItemPreset('${item.id}', 'medium', ${medScale})"
+                  class="flex-1 py-1 px-1.5 rounded-lg border text-center transition cursor-pointer active:scale-95 ${curPreset === 'medium' ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}">
+                  ${medLabel}
+                </button>
+                <button type="button" onclick="window.setDishItemPreset('${item.id}', 'large', ${largeScale})"
+                  class="flex-1 py-1 px-1.5 rounded-lg border text-center transition cursor-pointer active:scale-95 ${curPreset === 'large' ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs font-black' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}">
+                  ${largeLabel}
+                </button>
+              </div>
+              <!-- 微調整 [-] [+] -->
+              <div class="flex items-center bg-slate-100 rounded-lg p-0.5 shrink-0">
+                <button type="button" onclick="window.stepDishItemCalories('${item.id}', -20)"
+                  class="w-6 h-6 rounded bg-white hover:bg-slate-200 active:scale-95 text-slate-700 font-black flex items-center justify-center cursor-pointer shadow-2xs"
+                  title="少し減らす (-20kcal)">
+                  <i class="fa-solid fa-minus text-[9px]"></i>
+                </button>
+                <span class="px-1 text-[9px] font-bold text-slate-500">微調</span>
+                <button type="button" onclick="window.stepDishItemCalories('${item.id}', 20)"
+                  class="w-6 h-6 rounded bg-emerald-100 hover:bg-emerald-200 active:scale-95 text-emerald-800 font-black flex items-center justify-center cursor-pointer shadow-2xs"
+                  title="少し増やす (+20kcal)">
+                  <i class="fa-solid fa-plus text-[9px]"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+    window.renderDishItemsUI = renderDishItemsUI;
+
+    // 品目のプリセット変更
+    window.setDishItemPreset = function (itemId, preset, scale) {
+      if (!currentScanItem || !currentScanItem.items) return;
+      const item = currentScanItem.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      item.preset = preset;
+      item.scale = scale;
+      item.calories = Math.max(10, Math.round(item.baseCalories * scale));
+      item.p = Math.round(item.baseP * scale * 10) / 10;
+      item.f = Math.round(item.baseF * scale * 10) / 10;
+      item.c = Math.round(item.baseC * scale * 10) / 10;
+
+      recalculateTotalNutritionFromItems();
+      renderDishItemsUI();
+    };
+
+    // 品目のカロリー微調整 (+20 / -20)
+    window.stepDishItemCalories = function (itemId, delta) {
+      if (!currentScanItem || !currentScanItem.items) return;
+      const item = currentScanItem.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      const newCal = Math.max(10, item.calories + delta);
+      const ratio = newCal / (item.calories || 1);
+      item.calories = newCal;
+      item.p = Math.round(item.p * ratio * 10) / 10;
+      item.f = Math.round(item.f * ratio * 10) / 10;
+      item.c = Math.round(item.c * ratio * 10) / 10;
+      item.preset = "custom";
+
+      recalculateTotalNutritionFromItems();
+      renderDishItemsUI();
+    };
+
+    // 品目の除外（削除）
+    window.removeDishItem = function (itemId) {
+      if (!currentScanItem || !currentScanItem.items) return;
+      if (currentScanItem.items.length <= 1) return;
+      currentScanItem.items = currentScanItem.items.filter(i => i.id !== itemId);
+      recalculateTotalNutritionFromItems();
+      renderDishItemsUI();
+    };
+
+    // 各品目の合算による全体カロリー・PFCのリアルタイム再計算
+    function recalculateTotalNutritionFromItems() {
+      if (!currentScanItem || !currentScanItem.items || currentScanItem.items.length === 0) return;
+      let totalCal = 0;
+      let totalP = 0;
+      let totalF = 0;
+      let totalC = 0;
+
+      currentScanItem.items.forEach(it => {
+        totalCal += it.calories;
+        totalP += it.p;
+        totalF += it.f;
+        totalC += it.c;
+      });
+
+      currentScanItem.calories = Math.round(totalCal);
+      currentScanItem.p = Math.round(totalP * 10) / 10;
+      currentScanItem.f = Math.round(totalF * 10) / 10;
+      currentScanItem.c = Math.round(totalC * 10) / 10;
+
+      refreshStep2Displays();
+    }
+    window.recalculateTotalNutritionFromItems = recalculateTotalNutritionFromItems;
+
+    // おかず追加モーダル関連
+    window.openAddDishItemModal = function () {
+      const modal = document.getElementById("addDishItemModal");
+      if (modal) {
+        modal.classList.remove("hidden");
+        modal.style.display = "flex";
+      }
+    };
+
+    window.closeAddDishItemModal = function () {
+      const modal = document.getElementById("addDishItemModal");
+      if (modal) {
+        modal.classList.add("hidden");
+        modal.style.display = "none";
+      }
+    };
+
+    window.quickAddPresetDish = function (name, cal, p, f, c, icon, portionType) {
+      if (!currentScanItem) return;
+      if (!currentScanItem.items) currentScanItem.items = [];
+
+      const newItem = {
+        id: `item_${Date.now()}_add`,
+        name: name,
+        portion: "1人前",
+        portionType: portionType || "side",
+        calories: cal,
+        baseCalories: cal,
+        p: p,
+        baseP: p,
+        f: f,
+        baseF: f,
+        c: c,
+        baseC: c,
+        icon: icon || "🥢",
+        scale: 1.0,
+        preset: "medium"
+      };
+
+      currentScanItem.items.push(newItem);
+      recalculateTotalNutritionFromItems();
+      renderDishItemsUI();
+      window.closeAddDishItemModal();
+    };
+
+    window.submitCustomDishItem = function () {
+      const nameInput = document.getElementById("customDishItemName");
+      const calInput = document.getElementById("customDishItemCal");
+      const typeSelect = document.getElementById("customDishItemType");
+
+      const name = nameInput ? nameInput.value.trim() : "";
+      const cal = calInput ? parseInt(calInput.value) : 0;
+      const pType = typeSelect ? typeSelect.value : "side";
+
+      if (!name || isNaN(cal) || cal <= 0) {
+        alert("おかず名と正しいカロリーを入力してください");
+        return;
+      }
+
+      const p = Math.round(cal * 0.05 * 10) / 10;
+      const f = Math.round(((cal * 0.2) / 9) * 10) / 10;
+      const c = Math.round(((cal * 0.6) / 4) * 10) / 10;
+      const iconMap = { rice: "🍚", main: "🥩", soup: "🥣", side: "🥢" };
+
+      window.quickAddPresetDish(name, cal, p, f, c, iconMap[pType] || "🥢", pType);
+      if (nameInput) nameInput.value = "";
+      if (calInput) calInput.value = "";
     };
 
     function updatePortionControlUI() {
@@ -3425,6 +3871,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       state.records[slot] = {
         name: finalName,
+        items: mealData.items || (currentScanItem && currentScanItem.items) || null,
         calories: finalCal,
         p: mealData.p !== undefined ? mealData.p : Math.round(finalCal * 0.05),
         f: mealData.f !== undefined ? mealData.f : Math.round((finalCal * 0.2) / 9),
