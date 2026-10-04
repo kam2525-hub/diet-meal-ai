@@ -3143,18 +3143,75 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       container.innerHTML = items.map((item) => {
-        const isRice = item.portionType === "rice" || item.name.includes("ご飯") || item.name.includes("米") || item.name.includes("パン");
-        const isSoup = item.portionType === "soup" || item.name.includes("汁") || item.name.includes("スープ");
-        const isCount = item.portionType === "count" || (item.count && item.count >= 2);
+        const name = (item.name || "").toLowerCase();
+        const pType = item.portionType || "";
 
-        // プリセットラベルとスケール倍率（ユーザーの要望通り：ご飯は少なめ/大盛り、鮭は小さめ/大きめ、味噌汁は少なめ/多め）
-        let smallLabel = isRice ? "少なめ (150g)" : (isSoup ? "少なめ (具のみ)" : (isCount ? "少なめ" : "小さめ"));
-        let medLabel = isRice ? "普通 (200g)" : (isSoup ? "普通 (1杯)" : (isCount ? "普通" : "普通"));
-        let largeLabel = isRice ? "大盛 (300g)" : (isSoup ? "多め (具沢山)" : (isCount ? "多め" : "大きめ"));
+        const isRice = pType === "rice" || name.includes("ご飯") || name.includes("ごはん") || name.includes("米") || name.includes("ライス") || name.includes("玄米") || name.includes("オートミール");
+        const isNoodle = name.includes("麺") || name.includes("パスタ") || name.includes("うどん") || name.includes("そば") || name.includes("ラーメン") || name.includes("スパゲティ") || name.includes("焼きそば");
+        const isBread = name.includes("パン") || name.includes("トースト") || name.includes("サンド") || name.includes("ベーグル");
+        const isSoup = pType === "soup" || name.includes("汁") || name.includes("スープ") || name.includes("ポタージュ") || name.includes("豚汁");
+        const isSalad = pType === "side" || name.includes("サラダ") || name.includes("おひたし") || name.includes("和え") || name.includes("ナムル") || name.includes("キムチ") || name.includes("漬物");
+        const isCount = pType === "count" || (item.count && item.count >= 2) || name.includes("個") || name.includes("個入") || name.includes("本");
+        const isMeatFish = pType === "main" || name.includes("肉") || name.includes("魚") || name.includes("鮭") || name.includes("サバ") || name.includes("チキン") || name.includes("ステーキ") || name.includes("ハンバーグ") || name.includes("切り身");
 
-        let smallScale = isRice ? 0.75 : (isSoup ? 0.6 : 0.7);
+        let smallLabel = "少なめ";
+        let medLabel = "普通";
+        let largeLabel = "多め";
+
+        let smallScale = 0.7;
         let medScale = 1.0;
-        let largeScale = isRice ? 1.4 : (isSoup ? 1.3 : 1.35);
+        let largeScale = 1.35;
+
+        if (isRice) {
+          smallLabel = "少なめ (150g)";
+          medLabel = "普通 (200g)";
+          largeLabel = "大盛 (300g)";
+          smallScale = 0.75;
+          largeScale = 1.4;
+        } else if (isNoodle) {
+          smallLabel = "少なめ (半玉)";
+          medLabel = "普通 (1玉)";
+          largeLabel = "大盛 (1.5玉)";
+          smallScale = 0.7;
+          largeScale = 1.4;
+        } else if (isBread) {
+          smallLabel = "少なめ (軽め)";
+          medLabel = "普通 (1人前)";
+          largeLabel = "多め (しっかり)";
+          smallScale = 0.7;
+          largeScale = 1.4;
+        } else if (isMeatFish) {
+          smallLabel = "小さめ (少なめ)";
+          medLabel = "普通 (1人前)";
+          largeLabel = "大きめ (多め)";
+          smallScale = 0.7;
+          largeScale = 1.35;
+        } else if (isSoup) {
+          smallLabel = "少なめ (具のみ)";
+          medLabel = "普通 (1杯)";
+          largeLabel = "多め (具沢山)";
+          smallScale = 0.6;
+          largeScale = 1.3;
+        } else if (isSalad) {
+          smallLabel = "少なめ (小鉢)";
+          medLabel = "普通 (1皿)";
+          largeLabel = "多め (山盛り)";
+          smallScale = 0.65;
+          largeScale = 1.4;
+        } else if (isCount) {
+          smallLabel = "少なめ";
+          medLabel = "標準";
+          largeLabel = "多め";
+          smallScale = 0.6;
+          largeScale = 1.5;
+        } else {
+          // 自炊の炒め物、煮物、お好み焼きなどあらゆるおかず
+          smallLabel = "少なめ";
+          medLabel = "普通";
+          largeLabel = "多め (大)";
+          smallScale = 0.7;
+          largeScale = 1.35;
+        }
 
         const curPreset = item.preset || "medium";
 
