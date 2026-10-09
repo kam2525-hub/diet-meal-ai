@@ -3259,13 +3259,22 @@ document.addEventListener("DOMContentLoaded", () => {
       reader.readAsDataURL(file);
     };
 
-    // 📸 写真を追加して既存の解析結果に合算
+    // 📸 写真を追加して既存の解析結果に合算（1枚目と同じように料理名確認→量調整を経てから合算）
     async function appendPhotoToCurrentScan(imageSrc, fileName) {
       if (!currentScanItem) {
         return startPhotoAnalysis(imageSrc, null, fileName);
       }
 
-      // ランチャーやカメラコンテナを完全に隠す
+      // 1. 現在の親の食事データをディープコピーして保持
+      const parentMeal = currentScanItem.isAppendingToParent && currentScanItem.parentMeal
+        ? currentScanItem.parentMeal
+        : {
+            ...currentScanItem,
+            items: currentScanItem.items ? JSON.parse(JSON.stringify(currentScanItem.items)) : [],
+            imgs: currentScanItem.imgs ? [...currentScanItem.imgs] : (currentScanItem.img ? [currentScanItem.img] : [])
+          };
+
+      // 2. ランチャーやカメラコンテナを完全に隠す
       if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
       if (cameraContainer) cameraContainer.classList.add("hidden");
       if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
@@ -3277,7 +3286,7 @@ document.addEventListener("DOMContentLoaded", () => {
       scannedImagePreview.src = imageSrc;
       scanOverlay.classList.remove("hidden");
       scanLaserLine.classList.remove("hidden");
-      scanStatusText.textContent = "追加写真をAI解析中...（品目・カロリーを合算）";
+      scanStatusText.textContent = "追加写真をAI解析中...（料理と品目を特定）";
 
       let newMeal = null;
       let isGeminiSuccess = false;
@@ -3298,54 +3307,26 @@ document.addEventListener("DOMContentLoaded", () => {
         newMeal = { name: "追加のおかず", calories: 200, p: 10, f: 8, c: 20, icon: "🥢" };
       }
 
-      // 品目正規化
+      // 品目を正規化
       newMeal = ensureNormalizedMealItems(newMeal);
 
-      // 写真配列に追加
-      if (!currentScanItem.imgs) currentScanItem.imgs = [currentScanItem.img || scannedImagePreview.src];
-      currentScanItem.imgs.push(imageSrc);
-
-      // 既存品目リストに追加合算
-      if (!currentScanItem.items || currentScanItem.items.length === 0) {
-        currentScanItem = ensureNormalizedMealItems(currentScanItem);
-      }
-
-      const appendItems = (newMeal.items && newMeal.items.length > 0)
-        ? newMeal.items
-        : [{
-            name: newMeal.name || "追加料理",
-            portion: "1皿",
-            portionType: "side",
-            calories: newMeal.calories || 200,
-            baseCalories: newMeal.calories || 200,
-            p: newMeal.p || 10,
-            baseP: newMeal.p || 10,
-            f: newMeal.f || 8,
-            baseF: newMeal.f || 8,
-            c: newMeal.c || 20,
-            baseC: newMeal.c || 20,
-            icon: newMeal.icon || "🥢",
-            scale: 1.0,
-            preset: "medium"
-          }];
-
-      appendItems.forEach((it, i) => {
-        currentScanItem.items.push({
-          ...it,
-          id: `item_appended_${Date.now()}_${i}`
-        });
-      });
-
-      // 料理名を合成（重複名でも必ず増えたことがわかるようにする）
-      const addedName = newMeal.name || "追加のおかず";
-      if (!currentScanItem.name.includes(addedName)) {
-        currentScanItem.name = `${currentScanItem.name} ＋ ${addedName}`;
-      } else {
-        currentScanItem.name = `${currentScanItem.name} ＋ ${addedName}(別皿)`;
-      }
-
-      // 合計栄養素・カロリーを全品目から自動再計算
-      recalculateTotalNutritionFromItems();
+      // 3. 2枚目の追加写真用の独立した currentScanItem をセット
+      currentScanItem = {
+        ...newMeal,
+        img: imageSrc,
+        imgs: [imageSrc],
+        baseName: newMeal.name,
+        baseCalories: newMeal.calories,
+        baseP: newMeal.p,
+        baseF: newMeal.f,
+        baseC: newMeal.c,
+        baseAdvice: newMeal.advice,
+        soupLevel: 'all',
+        // 💡 追加モードフラグ＆親データ保持
+        isAppendingToParent: true,
+        parentMeal: parentMeal,
+        appendPhotoSrc: imageSrc
+      };
 
       scanOverlay.classList.add("hidden");
       scanLaserLine.classList.add("hidden");
@@ -3353,24 +3334,89 @@ document.addEventListener("DOMContentLoaded", () => {
       // スキャン結果エリアを確実に表示
       scanResultArea.classList.remove("hidden");
 
-      // UIを更新
-      updateScanPhotosBarUI();
+      // 4. 1枚目と同様に【ステップ 1】（追加写真の料理名確認画面）を表示！
       setupStep1DishUI(currentScanItem, isGeminiSuccess, false, null);
-
-      // もしステップ2が開いている場合も即座に再描画
-      const step2Area = document.getElementById("photoStepNutritionArea");
-      if (step2Area && !step2Area.classList.contains("hidden")) {
-        renderDishItemsUI();
-        refreshStep2Displays();
-      }
 
       setTimeout(() => {
         scanResultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }, 50);
-
-      alert(`📸 「${addedName}」の写真を追加し、カロリー・品目を合算しました！`);
     }
     window.appendPhotoToCurrentScan = appendPhotoToCurrentScan;
+
+    // 📸 追加写真の料理・量調整が完了した後の「合算確定」処理
+    window.confirmAppendMealToParent = function () {
+      if (!currentScanItem || !currentScanItem.parentMeal) return;
+      const parent = currentScanItem.parentMeal;
+      const added = currentScanItem;
+
+      // 1. 写真配列にプッシュ
+      if (!parent.imgs) parent.imgs = [parent.img || scannedImagePreview.src];
+      if (added.appendPhotoSrc && !parent.imgs.includes(added.appendPhotoSrc)) {
+        parent.imgs.push(added.appendPhotoSrc);
+      }
+
+      // 2. 料理名を合成
+      const addedName = added.name || "追加料理";
+      if (!parent.name.includes(addedName)) {
+        parent.name = `${parent.name} ＋ ${addedName}`;
+      } else {
+        parent.name = `${parent.name} ＋ ${addedName}(別皿)`;
+      }
+
+      // 3. 調整済み品目（items）をマージ
+      if (!parent.items || parent.items.length === 0) {
+        parent = ensureNormalizedMealItems(parent);
+      }
+      const appendItems = (added.items && added.items.length > 0)
+        ? added.items
+        : [{
+            name: added.name,
+            portion: "1皿",
+            portionType: "side",
+            calories: added.calories,
+            baseCalories: added.calories,
+            p: added.p, baseP: added.p,
+            f: added.f, baseF: added.f,
+            c: added.c, baseC: added.c,
+            icon: added.icon || "🥢",
+            scale: 1.0, preset: "medium"
+          }];
+
+      appendItems.forEach((it, i) => {
+        parent.items.push({
+          ...it,
+          id: `item_appended_${Date.now()}_${i}`
+        });
+      });
+
+      // 4. 親の食事を currentScanItem に戻す
+      currentScanItem = parent;
+      currentScanItem.isAppendingToParent = false;
+      currentScanItem.parentMeal = null;
+
+      const manualInput = document.getElementById("manualEditDishInput");
+      if (manualInput) manualInput.value = currentScanItem.name;
+
+      // 5. 合計栄養素・カロリーを全品目から自動再計算
+      recalculateTotalNutritionFromItems();
+
+      // 6. 全体合算後のステップ2画面へ移行
+      updateScanPhotosBarUI();
+      goToNutritionStep();
+
+      alert(`📸 「${addedName}」(${added.calories}kcal) を追加しました！全体の量や品目を確認して記録してください。`);
+    };
+
+    // 📸 追加写真のキャンセル（親の食事画面に戻る）
+    window.cancelAppendMeal = function () {
+      if (!currentScanItem || !currentScanItem.parentMeal) return;
+      if (!confirm("追加写真の取り込みをキャンセルして、元の食事に戻りますか？")) return;
+      currentScanItem = currentScanItem.parentMeal;
+      currentScanItem.isAppendingToParent = false;
+      currentScanItem.parentMeal = null;
+      updateScanPhotosBarUI();
+      goToNutritionStep();
+    };
 
     // 📸 追加写真の削除
     window.removePhotoFromCurrentScan = function (idx) {
@@ -3495,7 +3541,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (badgeText) {
-        if (isGemini) {
+        if (currentScanItem.isAppendingToParent) {
+          badgeText.innerHTML = `📸 追加写真（2枚目）の料理名確認（次へ進むと量を調整できます）`;
+          if (badgeText.parentElement) {
+            badgeText.parentElement.className = "text-[10px] text-indigo-900 font-bold bg-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-300 flex items-center gap-1 shadow-2xs";
+          }
+        } else if (isGemini) {
           badgeText.textContent = "🤖 Google Gemini AI 認識（本物AI稼働中）";
           if (badgeText.parentElement) {
             badgeText.parentElement.className = "text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1 shadow-2xs";
@@ -4155,7 +4206,28 @@ document.addEventListener("DOMContentLoaded", () => {
       const targetSlot = document.getElementById("recordTargetSlot")?.value || "lunch";
       const slotJp = getSlotJpName(targetSlot);
       if (applyBtnLabel) {
-        applyBtnLabel.textContent = `この料理 (${currentScanItem.calories} kcal) を【${slotJp}】に記録する`;
+        if (currentScanItem.isAppendingToParent) {
+          applyBtnLabel.textContent = `📸 この追加料理 (${currentScanItem.calories} kcal) を合算する`;
+        } else {
+          applyBtnLabel.textContent = `この料理 (${currentScanItem.calories} kcal) を【${slotJp}】に記録する`;
+        }
+      }
+
+      const cancelAppendBtn = document.getElementById("cancelAppendPhotoBtn");
+      const step2AppendBtn = document.getElementById("step2AppendPhotoBtn");
+      if (cancelAppendBtn) {
+        if (currentScanItem.isAppendingToParent) {
+          cancelAppendBtn.classList.remove("hidden");
+        } else {
+          cancelAppendBtn.classList.add("hidden");
+        }
+      }
+      if (step2AppendBtn) {
+        if (currentScanItem.isAppendingToParent) {
+          step2AppendBtn.classList.add("hidden");
+        } else {
+          step2AppendBtn.classList.remove("hidden");
+        }
       }
     }
 
@@ -4601,6 +4673,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (applyPhotoMealBtn) {
       applyPhotoMealBtn.addEventListener("click", () => {
         if (!currentScanItem) return;
+
+        // 📸 追加写真の合算中なら、親の食事に合算して全体画面に戻す
+        if (currentScanItem.isAppendingToParent && currentScanItem.parentMeal) {
+          window.confirmAppendMealToParent();
+          return;
+        }
+
         applyCandidateMeal({
           ...currentScanItem,
           name: currentScanItem.name,
