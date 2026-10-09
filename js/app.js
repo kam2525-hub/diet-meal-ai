@@ -265,6 +265,72 @@ document.addEventListener("DOMContentLoaded", () => {
     state.currentPlan[slot] = selected;
   }
 
+  // 🔔 グローバルトースト通知＆アンドゥ復元コントローラー
+  let toastTimeoutId = null;
+  function showActionToast(message, options = {}) {
+    const toast = document.getElementById("globalActionToast");
+    const msgEl = document.getElementById("globalToastMsg");
+    const iconEl = document.getElementById("globalToastIcon");
+    const actionBtn = document.getElementById("globalToastActionBtn");
+    const closeBtn = document.getElementById("globalToastCloseBtn");
+    if (!toast || !msgEl) return;
+
+    if (toastTimeoutId) {
+      clearTimeout(toastTimeoutId);
+      toastTimeoutId = null;
+    }
+
+    const {
+      icon = "ℹ️",
+      actionText = null,
+      onAction = null,
+      duration = 4500
+    } = options;
+
+    msgEl.textContent = message;
+    if (iconEl) iconEl.textContent = icon;
+
+    if (actionBtn) {
+      if (actionText && typeof onAction === "function") {
+        actionBtn.innerHTML = `<span>${actionText}</span>`;
+        actionBtn.classList.remove("hidden");
+        actionBtn.onclick = () => {
+          hideActionToast();
+          try {
+            onAction();
+          } catch (err) {
+            console.error("Toast action failed:", err);
+          }
+        };
+      } else {
+        actionBtn.classList.add("hidden");
+        actionBtn.onclick = null;
+      }
+    }
+
+    if (closeBtn) {
+      closeBtn.onclick = () => hideActionToast();
+    }
+
+    toast.classList.remove("translate-y-24", "opacity-0", "pointer-events-none");
+    toast.classList.add("translate-y-0", "opacity-100", "pointer-events-auto");
+
+    if (duration > 0) {
+      toastTimeoutId = setTimeout(() => {
+        hideActionToast();
+      }, duration);
+    }
+  }
+
+  function hideActionToast() {
+    const toast = document.getElementById("globalActionToast");
+    if (!toast) return;
+    toast.classList.remove("translate-y-0", "opacity-100", "pointer-events-auto");
+    toast.classList.add("translate-y-24", "opacity-0", "pointer-events-none");
+  }
+  window.showActionToast = showActionToast;
+  window.hideActionToast = hideActionToast;
+
   // ===================== UI レンダリング =====================
   function updateUI() {
     renderDateBar();
@@ -550,14 +616,33 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           `;
 
-          // 削除ボタンイベント
+          // 削除ボタンイベント（誤削除アンドゥ対応）
           const delBtn = filledView.querySelector(".delete-record-btn");
           if (delBtn) {
             delBtn.onclick = (e) => {
-              const s = e.currentTarget.dataset.slot;
+              const s = slot || (delBtn && delBtn.dataset.slot) || (e.currentTarget && e.currentTarget.dataset.slot);
+              const backupRecord = state.records[s];
+              if (!backupRecord) return;
+
+              const slotNameMap = { breakfast: "朝食", lunch: "昼食", dinner: "夕食", snack: "間食", drink: "ドリンク" };
+              const slotLabel = slotNameMap[s] || s;
+
               state.records[s] = null;
               saveRecordsToStorage();
               updateUI();
+
+              // トーストで「元に戻す」を提供
+              showActionToast(`【${slotLabel}】の食事記録を取り消しました`, {
+                icon: "🗑️",
+                actionText: "↩️ 元に戻す",
+                duration: 6000,
+                onAction: () => {
+                  state.records[s] = backupRecord;
+                  saveRecordsToStorage();
+                  updateUI();
+                  showActionToast(`【${slotLabel}】の食事記録を元に戻しました！`, { icon: "✨", duration: 3000 });
+                }
+              });
             };
           }
         }
@@ -1001,6 +1086,13 @@ document.addEventListener("DOMContentLoaded", () => {
     let mediaStream = null;
     let currentFacingMode = "environment"; // 背面カメラを優先
     let currentScanItem = null;
+    try {
+      Object.defineProperty(window, 'currentScanItem', {
+        get: () => currentScanItem,
+        set: (v) => { currentScanItem = v; },
+        configurable: true
+      });
+    } catch (_) {}
 
 
 
@@ -1498,11 +1590,8 @@ document.addEventListener("DOMContentLoaded", () => {
           soupLevel: record.soupLevel || 'all'
         };
 
-        // 写真を追加合算
+        // 写真を追加合算（Step 1 の料理確認画面へ）
         await appendPhotoToCurrentScan(imageSrc, file.name);
-
-        // 合算後はステップ2（品目ごとの調整・確認画面）へ直接進んで増えた内容をすぐ確認できるようにする
-        goToNutritionStep();
       };
       reader.readAsDataURL(file);
     };
@@ -3400,17 +3489,40 @@ document.addEventListener("DOMContentLoaded", () => {
       // 5. 合計栄養素・カロリーを全品目から自動再計算
       recalculateTotalNutritionFromItems();
 
-      // 6. 全体合算後のステップ2画面へ移行
+      // 6. 全体合算後のステップ2（カロリー確認ページ）へ即座に復帰
       updateScanPhotosBarUI();
       goToNutritionStep();
 
-      alert(`📸 「${addedName}」(${added.calories}kcal) を追加しました！全体の量や品目を確認して記録してください。`);
+      // 7. アラートなしで即座にカロリーボックスをハイライト＆合算バナーを表示
+      const successBanner = document.getElementById("mergedSuccessBanner");
+      const bannerText = document.getElementById("mergedSuccessBannerText");
+      const calBox = document.getElementById("step2CalorieBox");
+
+      if (successBanner && bannerText) {
+        bannerText.textContent = `【${addedName}】(+${added.calories}kcal) を合算しました！`;
+        successBanner.classList.remove("hidden");
+        setTimeout(() => {
+          successBanner.classList.add("hidden");
+        }, 4000);
+      }
+
+      showActionToast(`【${addedName}】(+${added.calories}kcal) を合算しました！`, {
+        icon: "🍱",
+        duration: 3500
+      });
+
+      if (calBox) {
+        calBox.classList.add("ring-4", "ring-emerald-400");
+        setTimeout(() => {
+          calBox.classList.remove("ring-4", "ring-emerald-400");
+        }, 2000);
+        calBox.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     };
 
     // 📸 追加写真のキャンセル（親の食事画面に戻る）
     window.cancelAppendMeal = function () {
       if (!currentScanItem || !currentScanItem.parentMeal) return;
-      if (!confirm("追加写真の取り込みをキャンセルして、元の食事に戻りますか？")) return;
       currentScanItem = currentScanItem.parentMeal;
       currentScanItem.isAppendingToParent = false;
       currentScanItem.parentMeal = null;
@@ -3418,16 +3530,70 @@ document.addEventListener("DOMContentLoaded", () => {
       goToNutritionStep();
     };
 
+    // 📸 写真削除の元に戻すバックアップ管理
+    let lastDeletedPhotoBackup = null;
+
     // 📸 追加写真の削除
     window.removePhotoFromCurrentScan = function (idx) {
       if (!currentScanItem || !currentScanItem.imgs || currentScanItem.imgs.length <= 1) return;
-      if (!confirm(`写真 #${idx + 1} を削除しますか？`)) return;
+
+      // 誤削除対策：直前の完全バックアップを保持
+      lastDeletedPhotoBackup = {
+        imgs: [...currentScanItem.imgs],
+        items: currentScanItem.items ? JSON.parse(JSON.stringify(currentScanItem.items)) : [],
+        name: currentScanItem.name,
+        calories: currentScanItem.calories,
+        p: currentScanItem.p,
+        f: currentScanItem.f,
+        c: currentScanItem.c,
+        deletedIndex: idx
+      };
 
       currentScanItem.imgs.splice(idx, 1);
       if (scannedImagePreview && currentScanItem.imgs.length > 0) {
         scannedImagePreview.src = currentScanItem.imgs[0];
       }
       updateScanPhotosBarUI();
+
+      // 「写真を復元」ボタンを表示
+      const undoBtn = document.getElementById("undoPhotoDeleteBtn");
+      if (undoBtn) undoBtn.classList.remove("hidden");
+
+      // トーストでも即座に復元可能にする
+      showActionToast("写真を削除しました", {
+        icon: "🗑️",
+        actionText: "↩️ 写真を復元",
+        duration: 5000,
+        onAction: () => {
+          window.restoreLastDeletedPhoto();
+        }
+      });
+    };
+
+    // ↩️ 間違えて消した写真を元に戻す（ワンタップ復元）
+    window.restoreLastDeletedPhoto = function () {
+      if (!lastDeletedPhotoBackup || !currentScanItem) return;
+
+      currentScanItem.imgs = [...lastDeletedPhotoBackup.imgs];
+      currentScanItem.items = [...lastDeletedPhotoBackup.items];
+      currentScanItem.name = lastDeletedPhotoBackup.name;
+      currentScanItem.calories = lastDeletedPhotoBackup.calories;
+      currentScanItem.p = lastDeletedPhotoBackup.p;
+      currentScanItem.f = lastDeletedPhotoBackup.f;
+      currentScanItem.c = lastDeletedPhotoBackup.c;
+
+      lastDeletedPhotoBackup = null;
+
+      // 復元ボタンを隠す
+      const undoBtn = document.getElementById("undoPhotoDeleteBtn");
+      if (undoBtn) undoBtn.classList.add("hidden");
+
+      updateScanPhotosBarUI();
+      recalculateTotalNutritionFromItems();
+      renderDishItemsUI();
+      refreshStep2Displays();
+
+      showActionToast("↩️ 削除した写真を元に戻しました！", { icon: "✨", duration: 3000 });
     };
 
     // 食べ物以外の物体（水筒・スマホ等）が撮影された場合のアラート表示
@@ -3772,6 +3938,26 @@ document.addEventListener("DOMContentLoaded", () => {
           applySoupAdjustment('all');
         } else {
           soupContainer.classList.add("hidden");
+        }
+      }
+
+      // 追加モードかどうかに応じたボタン表示の切り替え
+      const cancelAppendBtn = document.getElementById("cancelAppendPhotoBtn");
+      if (cancelAppendBtn) {
+        if (currentScanItem.isAppendingToParent) {
+          cancelAppendBtn.classList.remove("hidden");
+        } else {
+          cancelAppendBtn.classList.add("hidden");
+        }
+      }
+
+      if (applyPhotoMealBtn) {
+        if (currentScanItem.isAppendingToParent) {
+          applyPhotoMealBtn.innerHTML = `<i class="fa-solid fa-plus-circle mr-1"></i><span>＋この食事と合算する</span>`;
+          applyPhotoMealBtn.className = "flex-1 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 active:scale-95 text-white font-black rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center space-x-1.5 cursor-pointer";
+        } else {
+          applyPhotoMealBtn.innerHTML = `<span>この食事を記録する</span><i class="fa-solid fa-check ml-1"></i>`;
+          applyPhotoMealBtn.className = "flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 active:scale-95 text-white font-black rounded-xl text-xs sm:text-sm transition shadow-md flex items-center justify-center space-x-1.5 cursor-pointer";
         }
       }
 

@@ -1506,11 +1506,18 @@
               <i class="fa-solid fa-images text-emerald-600"></i>
               <span>記録写真 (<span id="scanPhotosCountBadge">1</span>枚)</span>
             </span>
-            <button type="button" onclick="document.getElementById('appendPhotoFileInput').click()"
-              class="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold transition shadow-2xs cursor-pointer">
-              <i class="fa-solid fa-camera"></i>
-              <span>＋ 写真を追加 (合算)</span>
-            </button>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="undoPhotoDeleteBtn" onclick="window.restoreLastDeletedPhoto && window.restoreLastDeletedPhoto()"
+                class="hidden px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold border border-amber-300 transition shadow-2xs flex items-center gap-1 cursor-pointer">
+                <i class="fa-solid fa-rotate-left text-amber-600"></i>
+                <span>写真を復元</span>
+              </button>
+              <button type="button" onclick="document.getElementById('appendPhotoFileInput').click()"
+                class="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold transition shadow-2xs cursor-pointer">
+                <i class="fa-solid fa-camera"></i>
+                <span>＋ 写真を追加 (合算)</span>
+              </button>
+            </div>
             <input type="file" id="appendPhotoFileInput" accept="image/*" class="hidden" onchange="window.handleAppendPhotoChange && window.handleAppendPhotoChange(this)">
           </div>
           <!-- サムネイル一覧 -->
@@ -1630,8 +1637,17 @@
               </div>
             </div>
 
+            <!-- ✨ カロリー合算完了バナー（アラートの代わりに優しく即時表示） -->
+            <div id="mergedSuccessBanner" class="hidden p-2.5 bg-gradient-to-r from-emerald-100 via-teal-50 to-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-900 flex items-center justify-between shadow-xs transition-all animate-bounce">
+              <span class="flex items-center gap-1.5">
+                <span class="text-base">🎉</span>
+                <span id="mergedSuccessBannerText">料理を合算しました！</span>
+              </span>
+              <span class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">合算完了</span>
+            </div>
+
             <!-- カロリーと微調整 -->
-            <div class="bg-emerald-50/70 rounded-2xl p-3 sm:p-3.5 border border-emerald-100 flex items-center justify-between">
+            <div id="step2CalorieBox" class="bg-emerald-50/70 rounded-2xl p-3 sm:p-3.5 border border-emerald-100 flex items-center justify-between transition-all">
               <div>
                 <div class="text-[10px] font-bold text-emerald-800">推定総カロリー</div>
                 <div class="flex items-baseline gap-1">
@@ -1951,6 +1967,25 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- グローバルフローティングトースト通知（誤削除アンドゥ・通知） -->
+  <div id="globalActionToast"
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 max-w-md w-[92%] bg-slate-900/95 text-white backdrop-blur-md px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 z-[9999] transition-all duration-300 transform translate-y-24 opacity-0 pointer-events-none">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <span id="globalToastIcon" class="text-base shrink-0">ℹ️</span>
+      <span id="globalToastMsg" class="text-xs font-bold leading-snug truncate"></span>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <button id="globalToastActionBtn" type="button"
+        class="hidden px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 text-xs font-black rounded-lg transition shadow-xs cursor-pointer flex items-center gap-1">
+        <span>↩️ 元に戻す</span>
+      </button>
+      <button id="globalToastCloseBtn" type="button"
+        class="text-slate-400 hover:text-white p-1 transition cursor-pointer" title="閉じる">
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
     </div>
   </div>
 
