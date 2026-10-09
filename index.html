@@ -1499,6 +1499,25 @@
           </div>
         </div>
 
+        <!-- 📸 複数写真ギャラリー & 写真追加バー（1枚に収まらない別皿・デザートの合算用） -->
+        <div id="scanPhotosBar" class="hidden bg-slate-50 border border-slate-200 rounded-2xl p-2.5 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+            <span class="flex items-center gap-1.5">
+              <i class="fa-solid fa-images text-emerald-600"></i>
+              <span>記録写真 (<span id="scanPhotosCountBadge">1</span>枚)</span>
+            </span>
+            <label for="appendPhotoFileInput"
+              class="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold transition shadow-2xs cursor-pointer">
+              <i class="fa-solid fa-camera"></i>
+              <span>＋ 写真を追加 (合算)</span>
+            </label>
+            <input type="file" id="appendPhotoFileInput" accept="image/*" class="hidden" onchange="window.handleAppendPhotoChange && window.handleAppendPhotoChange(this)">
+          </div>
+          <!-- サムネイル一覧 -->
+          <div id="scanPhotosThumbnailsList" class="flex items-center gap-2 overflow-x-auto py-1">
+          </div>
+        </div>
+
         <!-- 🚀 2ステップ式・写真解析結果エリア（料理名確認 → 栄養素確認） -->
         <div id="scanResultArea" class="hidden space-y-3">
 
@@ -1538,9 +1557,17 @@
             <div id="dishEditCollapsible" class="hidden space-y-2 pt-2 border-t border-emerald-200/60">
               <label class="block text-[11px] font-bold text-slate-700">料理名を入力または検索：</label>
               <div class="relative">
-                <input type="text" id="manualEditDishInput"
-                  class="w-full p-2 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:border-emerald-500 font-medium"
-                  placeholder="例: ヤンニョムチキン、焼肉定食、豚骨ラーメン...">
+                <div class="flex gap-1.5">
+                  <input type="text" id="manualEditDishInput"
+                    class="flex-1 p-2 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:border-emerald-500 font-medium"
+                    placeholder="例: ヤンニョムチキン、焼肉定食、豚骨ラーメン...">
+                  <button type="button" onclick="window.applyManualDishWithAI && window.applyManualDishWithAI()"
+                    class="px-3 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-2xs flex items-center gap-1 shrink-0 cursor-pointer"
+                    title="入力した料理名をGemini AIで分析してカロリー・品目を再計算">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>AI推計</span>
+                  </button>
+                </div>
                 <div id="stepQuickSearchResults"
                   class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-30 max-h-44 overflow-y-auto divide-y divide-slate-100 text-xs">
                 </div>
@@ -1740,8 +1767,40 @@
       <div id="manualTabContent" class="hidden space-y-3 text-xs">
         <div>
           <label class="block text-slate-600 font-semibold mb-1">食べた料理・商品名</label>
-          <input type="text" id="manualDishName" placeholder="例: おにぎりと味噌汁、カレーライス"
-            class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium">
+          <div class="flex gap-1.5">
+            <input type="text" id="manualDishName" placeholder="例: 親子丼、味噌汁と鮭の塩焼き、カレー"
+              class="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium text-xs">
+            <button type="button" id="aiLookupManualDishBtn" onclick="window.lookupManualDishWithAI && window.lookupManualDishWithAI()"
+              class="px-3.5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 active:scale-95 text-white rounded-xl font-bold text-xs shadow-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+              title="料理名からGemini AIがカロリー・PFCを自動検索">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>AIで調べる</span>
+            </button>
+          </div>
+          <!-- AI検索ステータス -->
+          <div id="aiLookupStatus" class="hidden text-[11px] text-indigo-700 font-semibold mt-1.5 flex items-center gap-1.5">
+            <i class="fa-solid fa-spinner fa-spin text-xs"></i>
+            <span id="aiLookupStatusText">AIが栄養素と品目を推計中...</span>
+          </div>
+          <!-- AI推計結果のサマリーバナー -->
+          <div id="aiLookupResultPreview" class="hidden mt-2 p-2.5 bg-indigo-50/90 border border-indigo-200 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-indigo-950 flex items-center gap-1">
+                <span id="aiLookupResultIcon">🍽️</span>
+                <span id="aiLookupResultName">料理名</span>
+              </span>
+              <span class="text-xs font-black font-mono text-indigo-700" id="aiLookupResultCal">0 kcal</span>
+            </div>
+            <div class="text-[10.5px] text-slate-600 font-mono flex gap-2" id="aiLookupResultMacros">
+              P: 0g · F: 0g · C: 0g
+            </div>
+            <div id="aiLookupItemsTagList" class="flex flex-wrap gap-1"></div>
+            <button type="button" onclick="window.proceedToStep2FromManualAI && window.proceedToStep2FromManualAI()"
+              class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-lg text-[11px] transition shadow-2xs flex items-center justify-center gap-1 cursor-pointer">
+              <i class="fa-solid fa-layer-group"></i>
+              <span>品目（ご飯・具材など）ごとに細かく調整して記録</span>
+            </button>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
