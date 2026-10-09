@@ -537,26 +537,18 @@ document.addEventListener("DOMContentLoaded", () => {
               </div>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
-              <label class="cursor-pointer text-[10px] text-emerald-800 hover:text-emerald-950 bg-white hover:bg-emerald-100/60 border border-emerald-300 px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 shadow-2xs"
+              <button type="button" onclick="window.triggerSlotAppendPhoto && window.triggerSlotAppendPhoto('${slot}')"
+                class="text-[10px] text-emerald-800 hover:text-emerald-950 bg-white hover:bg-emerald-100/70 border border-emerald-300 px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer"
                 title="この食事に別皿やデザートの写真を追加して合算">
                 <i class="fa-solid fa-camera text-emerald-600"></i>
                 <span>＋写真追加</span>
-                <input type="file" accept="image/*" class="hidden append-photo-slot-input" data-slot="${slot}">
-              </label>
+              </button>
+              <input type="file" id="slotAppendFileInput_${slot}" accept="image/*" class="hidden" onchange="window.handleAppendPhotoToSlot && window.handleAppendPhotoToSlot('${slot}', this)">
               <button class="delete-record-btn text-[11px] text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition shrink-0 cursor-pointer" data-slot="${slot}">
                 <i class="fa-solid fa-trash-can mr-1"></i>取り消す
               </button>
             </div>
           `;
-
-          // 📸 スロット追加写真イベント
-          const appendInput = filledView.querySelector(".append-photo-slot-input");
-          if (appendInput) {
-            appendInput.onchange = (e) => {
-              const s = e.currentTarget.dataset.slot;
-              window.handleAppendPhotoToSlot && window.handleAppendPhotoToSlot(s, e.currentTarget);
-            };
-          }
 
           // 削除ボタンイベント
           const delBtn = filledView.querySelector(".delete-record-btn");
@@ -1448,6 +1440,15 @@ document.addEventListener("DOMContentLoaded", () => {
       goToNutritionStep();
     };
 
+    // 📸 ホーム画面カードからの追加写真ファイルピッカー起動
+    window.triggerSlotAppendPhoto = function (slot) {
+      const inp = document.getElementById(`slotAppendFileInput_${slot}`);
+      if (inp) {
+        inp.value = "";
+        inp.click();
+      }
+    };
+
     // 📸 記録済みスロットに写真を追加して合算
     window.handleAppendPhotoToSlot = function (slot, input) {
       if (!input.files || !input.files[0]) return;
@@ -1460,17 +1461,29 @@ document.addEventListener("DOMContentLoaded", () => {
         const imageSrc = e.target.result;
         input.value = "";
 
-        // スロットをセットしてモーダルを開く
+        // スロットをセット
         const targetSlotSelect = document.getElementById("recordTargetSlot");
         if (targetSlotSelect) targetSlotSelect.value = slot;
 
-        window.openPhotoRecordModal && window.openPhotoRecordModal(slot);
+        // モーダルを直接表示（カメラリセットは回避し、解析画面を直結）
+        const modal = document.getElementById("photoModal");
+        if (modal) {
+          modal.classList.remove("hidden");
+          modal.style.display = "flex";
+        }
         switchRecordTab('photo');
 
-        // 既存のレコードを currentScanItem としてロード
+        // ランチャーを隠して解析画面に集中
+        if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
+        if (cameraContainer) cameraContainer.classList.add("hidden");
+        if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
+        const sampleBox = document.querySelector("#photoTabContent .sample-presets-box");
+        if (sampleBox) sampleBox.classList.add("hidden");
+
+        // 既存のレコードを currentScanItem としてロード（完全ディープコピー）
         currentScanItem = {
           name: record.name,
-          items: record.items ? [...record.items] : null,
+          items: record.items ? JSON.parse(JSON.stringify(record.items)) : null,
           calories: record.calories,
           baseCalories: record.calories,
           p: record.p,
@@ -1487,6 +1500,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // 写真を追加合算
         await appendPhotoToCurrentScan(imageSrc, file.name);
+
+        // 合算後はステップ2（品目ごとの調整・確認画面）へ直接進んで増えた内容をすぐ確認できるようにする
+        goToNutritionStep();
       };
       reader.readAsDataURL(file);
     };
@@ -3249,6 +3265,13 @@ document.addEventListener("DOMContentLoaded", () => {
         return startPhotoAnalysis(imageSrc, null, fileName);
       }
 
+      // ランチャーやカメラコンテナを完全に隠す
+      if (primaryCameraLauncher) primaryCameraLauncher.classList.add("hidden");
+      if (cameraContainer) cameraContainer.classList.add("hidden");
+      if (liveCameraActionBtn) liveCameraActionBtn.classList.add("hidden");
+      const sampleBox = document.querySelector("#photoTabContent .sample-presets-box");
+      if (sampleBox) sampleBox.classList.add("hidden");
+
       // スキャンアニメーション表示
       scanPreviewArea.classList.remove("hidden");
       scannedImagePreview.src = imageSrc;
@@ -3313,9 +3336,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
-      // 料理名を合成（例: 親子丼 ＋ 味噌汁）
-      if (!currentScanItem.name.includes(newMeal.name)) {
-        currentScanItem.name = `${currentScanItem.name} ＋ ${newMeal.name}`;
+      // 料理名を合成（重複名でも必ず増えたことがわかるようにする）
+      const addedName = newMeal.name || "追加のおかず";
+      if (!currentScanItem.name.includes(addedName)) {
+        currentScanItem.name = `${currentScanItem.name} ＋ ${addedName}`;
+      } else {
+        currentScanItem.name = `${currentScanItem.name} ＋ ${addedName}(別皿)`;
       }
 
       // 合計栄養素・カロリーを全品目から自動再計算
@@ -3324,17 +3350,25 @@ document.addEventListener("DOMContentLoaded", () => {
       scanOverlay.classList.add("hidden");
       scanLaserLine.classList.add("hidden");
 
+      // スキャン結果エリアを確実に表示
+      scanResultArea.classList.remove("hidden");
+
       // UIを更新
       updateScanPhotosBarUI();
       setupStep1DishUI(currentScanItem, isGeminiSuccess, false, null);
 
-      // もしステップ2が開いている場合も再描画
-      if (document.getElementById("photoStepNutritionArea") && !document.getElementById("photoStepNutritionArea").classList.contains("hidden")) {
+      // もしステップ2が開いている場合も即座に再描画
+      const step2Area = document.getElementById("photoStepNutritionArea");
+      if (step2Area && !step2Area.classList.contains("hidden")) {
         renderDishItemsUI();
         refreshStep2Displays();
       }
 
-      alert(`📸 「${newMeal.name}」の写真を追加し、カロリー・品目を合算しました！`);
+      setTimeout(() => {
+        scanResultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 50);
+
+      alert(`📸 「${addedName}」の写真を追加し、カロリー・品目を合算しました！`);
     }
     window.appendPhotoToCurrentScan = appendPhotoToCurrentScan;
 

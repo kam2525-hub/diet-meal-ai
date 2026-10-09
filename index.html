@@ -1506,11 +1506,11 @@
               <i class="fa-solid fa-images text-emerald-600"></i>
               <span>記録写真 (<span id="scanPhotosCountBadge">1</span>枚)</span>
             </span>
-            <label for="appendPhotoFileInput"
-              class="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold transition shadow-2xs cursor-pointer">
+            <button type="button" onclick="document.getElementById('appendPhotoFileInput').click()"
+              class="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold transition shadow-2xs cursor-pointer">
               <i class="fa-solid fa-camera"></i>
               <span>＋ 写真を追加 (合算)</span>
-            </label>
+            </button>
             <input type="file" id="appendPhotoFileInput" accept="image/*" class="hidden" onchange="window.handleAppendPhotoChange && window.handleAppendPhotoChange(this)">
           </div>
           <!-- サムネイル一覧 -->
@@ -1610,11 +1610,18 @@
                   <div id="nutriDishName" class="font-bold text-slate-800 text-xs sm:text-sm break-words leading-snug">料理名</div>
                 </div>
               </div>
-              <button type="button" onclick="window.backToDishStep && window.backToDishStep()"
-                class="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer shrink-0 flex items-center gap-1 pt-0.5">
-                <i class="fa-solid fa-arrow-left text-[10px]"></i>
-                <span>料理名を変更</span>
-              </button>
+              <div class="flex items-center gap-1.5 shrink-0 pt-0.5">
+                <button type="button" onclick="document.getElementById('appendPhotoFileInput').click()"
+                  class="text-[11px] text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs">
+                  <i class="fa-solid fa-camera text-emerald-600"></i>
+                  <span>＋ 写真追加</span>
+                </button>
+                <button type="button" onclick="window.backToDishStep && window.backToDishStep()"
+                  class="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer flex items-center gap-1">
+                  <i class="fa-solid fa-arrow-left text-[10px]"></i>
+                  <span>料理名変更</span>
+                </button>
+              </div>
             </div>
 
             <!-- カロリーと微調整 -->
