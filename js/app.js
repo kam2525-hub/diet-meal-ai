@@ -580,6 +580,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const backupRecord = JSON.parse(JSON.stringify(record));
     const slotNameMap = { breakfast: "朝食", lunch: "昼食", dinner: "夕食", snack: "間食", drink: "ドリンク" };
     const slotLabel = slotNameMap[slot] || slot;
+    const prevCalories = record.calories || 0;
 
     // 写真が残り1枚（または写真がない）なら全体取り消し
     if (!record.imgs || record.imgs.length <= 1) {
@@ -594,12 +595,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 2. 紐づく品目の削除
     let removedDishName = "";
+    let removedCal = 0;
     if (record.items && record.items.length > 0) {
       const hasPhotoIndex = record.items.some(it => it.photoIndex !== undefined);
       if (hasPhotoIndex) {
         const remainingItems = [];
         record.items.forEach(it => {
           if (it.photoIndex === photoIdx) {
+            removedCal += (it.calories || 0);
             if (!removedDishName) removedDishName = it.sourceDishName || it.name;
           } else {
             // 削除した写真より後ろのインデックスを繰り上げ
@@ -613,8 +616,21 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         const itemsPerPhoto = Math.ceil(record.items.length / (record.imgs.length + 1));
         const removed = record.items.splice(photoIdx * itemsPerPhoto, itemsPerPhoto);
-        if (removed.length > 0) removedDishName = removed[0].name;
+        if (removed.length > 0) {
+          removedDishName = removed[0].name;
+          removedCal = removed.reduce((s, it) => s + (it.calories || 0), 0);
+        }
       }
+    }
+
+    // photoDetails からの減算
+    if (record.photoDetails && record.photoDetails.length > photoIdx) {
+      const removedDetail = record.photoDetails.splice(photoIdx, 1)[0];
+      if (removedCal === 0 && removedDetail) {
+        removedCal = removedDetail.calories || 0;
+        removedDishName = removedDetail.name || "";
+      }
+      record.photoDetails.forEach((d, i) => { d.idx = i; });
     }
 
     // 3. カロリー・PFCの再計算
@@ -624,6 +640,15 @@ document.addEventListener("DOMContentLoaded", () => {
       record.f = Math.round(record.items.reduce((s, it) => s + (it.f || 0), 0) * 10) / 10;
       record.c = Math.round(record.items.reduce((s, it) => s + (it.c || 0), 0) * 10) / 10;
 
+      // もし品目再計算でカロリーが減っていない場合は強制減算
+      if (record.calories >= prevCalories && removedCal > 0) {
+        record.calories = Math.max(50, prevCalories - removedCal);
+      } else if (record.calories >= prevCalories) {
+        const approx = Math.round(prevCalories / (record.imgs.length + 1));
+        record.calories = Math.max(50, prevCalories - approx);
+        removedCal = approx;
+      }
+
       // 料理名の再構築
       const uniqueNames = [];
       record.items.forEach(it => {
@@ -632,9 +657,16 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       record.name = uniqueNames.join(" ＋ ");
     } else {
-      const calPerPhoto = Math.round(record.calories / (record.imgs.length + 1));
-      record.calories = Math.max(50, record.calories - calPerPhoto);
+      if (removedCal > 0) {
+        record.calories = Math.max(50, prevCalories - removedCal);
+      } else {
+        const approx = Math.round(prevCalories / (record.imgs.length + 1));
+        record.calories = Math.max(50, prevCalories - approx);
+        removedCal = approx;
+      }
     }
+
+    const actualDeducted = Math.max(0, prevCalories - record.calories);
 
     saveRecordsToStorage();
     updateUI();
@@ -646,10 +678,10 @@ document.addEventListener("DOMContentLoaded", () => {
       closeSelectivePhotoDeleteModal();
     }
 
-    // トーストでアンドゥ通知
+    // トーストでアンドゥ通知（引いたカロリーを明示）
     const toastMsg = removedDishName
-      ? `【${slotLabel}】の「${removedDishName}」（写真）を取り消しました`
-      : `【${slotLabel}】の写真を1枚取り消しました`;
+      ? `【${slotLabel}】の「${removedDishName}」（写真）を取り消しました（-${actualDeducted} kcal）`
+      : `【${slotLabel}】の写真を1枚取り消しました（-${actualDeducted} kcal）`;
 
     showActionToast(toastMsg, {
       icon: "🗑️",
@@ -2693,7 +2725,9 @@ document.addEventListener("DOMContentLoaded", () => {
             baseC: item.baseC !== undefined ? item.baseC : c,
             icon: item.icon || (pType === "rice" ? "🍚" : (pType === "soup" ? "🥣" : (pType === "side" ? "🥢" : "🍽️"))),
             scale: item.scale !== undefined ? item.scale : 1.0,
-            preset: item.preset || "medium"
+            preset: item.preset || "medium",
+            photoIndex: item.photoIndex !== undefined ? item.photoIndex : 0,
+            sourceDishName: item.sourceDishName || null
           };
         });
         return dish;
@@ -2784,7 +2818,9 @@ document.addEventListener("DOMContentLoaded", () => {
         baseC: item.c,
         icon: item.icon || "🍽️",
         scale: 1.0,
-        preset: "medium"
+        preset: "medium",
+        photoIndex: item.photoIndex !== undefined ? item.photoIndex : 0,
+        sourceDishName: item.sourceDishName || item.name
       }));
 
       return dish;
@@ -3688,6 +3724,27 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
+      // 写真ごとの詳細履歴（カロリー・料理名）を保持して正確な減算を保証
+      parent.photoDetails = parent.photoDetails || [];
+      if (parent.photoDetails.length === 0) {
+        parent.photoDetails.push({
+          idx: 0,
+          name: parent.baseName || parent.name.split(" ＋ ")[0],
+          calories: parent.baseCalories || parent.calories,
+          p: parent.baseP || parent.p,
+          f: parent.baseF || parent.f,
+          c: parent.baseC || parent.c
+        });
+      }
+      parent.photoDetails.push({
+        idx: appendPhotoIndex,
+        name: addedName,
+        calories: added.calories,
+        p: added.p,
+        f: added.f,
+        c: added.c
+      });
+
       // 4. 親の食事を currentScanItem に戻す
       currentScanItem = parent;
       currentScanItem.isAppendingToParent = false;
@@ -3743,9 +3800,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // 📸 写真削除の元に戻すバックアップ管理
     let lastDeletedPhotoBackup = null;
 
-    // 📸 追加写真の削除
+    // 📸 追加写真の削除（品目・カロリーも即座に減算）
     window.removePhotoFromCurrentScan = function (idx) {
       if (!currentScanItem || !currentScanItem.imgs || currentScanItem.imgs.length <= 1) return;
+
+      const prevCalories = currentScanItem.calories || 0;
 
       // 誤削除対策：直前の完全バックアップを保持
       lastDeletedPhotoBackup = {
@@ -3756,21 +3815,105 @@ document.addEventListener("DOMContentLoaded", () => {
         p: currentScanItem.p,
         f: currentScanItem.f,
         c: currentScanItem.c,
+        photoDetails: currentScanItem.photoDetails ? JSON.parse(JSON.stringify(currentScanItem.photoDetails)) : null,
         deletedIndex: idx
       };
 
+      // 1. 対象写真の削除
       currentScanItem.imgs.splice(idx, 1);
       if (scannedImagePreview && currentScanItem.imgs.length > 0) {
         scannedImagePreview.src = currentScanItem.imgs[0];
       }
+
+      // 2. 紐づく品目の削除
+      let removedCal = 0;
+      let removedName = "";
+      if (currentScanItem.items && currentScanItem.items.length > 0) {
+        const remainingItems = [];
+        currentScanItem.items.forEach(it => {
+          if (it.photoIndex === idx) {
+            removedCal += (it.calories || 0);
+            if (!removedName) removedName = it.sourceDishName || it.name;
+          } else {
+            if (it.photoIndex > idx) {
+              it.photoIndex -= 1;
+            }
+            remainingItems.push(it);
+          }
+        });
+        currentScanItem.items = remainingItems;
+      }
+
+      // 3. photoDetails からの減算
+      if (currentScanItem.photoDetails && currentScanItem.photoDetails.length > idx) {
+        const removedDetail = currentScanItem.photoDetails.splice(idx, 1)[0];
+        if (removedCal === 0 && removedDetail) {
+          removedCal = removedDetail.calories || 0;
+          removedName = removedDetail.name || "";
+        }
+        currentScanItem.photoDetails.forEach((d, i) => { d.idx = i; });
+      }
+
+      // 4. カロリー・PFCの再計算
+      if (currentScanItem.items && currentScanItem.items.length > 0) {
+        recalculateTotalNutritionFromItems();
+
+        // 安全弁：もし品目削除でカロリーが減っていない場合は確実に減算
+        if (currentScanItem.calories >= prevCalories && removedCal > 0) {
+          currentScanItem.calories = Math.max(50, prevCalories - removedCal);
+        } else if (currentScanItem.calories >= prevCalories) {
+          const approx = Math.round(prevCalories / (currentScanItem.imgs.length + 1));
+          currentScanItem.calories = Math.max(50, prevCalories - approx);
+          removedCal = approx;
+        }
+
+        // 料理名の再構築
+        const uniqueNames = [];
+        currentScanItem.items.forEach(it => {
+          const dName = it.sourceDishName || it.name;
+          if (!uniqueNames.includes(dName)) uniqueNames.push(dName);
+        });
+        currentScanItem.name = uniqueNames.join(" ＋ ");
+      } else {
+        if (removedCal > 0) {
+          currentScanItem.calories = Math.max(50, prevCalories - removedCal);
+        } else {
+          const approx = Math.round(prevCalories / (currentScanItem.imgs.length + 1));
+          currentScanItem.calories = Math.max(50, prevCalories - approx);
+          removedCal = approx;
+        }
+      }
+
+      // 実際に引かれたカロリーを計算
+      const actualDeducted = Math.max(0, prevCalories - (currentScanItem.calories || 0));
+
+      const manualInput = document.getElementById("manualEditDishInput");
+      if (manualInput) manualInput.value = currentScanItem.name;
+
+      // 5. 画面（Step 2）の各要素を再描画！
       updateScanPhotosBarUI();
+      renderDishItemsUI();
+      refreshStep2Displays();
+
+      // カロリーボックスをアニメーション強調
+      const calBox = document.getElementById("step2CalorieBox");
+      if (calBox) {
+        calBox.classList.add("ring-4", "ring-rose-400");
+        setTimeout(() => {
+          calBox.classList.remove("ring-4", "ring-rose-400");
+        }, 1500);
+      }
 
       // 「写真を復元」ボタンを表示
       const undoBtn = document.getElementById("undoPhotoDeleteBtn");
       if (undoBtn) undoBtn.classList.remove("hidden");
 
-      // トーストでも即座に復元可能にする
-      showActionToast("写真を削除しました", {
+      // トーストでも即座に復元可能にする（引いたカロリーを明示）
+      const toastText = actualDeducted > 0
+        ? `写真を削除しました（-${actualDeducted} kcal）`
+        : "写真を削除しました";
+
+      showActionToast(toastText, {
         icon: "🗑️",
         actionText: "↩️ 写真を復元",
         duration: 5000,
@@ -3791,6 +3934,9 @@ document.addEventListener("DOMContentLoaded", () => {
       currentScanItem.p = lastDeletedPhotoBackup.p;
       currentScanItem.f = lastDeletedPhotoBackup.f;
       currentScanItem.c = lastDeletedPhotoBackup.c;
+      if (lastDeletedPhotoBackup.photoDetails) {
+        currentScanItem.photoDetails = [...lastDeletedPhotoBackup.photoDetails];
+      }
 
       lastDeletedPhotoBackup = null;
 
@@ -3803,7 +3949,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderDishItemsUI();
       refreshStep2Displays();
 
-      showActionToast("↩️ 削除した写真を元に戻しました！", { icon: "✨", duration: 3000 });
+      showActionToast("↩️ 削除した写真を復元しました！", { icon: "✨", duration: 3000 });
     };
 
     // 食べ物以外の物体（水筒・スマホ等）が撮影された場合のアラート表示
@@ -5015,6 +5161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         imgs: (currentScanItem && currentScanItem.imgs && currentScanItem.imgs.length > 0)
           ? currentScanItem.imgs
           : (thumbImg ? [thumbImg] : []),
+        photoDetails: (currentScanItem && currentScanItem.photoDetails) ? currentScanItem.photoDetails : null,
         icon: mealData.icon || "🍽️",
         soupLevel: mealData.soupLevel || (currentScanItem && currentScanItem.soupLevel) || null
       };
