@@ -484,6 +484,215 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("barC").style.width = `${Math.min(100, (eatenC / state.metrics.pfc.c) * 100)}%`;
   }
 
+  // ==================== 📸 写真・料理の個別取り消し選択管理 ====================
+  let currentSelectiveDeleteSlot = null;
+
+  function openSelectivePhotoDeleteModal(slot) {
+    currentSelectiveDeleteSlot = slot;
+    const modal = document.getElementById("photoSelectiveDeleteModal");
+    if (!modal) return;
+
+    renderSelectivePhotoDeleteModalContent(slot);
+    modal.classList.remove("hidden");
+    modal.style.display = "flex";
+  }
+
+  function closeSelectivePhotoDeleteModal() {
+    const modal = document.getElementById("photoSelectiveDeleteModal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+    currentSelectiveDeleteSlot = null;
+  }
+
+  function renderSelectivePhotoDeleteModalContent(slot) {
+    const record = state.records[slot];
+    const badgeEl = document.getElementById("selectiveDeleteSlotBadge");
+    const listEl = document.getElementById("selectiveDeletePhotoList");
+    const deleteEntireBtn = document.getElementById("deleteEntireRecordFromModalBtn");
+    if (!record || !listEl) return;
+
+    const slotNameMap = { breakfast: "朝食", lunch: "昼食", dinner: "夕食", snack: "間食", drink: "ドリンク" };
+    const slotLabel = slotNameMap[slot] || slot;
+    const imgs = record.imgs || (record.img ? [record.img] : []);
+    const items = record.items || [];
+
+    if (badgeEl) badgeEl.textContent = `${slotLabel}の記録（写真${imgs.length}枚）`;
+
+    listEl.innerHTML = imgs.map((imgSrc, idx) => {
+      // 紐づく品目
+      const associatedItems = items.filter(it => it.photoIndex === idx);
+      let itemsText = "";
+      let approxCal = 0;
+      if (associatedItems.length > 0) {
+        itemsText = associatedItems.map(it => `${it.icon || '🥢'} ${it.name}`).join(", ");
+        approxCal = associatedItems.reduce((s, it) => s + (it.calories || 0), 0);
+      } else if (items.length > 0 && imgs.length > 0) {
+        const itemsPerPhoto = Math.ceil(items.length / imgs.length);
+        const sliced = items.slice(idx * itemsPerPhoto, (idx + 1) * itemsPerPhoto);
+        if (sliced.length > 0) {
+          itemsText = sliced.map(it => `${it.icon || '🥢'} ${it.name}`).join(", ");
+          approxCal = sliced.reduce((s, it) => s + (it.calories || 0), 0);
+        } else {
+          itemsText = `写真 #${idx + 1} のメニュー`;
+          approxCal = Math.round(record.calories / imgs.length);
+        }
+      } else {
+        itemsText = idx === 0 ? record.name : `追加写真 #${idx + 1}`;
+        approxCal = Math.round(record.calories / Math.max(1, imgs.length));
+      }
+
+      return `
+        <div class="p-3 bg-white border border-slate-200 rounded-2xl shadow-2xs flex items-center justify-between gap-3 hover:border-slate-300 transition">
+          <div class="flex items-center space-x-2.5 min-w-0">
+            <div class="relative shrink-0">
+              <img src="${imgSrc}" class="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-xl border border-slate-200 shadow-2xs">
+              <span class="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1 rounded font-mono font-bold">#${idx + 1}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] font-bold text-slate-800 truncate" title="${itemsText}">${itemsText}</div>
+              <div class="text-[10px] text-emerald-700 font-mono font-bold mt-0.5">約 ${approxCal} kcal</div>
+            </div>
+          </div>
+          <button type="button" onclick="window.deleteSinglePhotoFromRecord && window.deleteSinglePhotoFromRecord('${slot}', ${idx})"
+            class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-bold transition flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
+            title="この写真だけを取り消す">
+            <i class="fa-solid fa-trash-can text-rose-500"></i>
+            <span>取り消す</span>
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    if (deleteEntireBtn) {
+      deleteEntireBtn.onclick = () => {
+        closeSelectivePhotoDeleteModal();
+        deleteEntireSlotRecord(slot);
+      };
+    }
+  }
+
+  function deleteSinglePhotoFromRecord(slot, photoIdx) {
+    const record = state.records[slot];
+    if (!record) return;
+
+    // 完全バックアップ（アンドゥ復元用）
+    const backupRecord = JSON.parse(JSON.stringify(record));
+    const slotNameMap = { breakfast: "朝食", lunch: "昼食", dinner: "夕食", snack: "間食", drink: "ドリンク" };
+    const slotLabel = slotNameMap[slot] || slot;
+
+    // 写真が残り1枚（または写真がない）なら全体取り消し
+    if (!record.imgs || record.imgs.length <= 1) {
+      closeSelectivePhotoDeleteModal();
+      deleteEntireSlotRecord(slot);
+      return;
+    }
+
+    // 1. 対象写真の削除
+    record.imgs.splice(photoIdx, 1);
+    record.img = record.imgs[0];
+
+    // 2. 紐づく品目の削除
+    let removedDishName = "";
+    if (record.items && record.items.length > 0) {
+      const hasPhotoIndex = record.items.some(it => it.photoIndex !== undefined);
+      if (hasPhotoIndex) {
+        const remainingItems = [];
+        record.items.forEach(it => {
+          if (it.photoIndex === photoIdx) {
+            if (!removedDishName) removedDishName = it.sourceDishName || it.name;
+          } else {
+            // 削除した写真より後ろのインデックスを繰り上げ
+            if (it.photoIndex > photoIdx) {
+              it.photoIndex -= 1;
+            }
+            remainingItems.push(it);
+          }
+        });
+        record.items = remainingItems;
+      } else {
+        const itemsPerPhoto = Math.ceil(record.items.length / (record.imgs.length + 1));
+        const removed = record.items.splice(photoIdx * itemsPerPhoto, itemsPerPhoto);
+        if (removed.length > 0) removedDishName = removed[0].name;
+      }
+    }
+
+    // 3. カロリー・PFCの再計算
+    if (record.items && record.items.length > 0) {
+      record.calories = record.items.reduce((s, it) => s + (it.calories || 0), 0);
+      record.p = Math.round(record.items.reduce((s, it) => s + (it.p || 0), 0) * 10) / 10;
+      record.f = Math.round(record.items.reduce((s, it) => s + (it.f || 0), 0) * 10) / 10;
+      record.c = Math.round(record.items.reduce((s, it) => s + (it.c || 0), 0) * 10) / 10;
+
+      // 料理名の再構築
+      const uniqueNames = [];
+      record.items.forEach(it => {
+        const dName = it.sourceDishName || it.name;
+        if (!uniqueNames.includes(dName)) uniqueNames.push(dName);
+      });
+      record.name = uniqueNames.join(" ＋ ");
+    } else {
+      const calPerPhoto = Math.round(record.calories / (record.imgs.length + 1));
+      record.calories = Math.max(50, record.calories - calPerPhoto);
+    }
+
+    saveRecordsToStorage();
+    updateUI();
+
+    // モーダルがまだ写真2枚以上なら再描画、1枚になったら閉じる
+    if (record.imgs && record.imgs.length > 1) {
+      renderSelectivePhotoDeleteModalContent(slot);
+    } else {
+      closeSelectivePhotoDeleteModal();
+    }
+
+    // トーストでアンドゥ通知
+    const toastMsg = removedDishName
+      ? `【${slotLabel}】の「${removedDishName}」（写真）を取り消しました`
+      : `【${slotLabel}】の写真を1枚取り消しました`;
+
+    showActionToast(toastMsg, {
+      icon: "🗑️",
+      actionText: "↩️ 元に戻す",
+      duration: 6000,
+      onAction: () => {
+        state.records[slot] = backupRecord;
+        saveRecordsToStorage();
+        updateUI();
+        showActionToast(`【${slotLabel}】の写真を元に戻しました！`, { icon: "✨", duration: 3000 });
+      }
+    });
+  }
+
+  function deleteEntireSlotRecord(slot) {
+    const backupRecord = state.records[slot];
+    if (!backupRecord) return;
+
+    const slotNameMap = { breakfast: "朝食", lunch: "昼食", dinner: "夕食", snack: "間食", drink: "ドリンク" };
+    const slotLabel = slotNameMap[slot] || slot;
+
+    state.records[slot] = null;
+    saveRecordsToStorage();
+    updateUI();
+
+    showActionToast(`【${slotLabel}】の食事記録を取り消しました`, {
+      icon: "🗑️",
+      actionText: "↩️ 元に戻す",
+      duration: 6000,
+      onAction: () => {
+        state.records[slot] = backupRecord;
+        saveRecordsToStorage();
+        updateUI();
+        showActionToast(`【${slotLabel}】の食事記録を元に戻しました！`, { icon: "✨", duration: 3000 });
+      }
+    });
+  }
+
+  window.openSelectivePhotoDeleteModal = openSelectivePhotoDeleteModal;
+  window.closeSelectivePhotoDeleteModal = closeSelectivePhotoDeleteModal;
+  window.deleteSinglePhotoFromRecord = deleteSinglePhotoFromRecord;
+  window.deleteEntireSlotRecord = deleteEntireSlotRecord;
+
   function renderMealSlots() {
     const slots = ['breakfast', 'lunch', 'dinner', 'snack'];
     const targetCal = state.metrics.targetCal;
@@ -578,10 +787,13 @@ document.addEventListener("DOMContentLoaded", () => {
           filledView.innerHTML = `
             <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
               ${record.img ? `
-                <div class="relative shrink-0">
+                <div class="relative shrink-0 ${record.imgs && record.imgs.length > 1 ? 'cursor-pointer hover:opacity-90' : ''}"
+                  ${record.imgs && record.imgs.length > 1 ? `onclick="window.openSelectivePhotoDeleteModal && window.openSelectivePhotoDeleteModal('${slot}')" title="写真が${record.imgs.length}枚あります。クリックして1枚ずつ確認・取り消し"` : ''}>
                   <img src="${record.img}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-emerald-300 shadow-xs">
                   ${record.imgs && record.imgs.length > 1 ? `
-                    <span class="absolute -bottom-1 -right-1 bg-emerald-700 text-white text-[8.5px] px-1 py-0.2 rounded-full font-bold shadow-2xs">${record.imgs.length}枚</span>
+                    <span class="absolute -bottom-1 -right-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[8.5px] px-1 py-0.2 rounded-full font-bold shadow-2xs flex items-center gap-0.5">
+                      <i class="fa-solid fa-layer-group text-[7px]"></i>${record.imgs.length}枚
+                    </span>
                   ` : ''}
                 </div>
               ` : `<span class="text-xl sm:text-2xl shrink-0">${record.icon || '🍽️'}</span>`}
@@ -610,39 +822,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 <span>＋写真追加</span>
               </button>
               <input type="file" id="slotAppendFileInput_${slot}" accept="image/*" class="hidden" onchange="window.handleAppendPhotoToSlot && window.handleAppendPhotoToSlot('${slot}', this)">
-              <button class="delete-record-btn text-[11px] text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition shrink-0 cursor-pointer" data-slot="${slot}">
+              <button class="delete-record-btn text-[11px] text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition shrink-0 cursor-pointer" data-slot="${slot}"
+                title="${record.imgs && record.imgs.length > 1 ? '写真を選んで取り消す' : 'この食事を取り消す'}">
                 <i class="fa-solid fa-trash-can mr-1"></i>取り消す
               </button>
             </div>
           `;
 
-          // 削除ボタンイベント（誤削除アンドゥ対応）
+          // 削除ボタンイベント（複数写真なら個別選択モーダル、1枚なら全体取り消し）
           const delBtn = filledView.querySelector(".delete-record-btn");
           if (delBtn) {
             delBtn.onclick = (e) => {
               const s = slot || (delBtn && delBtn.dataset.slot) || (e.currentTarget && e.currentTarget.dataset.slot);
-              const backupRecord = state.records[s];
-              if (!backupRecord) return;
+              const targetRecord = state.records[s];
+              if (!targetRecord) return;
 
-              const slotNameMap = { breakfast: "朝食", lunch: "昼食", dinner: "夕食", snack: "間食", drink: "ドリンク" };
-              const slotLabel = slotNameMap[s] || s;
-
-              state.records[s] = null;
-              saveRecordsToStorage();
-              updateUI();
-
-              // トーストで「元に戻す」を提供
-              showActionToast(`【${slotLabel}】の食事記録を取り消しました`, {
-                icon: "🗑️",
-                actionText: "↩️ 元に戻す",
-                duration: 6000,
-                onAction: () => {
-                  state.records[s] = backupRecord;
-                  saveRecordsToStorage();
-                  updateUI();
-                  showActionToast(`【${slotLabel}】の食事記録を元に戻しました！`, { icon: "✨", duration: 3000 });
-                }
-              });
+              // 写真が2枚以上ある場合は、1つ1つ選べるモーダルを開く
+              if (targetRecord.imgs && targetRecord.imgs.length > 1) {
+                openSelectivePhotoDeleteModal(s);
+              } else {
+                deleteEntireSlotRecord(s);
+              }
             };
           }
         }
@@ -3456,6 +3656,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!parent.items || parent.items.length === 0) {
         parent = ensureNormalizedMealItems(parent);
       }
+      // 親の元々の品目に photoIndex: 0 を付与
+      if (parent.items) {
+        parent.items.forEach(it => {
+          if (it.photoIndex === undefined) it.photoIndex = 0;
+        });
+      }
+
+      const appendPhotoIndex = parent.imgs.length - 1;
       const appendItems = (added.items && added.items.length > 0)
         ? added.items
         : [{
@@ -3474,7 +3682,9 @@ document.addEventListener("DOMContentLoaded", () => {
       appendItems.forEach((it, i) => {
         parent.items.push({
           ...it,
-          id: `item_appended_${Date.now()}_${i}`
+          id: `item_appended_${Date.now()}_${i}`,
+          photoIndex: appendPhotoIndex,
+          sourceDishName: addedName
         });
       });
 
