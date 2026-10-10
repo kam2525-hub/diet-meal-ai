@@ -5007,10 +5007,93 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // ==================== 今月の減量ダッシュボード ＆ カレンダー ====================
+    // ==================== 減量ダッシュボード ＆ 開始日基準 ＆ 折れ線グラフ ====================
     const monthlyModal = document.getElementById("monthlyModal");
     const openMonthlyBtn = document.getElementById("openMonthlyBtn");
     const closeMonthlyBtn = document.getElementById("closeMonthlyBtn");
+
+    let dashboardRangeMode = 'since_start'; // 'since_start' (開始日から通算) | 'this_month' (今月)
+    let dashboardChartMode = 'deficit'; // 'deficit' (累積カット) | 'daily' (日別カロリー) | 'weight' (体重推移)
+
+    // ダイエット開始日の取得（保存値 -> 最古の記録日 -> 今日の順で自動決定）
+    function getDietStartDate() {
+      const saved = localStorage.getItem("mealai_start_date");
+      if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
+        return saved;
+      }
+      // localStorage 内の最古の食事記録または体重記録を探索
+      const recordDates = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("mealai_records_")) {
+            const d = k.replace("mealai_records_", "");
+            if (/^\d{4}-\d{2}-\d{2}$/.test(d)) recordDates.push(d);
+          }
+        }
+      } catch (e) {}
+
+      if (state.weights) {
+        Object.keys(state.weights).forEach(d => {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(d)) recordDates.push(d);
+        });
+      }
+
+      recordDates.sort();
+      const earliest = recordDates.length > 0 ? recordDates[0] : (state.currentDate || new Date().toISOString().split("T")[0]);
+      localStorage.setItem("mealai_start_date", earliest);
+      return earliest;
+    }
+
+    function setDietStartDate(newDateStr) {
+      if (!newDateStr || !/^\d{4}-\d{2}-\d{2}$/.test(newDateStr)) return;
+      localStorage.setItem("mealai_start_date", newDateStr);
+      renderMonthlyDashboard();
+    }
+
+    // 2つの日付間の連続した日付リストを取得（最大366日）
+    function getDaysListBetween(startDateStr, endDateStr) {
+      const dates = [];
+      const [sy, sm, sd] = startDateStr.split("-").map(Number);
+      const [ey, em, ed] = endDateStr.split("-").map(Number);
+      const cur = new Date(sy, sm - 1, sd);
+      const end = new Date(ey, em - 1, ed);
+
+      let count = 0;
+      while (cur <= end && count < 366) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, '0');
+        const d = String(cur.getDate()).padStart(2, '0');
+        dates.push(`${y}-${m}-${d}`);
+        cur.setDate(cur.getDate() + 1);
+        count++;
+      }
+      return dates;
+    }
+
+    // 指定日の摂取カロリーと記録有無を取得
+    function getDayCaloriesData(dateStr) {
+      let dayRecords = null;
+      if (dateStr === state.currentDate && state.records) {
+        dayRecords = state.records;
+      } else {
+        try {
+          const raw = localStorage.getItem(`mealai_records_${dateStr}`);
+          if (raw) dayRecords = JSON.parse(raw);
+        } catch (e) {}
+      }
+      let cals = 0;
+      let hasRecord = false;
+      if (dayRecords) {
+        ['breakfast', 'lunch', 'dinner', 'snack'].forEach(s => {
+          if (dayRecords[s] && dayRecords[s].calories) {
+            cals += dayRecords[s].calories;
+            hasRecord = true;
+          }
+        });
+      }
+      return { cals, hasRecord };
+    }
 
     if (openMonthlyBtn) {
       openMonthlyBtn.addEventListener("click", () => {
@@ -5029,22 +5112,414 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // ダッシュボードの各種コントロールのイベントバインド
+    function setupDashboardControls() {
+      const rangeSinceStartBtn = document.getElementById("dashboardRangeSinceStartBtn");
+      const rangeThisMonthBtn = document.getElementById("dashboardRangeThisMonthBtn");
+      const changeStartDateBtn = document.getElementById("changeStartDateBtn");
+      const hiddenStartDateInput = document.getElementById("hiddenStartDateInput");
+      const chartTabDeficitBtn = document.getElementById("chartTabDeficitBtn");
+      const chartTabDailyBtn = document.getElementById("chartTabDailyBtn");
+      const chartTabWeightBtn = document.getElementById("chartTabWeightBtn");
+
+      if (rangeSinceStartBtn) {
+        rangeSinceStartBtn.onclick = () => {
+          dashboardRangeMode = 'since_start';
+          renderMonthlyDashboard();
+        };
+      }
+      if (rangeThisMonthBtn) {
+        rangeThisMonthBtn.onclick = () => {
+          dashboardRangeMode = 'this_month';
+          renderMonthlyDashboard();
+        };
+      }
+
+      if (changeStartDateBtn && hiddenStartDateInput) {
+        changeStartDateBtn.onclick = () => {
+          hiddenStartDateInput.value = getDietStartDate();
+          hiddenStartDateInput.showPicker ? hiddenStartDateInput.showPicker() : hiddenStartDateInput.click();
+        };
+        hiddenStartDateInput.onchange = (e) => {
+          if (e.target.value) {
+            setDietStartDate(e.target.value);
+            showActionToast(`開始日を ${e.target.value} に設定しました！`, { icon: "🚩", duration: 2500 });
+          }
+        };
+      }
+
+      if (chartTabDeficitBtn) {
+        chartTabDeficitBtn.onclick = () => {
+          dashboardChartMode = 'deficit';
+          renderMonthlyDashboard();
+        };
+      }
+      if (chartTabDailyBtn) {
+        chartTabDailyBtn.onclick = () => {
+          dashboardChartMode = 'daily';
+          renderMonthlyDashboard();
+        };
+      }
+      if (chartTabWeightBtn) {
+        chartTabWeightBtn.onclick = () => {
+          dashboardChartMode = 'weight';
+          renderMonthlyDashboard();
+        };
+      }
+    }
+    setupDashboardControls();
+
     function renderMonthlyDashboard() {
-      const parts = state.currentDate.split("-");
-      const year = parseInt(parts[0]);
-      const month = parseInt(parts[1]);
-      const todayStr = state.currentDate;
+      const startDate = getDietStartDate();
+      const todayStr = state.currentDate || new Date().toISOString().split("T")[0];
+      const targetPerDay = state.targetCalories || 1650;
+      const paceGoalKg = Math.abs(parseFloat(state.user.pace) || 2.0);
 
-      // 月の初日と日数
-      const firstDay = new Date(year, month - 1, 1).getDay();
-      const totalDays = new Date(year, month, 0).getDate();
+      // 開始日からの経過日数
+      const [sy, sm, sd] = startDate.split("-").map(Number);
+      const [ty, tm, td] = todayStr.split("-").map(Number);
+      const startDateObj = new Date(sy, sm - 1, sd);
+      const todayDateObj = new Date(ty, tm - 1, td);
+      const diffTime = todayDateObj.getTime() - startDateObj.getTime();
+      const daysPassed = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1);
 
+      // 開始日バッジの更新
+      const startDateBadge = document.getElementById("dashboardStartDateBadge");
+      if (startDateBadge) {
+        startDateBadge.textContent = `開始: ${startDate.replace(/-/g, '/')} (${daysPassed}日目)`;
+      }
+
+      // 期間切り替えボタンの見た目更新
+      const rangeSinceStartBtn = document.getElementById("dashboardRangeSinceStartBtn");
+      const rangeThisMonthBtn = document.getElementById("dashboardRangeThisMonthBtn");
+      const modalSubtitle = document.getElementById("monthlyModalSubtitle");
+      const chartRangeSubtitle = document.getElementById("chartRangeSubtitle");
+
+      if (rangeSinceStartBtn && rangeThisMonthBtn) {
+        if (dashboardRangeMode === 'since_start') {
+          rangeSinceStartBtn.className = "px-2.5 py-1 rounded-lg bg-white text-emerald-800 shadow-2xs transition cursor-pointer font-black";
+          rangeThisMonthBtn.className = "px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-800 transition cursor-pointer font-bold";
+          if (modalSubtitle) modalSubtitle.textContent = `ダイエット開始日(${startDate.replace(/-/g, '/')})からの通算成果と推移`;
+          if (chartRangeSubtitle) chartRangeSubtitle.textContent = `（開始日〜今日・${daysPassed}日間）`;
+        } else {
+          rangeThisMonthBtn.className = "px-2.5 py-1 rounded-lg bg-white text-emerald-800 shadow-2xs transition cursor-pointer font-black";
+          rangeSinceStartBtn.className = "px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-800 transition cursor-pointer font-bold";
+          if (modalSubtitle) modalSubtitle.textContent = `${ty}年${tm}月のカロリー収支と推移`;
+          if (chartRangeSubtitle) chartRangeSubtitle.textContent = `（今月 1日〜${td}日）`;
+        }
+      }
+
+      // 集計対象の日付リストを生成
+      let targetRangeDates = [];
+      if (dashboardRangeMode === 'since_start') {
+        // 開始日 〜 今日
+        targetRangeDates = getDaysListBetween(startDate, todayStr);
+      } else {
+        // 当月1日 〜 今日
+        const firstDayOfMonth = `${ty}-${String(tm).padStart(2, '0')}-01`;
+        targetRangeDates = getDaysListBetween(firstDayOfMonth, todayStr);
+      }
+
+      // 集計処理
+      let totalActualCalories = 0;
+      let totalTargetCalories = 0;
+      let recordedDaysCount = 0;
+      let runningCumulativeDeficit = 0;
+
+      const dailyDataPoints = []; // グラフ用データ系列
+
+      targetRangeDates.forEach(dStr => {
+        const { cals, hasRecord } = getDayCaloriesData(dStr);
+        let dailyDeficit = 0;
+        if (hasRecord) {
+          recordedDaysCount++;
+          totalActualCalories += cals;
+          totalTargetCalories += targetPerDay;
+          dailyDeficit = targetPerDay - cals; // プラスなら目標以下（カット成功）
+          runningCumulativeDeficit += dailyDeficit;
+        }
+
+        let wVal = null;
+        if (state.weights && state.weights[dStr] !== undefined) {
+          wVal = state.weights[dStr];
+        } else {
+          try {
+            const rawW = JSON.parse(localStorage.getItem("mealai_weights") || "{}");
+            if (rawW && rawW[dStr] !== undefined) wVal = rawW[dStr];
+          } catch (e) {}
+        }
+
+        dailyDataPoints.push({
+          date: dStr,
+          dateLabel: dStr.slice(5).replace("-", "/"),
+          calories: cals,
+          hasRecord: hasRecord,
+          deficit: dailyDeficit,
+          cumulativeDeficit: runningCumulativeDeficit,
+          weight: wVal
+        });
+      });
+
+      // サマリー計算
+      const netDeficit = totalTargetCalories - totalActualCalories;
+      const fatLostKg = (netDeficit / 7200).toFixed(2);
+      const avgDeficitPerDay = recordedDaysCount > 0 ? Math.round(netDeficit / recordedDaysCount) : 0;
+
+      // サマリーカードへ反映
+      const deficitEl = document.getElementById("monthlyDeficitTotal");
+      const deficitSubEl = document.getElementById("monthlyDeficitSub");
+      const fatEl = document.getElementById("monthlyFatLost");
+      const avgEl = document.getElementById("monthlyDailyAvgDeficit");
+      const avgSubEl = document.getElementById("monthlyDailyAvgSub");
+      const rateEl = document.getElementById("monthlyProgressRate");
+      const goalLabel = document.getElementById("monthlyGoalLabel");
+
+      if (deficitEl) {
+        deficitEl.textContent = netDeficit >= 0 ? `-${netDeficit.toLocaleString()} kcal` : `+${Math.abs(netDeficit).toLocaleString()} kcal`;
+        deficitEl.className = netDeficit >= 0
+          ? "text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5"
+          : "text-base sm:text-lg font-black text-rose-600 font-mono mt-0.5";
+      }
+      if (deficitSubEl) {
+        deficitSubEl.textContent = dashboardRangeMode === 'since_start'
+          ? `開始から${recordedDaysCount}日記録`
+          : `今月${recordedDaysCount}日記録`;
+      }
+      if (fatEl) {
+        fatEl.textContent = parseFloat(fatLostKg) >= 0 ? `約 -${fatLostKg} kg` : `約 +${Math.abs(parseFloat(fatLostKg))} kg`;
+        fatEl.className = parseFloat(fatLostKg) >= 0
+          ? "text-base sm:text-lg font-black text-emerald-700 font-mono mt-0.5"
+          : "text-base sm:text-lg font-black text-rose-600 font-mono mt-0.5";
+      }
+      if (avgEl) {
+        avgEl.textContent = avgDeficitPerDay >= 0 ? `-${avgDeficitPerDay} kcal/日` : `+${Math.abs(avgDeficitPerDay)} kcal/日`;
+        avgEl.className = avgDeficitPerDay >= 0
+          ? "text-base sm:text-lg font-black text-indigo-700 font-mono mt-0.5"
+          : "text-base sm:text-lg font-black text-rose-600 font-mono mt-0.5";
+      }
+      if (avgSubEl) {
+        avgSubEl.textContent = avgDeficitPerDay >= 300 ? "🔥 順調な燃焼ペース！" : (avgDeficitPerDay >= 0 ? "✨ 目標キープ中" : "⚠️ 少し食べ過ぎ傾向");
+      }
+      if (goalLabel) {
+        goalLabel.textContent = `ペース: 月 -${paceGoalKg}kg`;
+      }
+      if (rateEl) {
+        // 目標進捗率
+        const targetCutTotal = paceGoalKg * 7200 * (dashboardRangeMode === 'since_start' ? (daysPassed / 30) : 1);
+        const rate = targetCutTotal > 0 ? Math.min(999, Math.round((netDeficit / targetCutTotal) * 100)) : 100;
+        rateEl.textContent = `${Math.max(0, rate)}%`;
+      }
+
+      // 📈 折れ線グラフを描画
+      renderDashboardChart(dailyDataPoints, targetPerDay);
+
+      // 📅 カレンダーグリッドを描画（当月のカレンダー表示）
+      renderDashboardCalendarGrid(ty, tm, todayStr, targetPerDay, startDate);
+    }
+
+    // ==================== 📈 減量ダッシュボード折れ線グラフ描画 (SVG) ====================
+    function renderDashboardChart(dataPoints, targetPerDay) {
+      const container = document.getElementById("dashboardSvgChartContainer");
+      const titleEl = document.getElementById("chartTypeTitle");
+      const legendContainer = document.getElementById("chartLegendContainer");
+      const hintEl = document.getElementById("chartSummaryHint");
+      const tabDeficit = document.getElementById("chartTabDeficitBtn");
+      const tabDaily = document.getElementById("chartTabDailyBtn");
+      const tabWeight = document.getElementById("chartTabWeightBtn");
+      if (!container) return;
+
+      // タブのスタイル更新
+      [tabDeficit, tabDaily, tabWeight].forEach(btn => {
+        if (btn) btn.className = "px-2 py-0.5 rounded text-slate-400 hover:text-white transition cursor-pointer font-bold";
+      });
+
+      if (dashboardChartMode === 'deficit' && tabDeficit) {
+        tabDeficit.className = "px-2 py-0.5 rounded bg-emerald-600 text-white transition cursor-pointer font-bold";
+        if (titleEl) titleEl.textContent = "累積カロリーカット推移";
+        if (legendContainer) {
+          legendContainer.innerHTML = `
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>累積カット量 (kcal)</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-slate-500 inline-block"></span>基準 (0kcal)</span>
+          `;
+        }
+        if (hintEl) hintEl.textContent = "右肩上がりで脂肪燃焼が進みます";
+      } else if (dashboardChartMode === 'daily' && tabDaily) {
+        tabDaily.className = "px-2 py-0.5 rounded bg-indigo-600 text-white transition cursor-pointer font-bold";
+        if (titleEl) titleEl.textContent = "日別カロリー収支推移";
+        if (legendContainer) {
+          legendContainer.innerHTML = `
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-400 inline-block"></span>摂取カロリー</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-amber-400 inline-block border-t border-dashed"></span>目標 (${targetPerDay}kcal)</span>
+          `;
+        }
+        if (hintEl) hintEl.textContent = "目標ラインより下が減量成功日";
+      } else if (dashboardChartMode === 'weight' && tabWeight) {
+        tabWeight.className = "px-2 py-0.5 rounded bg-teal-600 text-white transition cursor-pointer font-bold";
+        if (titleEl) titleEl.textContent = "体重推移";
+        if (legendContainer) {
+          legendContainer.innerHTML = `
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-teal-400 inline-block"></span>体重 (kg)</span>
+          `;
+        }
+        if (hintEl) hintEl.textContent = "記録日ごとの体重変化";
+      }
+
+      // 表示件数をスマホ幅に合わせて最適化（最大14点、多い場合は間引く）
+      const points = [...dataPoints];
+      if (points.length === 0) {
+        container.innerHTML = `<div class="h-full flex items-center justify-center text-slate-500 text-xs">まだ記録データがありません</div>`;
+        return;
+      }
+
+      const displayPoints = points.length > 14
+        ? points.filter((_, i) => i === 0 || i === points.length - 1 || i % Math.ceil(points.length / 14) === 0)
+        : points;
+
+      const width = 380;
+      const height = 150;
+      const padding = { top: 22, right: 28, bottom: 25, left: 42 };
+
+      const chartW = width - padding.left - padding.right;
+      const chartH = height - padding.top - padding.bottom;
+
+      const getX = (idx) => padding.left + (displayPoints.length === 1 ? chartW / 2 : (idx / (displayPoints.length - 1)) * chartW);
+
+      // モード別の値抽出
+      if (dashboardChartMode === 'deficit') {
+        const vals = displayPoints.map(p => p.cumulativeDeficit);
+        const minVal = Math.min(0, Math.min(...vals));
+        const maxVal = Math.max(100, Math.max(...vals));
+        const range = (maxVal - minVal) || 100;
+        const getY = (v) => height - padding.bottom - ((v - minVal) / range) * chartH;
+        const zeroY = getY(0);
+
+        const pathData = displayPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.cumulativeDeficit)}`).join(" ");
+        const areaData = `${pathData} L ${getX(displayPoints.length - 1)} ${zeroY} L ${getX(0)} ${zeroY} Z`;
+
+        const dotsHtml = displayPoints.map((p, i) => {
+          const cx = getX(i);
+          const cy = getY(p.cumulativeDeficit);
+          const isLast = i === displayPoints.length - 1;
+          const showLabel = displayPoints.length <= 7 || isLast || i === 0;
+          return `
+            <circle cx="${cx}" cy="${cy}" r="${isLast ? '4.5' : '3.5'}" fill="#10b981" stroke="#0f172a" stroke-width="2"/>
+            ${showLabel ? `<text x="${cx}" y="${cy - 7}" text-anchor="middle" fill="#34d399" font-size="9" font-weight="bold">${p.cumulativeDeficit >= 0 ? '+' : ''}${p.cumulativeDeficit}</text>` : ''}
+            <text x="${cx}" y="${height - 8}" text-anchor="middle" fill="#94a3b8" font-size="8">${p.dateLabel}</text>
+          `;
+        }).join("");
+
+        container.innerHTML = `
+          <svg viewBox="0 0 ${width} ${height}" class="w-full h-full overflow-visible">
+            <defs>
+              <linearGradient id="defGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#10b981" stop-opacity="0.38"/>
+                <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+            <!-- 基準線 (0kcal) -->
+            <line x1="${padding.left}" y1="${zeroY}" x2="${width - padding.right}" y2="${zeroY}" stroke="#475569" stroke-dasharray="3,3" stroke-width="1"/>
+            <text x="${padding.left - 5}" y="${zeroY + 3}" text-anchor="end" fill="#64748b" font-size="8">0</text>
+            <!-- 最高値/最低値ガイド -->
+            <line x1="${padding.left}" y1="${getY(maxVal)}" x2="${width - padding.right}" y2="${getY(maxVal)}" stroke="#334155" stroke-dasharray="2,2" stroke-width="0.8"/>
+            <text x="${padding.left - 5}" y="${getY(maxVal) + 3}" text-anchor="end" fill="#64748b" font-size="8">${maxVal}</text>
+            <!-- エリア＆折れ線 -->
+            <path d="${areaData}" fill="url(#defGrad)"/>
+            <path d="${pathData}" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            ${dotsHtml}
+          </svg>
+        `;
+      } else if (dashboardChartMode === 'daily') {
+        const recordedOnly = displayPoints.filter(p => p.hasRecord);
+        if (recordedOnly.length === 0) {
+          container.innerHTML = `<div class="h-full flex items-center justify-center text-slate-500 text-xs">まだ食事記録がありません</div>`;
+          return;
+        }
+
+        const vals = recordedOnly.map(p => p.calories);
+        const minVal = Math.min(targetPerDay - 400, Math.min(...vals) - 100);
+        const maxVal = Math.max(targetPerDay + 400, Math.max(...vals) + 100);
+        const range = (maxVal - minVal) || 500;
+        const getY = (v) => height - padding.bottom - ((v - minVal) / range) * chartH;
+        const targetY = getY(targetPerDay);
+
+        const pathData = recordedOnly.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.calories)}`).join(" ");
+
+        const dotsHtml = recordedOnly.map((p, i) => {
+          const cx = getX(i);
+          const cy = getY(p.calories);
+          const isUnder = p.calories <= targetPerDay;
+          return `
+            <circle cx="${cx}" cy="${cy}" r="3.5" fill="${isUnder ? '#10b981' : '#f43f5e'}" stroke="#0f172a" stroke-width="2"/>
+            <text x="${cx}" y="${cy - 7}" text-anchor="middle" fill="${isUnder ? '#34d399' : '#fb7185'}" font-size="8.5" font-weight="bold">${p.calories}</text>
+            <text x="${cx}" y="${height - 8}" text-anchor="middle" fill="#94a3b8" font-size="8">${p.dateLabel}</text>
+          `;
+        }).join("");
+
+        container.innerHTML = `
+          <svg viewBox="0 0 ${width} ${height}" class="w-full h-full overflow-visible">
+            <!-- 目標カロリー線 (破線) -->
+            <line x1="${padding.left}" y1="${targetY}" x2="${width - padding.right}" y2="${targetY}" stroke="#f59e0b" stroke-dasharray="3,3" stroke-width="1.2"/>
+            <text x="${padding.left - 5}" y="${targetY + 3}" text-anchor="end" fill="#f59e0b" font-size="8">${targetPerDay}</text>
+            <!-- 摂取カロリー折れ線 -->
+            <path d="${pathData}" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            ${dotsHtml}
+          </svg>
+        `;
+      } else if (dashboardChartMode === 'weight') {
+        const weightPoints = displayPoints.filter(p => p.weight !== null);
+        if (weightPoints.length === 0) {
+          container.innerHTML = `
+            <div class="h-full flex flex-col items-center justify-center text-slate-400 text-xs space-y-1.5">
+              <span>この期間の体重記録がまだありません</span>
+              <button type="button" onclick="window.openWeightChartModal && window.openWeightChartModal()"
+                class="px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[10px] font-bold cursor-pointer transition">
+                ⚖️ 今日の体重を記録する
+              </button>
+            </div>
+          `;
+          return;
+        }
+
+        const vals = weightPoints.map(p => p.weight);
+        const minVal = Math.min(...vals) - 0.5;
+        const maxVal = Math.max(...vals) + 0.5;
+        const range = (maxVal - minVal) || 1;
+        const getY = (w) => height - padding.bottom - ((w - minVal) / range) * chartH;
+
+        const pathData = weightPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p.weight)}`).join(" ");
+
+        const dotsHtml = weightPoints.map((p, i) => {
+          const cx = getX(i);
+          const cy = getY(p.weight);
+          return `
+            <circle cx="${cx}" cy="${cy}" r="3.5" fill="#2dd4bf" stroke="#0f172a" stroke-width="2"/>
+            <text x="${cx}" y="${cy - 7}" text-anchor="middle" fill="#2dd4bf" font-size="8.5" font-weight="bold">${p.weight.toFixed(1)}</text>
+            <text x="${cx}" y="${height - 8}" text-anchor="middle" fill="#94a3b8" font-size="8">${p.dateLabel}</text>
+          `;
+        }).join("");
+
+        container.innerHTML = `
+          <svg viewBox="0 0 ${width} ${height}" class="w-full h-full overflow-visible">
+            <line x1="${padding.left}" y1="${getY(minVal)}" x2="${width - padding.right}" y2="${getY(minVal)}" stroke="#334155" stroke-dasharray="2,2"/>
+            <line x1="${padding.left}" y1="${getY(maxVal)}" x2="${width - padding.right}" y2="${getY(maxVal)}" stroke="#334155" stroke-dasharray="2,2"/>
+            <path d="${pathData}" fill="none" stroke="#2dd4bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            ${dotsHtml}
+          </svg>
+        `;
+      }
+    }
+
+    // ==================== 📅 カレンダーグリッド描画 ====================
+    function renderDashboardCalendarGrid(year, month, todayStr, targetPerDay, startDate) {
       const monthLabel = document.getElementById("monthlyCalendarMonthLabel");
       if (monthLabel) monthLabel.textContent = `${year}年 ${month}月`;
 
       const grid = document.getElementById("monthlyCalendarGrid");
       if (!grid) return;
       grid.innerHTML = "";
+
+      const firstDay = new Date(year, month - 1, 1).getDay();
+      const totalDays = new Date(year, month, 0).getDate();
 
       // 曜日ヘッダー
       const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
@@ -5062,50 +5537,26 @@ document.addEventListener("DOMContentLoaded", () => {
         grid.appendChild(empty);
       }
 
-      // 日付セル生成
-      let totalActualCalories = 0;
-      let totalTargetCalories = 0;
-      let recordedDaysCount = 0;
-
-      const targetPerDay = state.targetCalories || 1650;
-
       for (let day = 1; day <= totalDays; day++) {
         const dayStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayCell = document.createElement("div");
-        dayCell.className = "p-1.5 rounded-xl border transition cursor-pointer flex flex-col items-center justify-between min-h-[50px]";
+        dayCell.className = "p-1.5 rounded-xl border transition cursor-pointer flex flex-col items-center justify-between min-h-[46px]";
 
-        // 保存された記録を読み込み
-        let dayRecords = null;
-        try {
-          const raw = localStorage.getItem(`mealai_records_${dayStr}`);
-          if (raw) dayRecords = JSON.parse(raw);
-        } catch (e) { }
-
-        let dayCalories = 0;
-        let hasAnyRecord = false;
-        if (dayRecords) {
-          ['breakfast', 'lunch', 'dinner', 'snack'].forEach(s => {
-            if (dayRecords[s] && dayRecords[s].calories) {
-              dayCalories += dayRecords[s].calories;
-              hasAnyRecord = true;
-            }
-          });
-        }
-
+        const { cals: dayCalories, hasRecord } = getDayCaloriesData(dayStr);
         const isToday = dayStr === todayStr;
+        const isStartDate = dayStr === startDate;
 
-        if (hasAnyRecord) {
-          recordedDaysCount++;
-          totalActualCalories += dayCalories;
-          totalTargetCalories += targetPerDay;
-
+        if (hasRecord) {
           const isUnder = dayCalories <= targetPerDay;
           dayCell.className += isUnder
             ? " bg-emerald-50/80 border-emerald-300 hover:bg-emerald-100"
             : " bg-rose-50/80 border-rose-300 hover:bg-rose-100";
 
           dayCell.innerHTML = `
-            <span class="font-bold text-[11px] ${isToday ? 'text-emerald-700 underline' : 'text-slate-700'}">${day}</span>
+            <div class="flex items-center gap-0.5">
+              <span class="font-bold text-[11px] ${isToday ? 'text-emerald-700 underline' : 'text-slate-700'}">${day}</span>
+              ${isStartDate ? '<span class="text-[8px]" title="開始日">🚩</span>' : ''}
+            </div>
             <span class="text-[9px] font-mono font-bold ${isUnder ? 'text-emerald-700' : 'text-rose-600'}">${dayCalories}</span>
             <span class="w-1.5 h-1.5 rounded-full ${isUnder ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
           `;
@@ -5114,7 +5565,10 @@ document.addEventListener("DOMContentLoaded", () => {
             ? " bg-teal-50/60 border-teal-300 font-bold"
             : " bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-400";
           dayCell.innerHTML = `
-            <span class="text-[11px] ${isToday ? 'text-teal-700 font-bold' : 'text-slate-600'}">${day}</span>
+            <div class="flex items-center gap-0.5">
+              <span class="text-[11px] ${isToday ? 'text-teal-700 font-bold' : 'text-slate-600'}">${day}</span>
+              ${isStartDate ? '<span class="text-[8px]" title="開始日">🚩</span>' : ''}
+            </div>
             <span class="text-[8px] text-slate-300">-</span>
             <span class="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
           `;
@@ -5131,27 +5585,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         grid.appendChild(dayCell);
-      }
-
-      // サマリー計算（累積カロリーカット ＆ 脂肪燃焼量）
-      const netDeficit = totalTargetCalories - totalActualCalories;
-      const fatLostKg = Math.max(0, (netDeficit / 7200)).toFixed(2);
-      const paceGoalKg = Math.abs(parseFloat(state.user.pace) || 2.0);
-
-      const deficitEl = document.getElementById("monthlyDeficitTotal");
-      const fatEl = document.getElementById("monthlyFatLost");
-      const rateEl = document.getElementById("monthlyProgressRate");
-      const goalLabel = document.getElementById("monthlyGoalLabel");
-
-      if (deficitEl) {
-        deficitEl.textContent = netDeficit >= 0 ? `-${netDeficit} kcal` : `+${Math.abs(netDeficit)} kcal`;
-        deficitEl.className = netDeficit >= 0 ? "text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5" : "text-base sm:text-lg font-black text-rose-600 font-mono mt-0.5";
-      }
-      if (fatEl) fatEl.textContent = `約 -${fatLostKg} kg`;
-      if (goalLabel) goalLabel.textContent = `月 -${paceGoalKg}kg 目標`;
-      if (rateEl) {
-        const rate = paceGoalKg > 0 ? Math.min(100, Math.round((parseFloat(fatLostKg) / paceGoalKg) * 100)) : 100;
-        rateEl.textContent = `${rate}%`;
       }
     }
 

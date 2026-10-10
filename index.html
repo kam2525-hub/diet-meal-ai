@@ -1207,15 +1207,15 @@
   <div id="monthlyModal"
     class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
     <div
-      class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
-      <div class="flex items-center justify-between border-b pb-3">
+      class="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-3.5 shadow-2xl max-h-[92vh] flex flex-col overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-2.5">
         <div class="flex items-center space-x-2">
-          <div class="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center text-sm font-bold">
-            <i class="fa-solid fa-calendar-check"></i>
+          <div class="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center text-sm font-bold shrink-0">
+            <i class="fa-solid fa-chart-line"></i>
           </div>
           <div>
-            <h2 class="text-sm sm:text-base font-bold text-slate-800" id="monthlyModalTitle">今月の減量ダッシュボード</h2>
-            <p class="text-[10px] sm:text-[11px] text-slate-500">1か月のカロリー収支と脂肪燃焼の成果</p>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800" id="monthlyModalTitle">減量成果ダッシュボード</h2>
+            <p class="text-[10px] sm:text-[11px] text-slate-500" id="monthlyModalSubtitle">ダイエット開始日からのカロリー収支と推移</p>
           </div>
         </div>
         <button id="closeMonthlyBtn"
@@ -1224,31 +1224,94 @@
         </button>
       </div>
 
-      <!-- 月間サマリーカード -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-        <div class="bg-teal-50 p-3 rounded-2xl border border-teal-200">
-          <div class="text-[10px] font-bold text-teal-800">🔥 累積カット量</div>
-          <div class="text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5" id="monthlyDeficitTotal">-0 kcal
-          </div>
-          <div class="text-[9px] text-teal-600">目標に対する赤字分</div>
+      <!-- 🚀 期間切り替え ＆ 開始日コントロールバー -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl">
+        <!-- 期間切り替えピルボタン -->
+        <div class="flex items-center bg-slate-200/80 p-0.5 rounded-xl text-xs font-bold shrink-0">
+          <button type="button" id="dashboardRangeSinceStartBtn"
+            class="px-2.5 py-1 rounded-lg bg-white text-emerald-800 shadow-2xs transition cursor-pointer flex items-center gap-1">
+            <span>🚀 開始日から</span>
+          </button>
+          <button type="button" id="dashboardRangeThisMonthBtn"
+            class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-800 transition cursor-pointer flex items-center gap-1">
+            <span>📅 今月</span>
+          </button>
         </div>
-        <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+        <!-- 開始日情報 ＆ 日付変更ボタン -->
+        <div class="flex items-center justify-between sm:justify-end gap-1.5 text-[11px] text-slate-600">
+          <span class="flex items-center gap-1 font-medium">
+            <i class="fa-solid fa-flag-checkered text-emerald-600"></i>
+            <span id="dashboardStartDateBadge" class="font-bold text-slate-700">開始: 2026/10/01 (1日目)</span>
+          </span>
+          <button type="button" id="changeStartDateBtn"
+            class="text-[10px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg font-bold transition cursor-pointer shadow-2xs">
+            変更
+          </button>
+          <input type="date" id="hiddenStartDateInput" class="hidden">
+        </div>
+      </div>
+
+      <!-- サマリーカード（4分割） -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+        <div class="bg-teal-50 p-2.5 rounded-2xl border border-teal-200 flex flex-col justify-between">
+          <div class="text-[10px] font-bold text-teal-800">🔥 累積カット量</div>
+          <div class="text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5" id="monthlyDeficitTotal">-0 kcal</div>
+          <div class="text-[9px] text-teal-600" id="monthlyDeficitSub">目標に対する赤字分</div>
+        </div>
+        <div class="bg-emerald-50 p-2.5 rounded-2xl border border-emerald-200 flex flex-col justify-between">
           <div class="text-[10px] font-bold text-emerald-800">⚖️ 推定脂肪燃焼</div>
-          <div class="text-base sm:text-lg font-black text-emerald-700 font-mono mt-0.5" id="monthlyFatLost">-0.0 kg
-          </div>
+          <div class="text-base sm:text-lg font-black text-emerald-700 font-mono mt-0.5" id="monthlyFatLost">-0.00 kg</div>
           <div class="text-[9px] text-emerald-600">約7,200kcalで1kg減</div>
         </div>
-        <div class="col-span-2 sm:col-span-1 bg-amber-50 p-3 rounded-2xl border border-amber-200">
-          <div class="text-[10px] font-bold text-amber-800">🎯 今月の目標達成率</div>
+        <div class="bg-indigo-50 p-2.5 rounded-2xl border border-indigo-200 flex flex-col justify-between">
+          <div class="text-[10px] font-bold text-indigo-800">⚡ 1日平均カット</div>
+          <div class="text-base sm:text-lg font-black text-indigo-700 font-mono mt-0.5" id="monthlyDailyAvgDeficit">-0 kcal</div>
+          <div class="text-[9px] text-indigo-600" id="monthlyDailyAvgSub">日々の平均ペース</div>
+        </div>
+        <div class="bg-amber-50 p-2.5 rounded-2xl border border-amber-200 flex flex-col justify-between">
+          <div class="text-[10px] font-bold text-amber-800">🎯 目標達成率</div>
           <div class="text-base sm:text-lg font-black text-amber-700 font-mono mt-0.5" id="monthlyProgressRate">0%</div>
           <div class="text-[9px] text-amber-600" id="monthlyGoalLabel">月 -2.0kg 目標</div>
+        </div>
+      </div>
+
+      <!-- 📈 折れ線グラフセクション -->
+      <div class="space-y-1.5 p-3 bg-slate-900 text-white rounded-2xl shadow-inner border border-slate-800">
+        <div class="flex items-center justify-between text-xs">
+          <div class="flex items-center space-x-1.5 min-w-0">
+            <span class="font-bold text-white flex items-center gap-1 shrink-0">
+              <i class="fa-solid fa-chart-line text-emerald-400"></i>
+              <span id="chartTypeTitle">累積カット推移</span>
+            </span>
+            <span class="text-[10px] text-slate-400 truncate" id="chartRangeSubtitle">（開始日〜今日）</span>
+          </div>
+          <!-- グラフ種別切り替えタブ -->
+          <div class="flex items-center bg-slate-800 p-0.5 rounded-lg text-[10px] font-bold shrink-0">
+            <button type="button" id="chartTabDeficitBtn"
+              class="px-2 py-0.5 rounded bg-emerald-600 text-white transition cursor-pointer">累積カット</button>
+            <button type="button" id="chartTabDailyBtn"
+              class="px-2 py-0.5 rounded text-slate-400 hover:text-white transition cursor-pointer">日別カロリー</button>
+            <button type="button" id="chartTabWeightBtn"
+              class="px-2 py-0.5 rounded text-slate-400 hover:text-white transition cursor-pointer">体重</button>
+          </div>
+        </div>
+        <!-- SVGグラフ描画エリア -->
+        <div id="dashboardSvgChartContainer" class="w-full h-40 sm:h-44 pt-1">
+          <!-- JSでSVG描画 -->
+        </div>
+        <div class="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-800/80">
+          <div id="chartLegendContainer" class="flex items-center gap-3">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>累積カット</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-slate-500 inline-block"></span>基準 (0kcal)</span>
+          </div>
+          <span id="chartSummaryHint" class="text-[9px]">※毎日の記録から自動プロット</span>
         </div>
       </div>
 
       <!-- 1か月のカレンダーグリッド -->
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-xs">
-          <span class="font-bold text-slate-700" id="monthlyCalendarMonthLabel">2026年 9月</span>
+          <span class="font-bold text-slate-700" id="monthlyCalendarMonthLabel">2026年 10月</span>
           <span class="text-[10px] text-slate-500">日付をタップするとその日の記録へジャンプ</span>
         </div>
         <div id="monthlyCalendarGrid" class="grid grid-cols-7 gap-1 text-center text-xs">
