@@ -5260,54 +5260,122 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
-      // サマリー計算
+      // 🎯 ユーザー要望に直結した2大指標の計算（1日あたりのカロリー収支 ＆ 1日に痩せた体重）
       const netDeficit = totalTargetCalories - totalActualCalories;
-      const fatLostKg = (netDeficit / 7200).toFixed(2);
       const avgDeficitPerDay = recordedDaysCount > 0 ? Math.round(netDeficit / recordedDaysCount) : 0;
 
-      // サマリーカードへ反映
-      const deficitEl = document.getElementById("monthlyDeficitTotal");
-      const deficitSubEl = document.getElementById("monthlyDeficitSub");
-      const fatEl = document.getElementById("monthlyFatLost");
-      const avgEl = document.getElementById("monthlyDailyAvgDeficit");
-      const avgSubEl = document.getElementById("monthlyDailyAvgSub");
-      const rateEl = document.getElementById("monthlyProgressRate");
-      const goalLabel = document.getElementById("monthlyGoalLabel");
+      // ① 1日のカロリー（オーバーしたか／低下・カットしたか）
+      const dailyCalNumber = document.getElementById("dailyCalorieNumber");
+      const dailyCalSub = document.getElementById("dailyCalorieSub");
+      const dailyCalBadge = document.getElementById("dailyCalorieStatusBadge");
+      const dailyCalCard = document.getElementById("cardDailyCalorieStatus");
+      const totalCalDeficitLabel = document.getElementById("totalCalorieDeficitLabel");
+      const recordedDaysLabel = document.getElementById("recordedDaysLabel");
 
-      if (deficitEl) {
-        deficitEl.textContent = netDeficit >= 0 ? `-${netDeficit.toLocaleString()} kcal` : `+${Math.abs(netDeficit).toLocaleString()} kcal`;
-        deficitEl.className = netDeficit >= 0
-          ? "text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5"
-          : "text-base sm:text-lg font-black text-rose-600 font-mono mt-0.5";
+      if (dailyCalNumber) {
+        if (avgDeficitPerDay >= 0) {
+          // 目標以内（低下・カット成功）
+          dailyCalNumber.textContent = `-${avgDeficitPerDay.toLocaleString()} kcal`;
+          dailyCalNumber.className = "text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-700";
+          if (dailyCalSub) dailyCalSub.textContent = `1日あたり約 ${avgDeficitPerDay} kcal 低下（カット成功）`;
+          if (dailyCalBadge) {
+            dailyCalBadge.textContent = "目標内（低下中）";
+            dailyCalBadge.className = "text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200";
+          }
+          if (dailyCalCard) {
+            dailyCalCard.className = "bg-gradient-to-br from-emerald-50/90 to-teal-50/60 p-3 sm:p-3.5 rounded-2xl border border-emerald-200 flex flex-col justify-between shadow-2xs";
+          }
+        } else {
+          // 目標超過（オーバー）
+          const overCal = Math.abs(avgDeficitPerDay);
+          dailyCalNumber.textContent = `+${overCal.toLocaleString()} kcal`;
+          dailyCalNumber.className = "text-2xl sm:text-3xl font-black font-mono tracking-tight text-rose-600";
+          if (dailyCalSub) dailyCalSub.textContent = `1日あたり約 ${overCal} kcal 目標オーバー`;
+          if (dailyCalBadge) {
+            dailyCalBadge.textContent = "目標超過（オーバー）";
+            dailyCalBadge.className = "text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800 border border-rose-200";
+          }
+          if (dailyCalCard) {
+            dailyCalCard.className = "bg-gradient-to-br from-rose-50/90 to-amber-50/60 p-3 sm:p-3.5 rounded-2xl border border-rose-200 flex flex-col justify-between shadow-2xs";
+          }
+        }
       }
-      if (deficitSubEl) {
-        deficitSubEl.textContent = dashboardRangeMode === 'since_start'
-          ? `開始から${recordedDaysCount}日記録`
-          : `今月${recordedDaysCount}日記録`;
+
+      if (totalCalDeficitLabel) {
+        totalCalDeficitLabel.textContent = `通算合計: ${netDeficit >= 0 ? `-${netDeficit.toLocaleString()}` : `+${Math.abs(netDeficit).toLocaleString()}`} kcal`;
       }
-      if (fatEl) {
-        fatEl.textContent = parseFloat(fatLostKg) >= 0 ? `約 -${fatLostKg} kg` : `約 +${Math.abs(parseFloat(fatLostKg))} kg`;
-        fatEl.className = parseFloat(fatLostKg) >= 0
-          ? "text-base sm:text-lg font-black text-emerald-700 font-mono mt-0.5"
-          : "text-base sm:text-lg font-black text-rose-600 font-mono mt-0.5";
+      if (recordedDaysLabel) {
+        recordedDaysLabel.textContent = `${recordedDaysCount}日間記録`;
       }
-      if (avgEl) {
-        avgEl.textContent = avgDeficitPerDay >= 0 ? `-${avgDeficitPerDay} kcal/日` : `+${Math.abs(avgDeficitPerDay)} kcal/日`;
-        avgEl.className = avgDeficitPerDay >= 0
-          ? "text-base sm:text-lg font-black text-indigo-700 font-mono mt-0.5"
-          : "text-base sm:text-lg font-black text-rose-600 font-mono mt-0.5";
+
+      // ② 1日に痩せた体重（kg）の計算（実測体重またはカロリー収支から高精度算出）
+      const dailyWeightNumber = document.getElementById("dailyWeightNumber");
+      const dailyWeightSub = document.getElementById("dailyWeightSub");
+      const dailyWeightBadge = document.getElementById("dailyWeightStatusBadge");
+      const dailyWeightCard = document.getElementById("cardDailyWeightStatus");
+      const totalWeightLossLabel = document.getElementById("totalWeightLossLabel");
+      const weightSourceHint = document.getElementById("weightSourceHint");
+
+      // 体重データがあるかチェック
+      const weightPointsInPeriod = dailyDataPoints.filter(p => p.weight !== null);
+      let dailyLossKg = 0;
+      let totalLossKg = 0;
+      let isActualWeight = false;
+
+      if (weightPointsInPeriod.length >= 2) {
+        // 実測データが2点以上ある場合
+        const firstWeight = weightPointsInPeriod[0].weight;
+        const lastWeight = weightPointsInPeriod[weightPointsInPeriod.length - 1].weight;
+        const diffKg = Number((firstWeight - lastWeight).toFixed(2)); // プラスなら減量
+        totalLossKg = diffKg;
+
+        const firstDateObj = new Date(weightPointsInPeriod[0].date);
+        const lastDateObj = new Date(weightPointsInPeriod[weightPointsInPeriod.length - 1].date);
+        const daysDiffBetweenWeights = Math.max(1, Math.round((lastDateObj - firstDateObj) / (1000 * 60 * 60 * 24)));
+        dailyLossKg = Number((diffKg / daysDiffBetweenWeights).toFixed(2));
+        isActualWeight = true;
+      } else {
+        // カロリー収支からの高精度換算（7,200kcal = 1kg）
+        const estTotalKg = Number((netDeficit / 7200).toFixed(2));
+        totalLossKg = estTotalKg;
+        dailyLossKg = recordedDaysCount > 0 ? Number(((netDeficit / recordedDaysCount) / 7200).toFixed(2)) : 0;
+        isActualWeight = false;
       }
-      if (avgSubEl) {
-        avgSubEl.textContent = avgDeficitPerDay >= 300 ? "🔥 順調な燃焼ペース！" : (avgDeficitPerDay >= 0 ? "✨ 目標キープ中" : "⚠️ 少し食べ過ぎ傾向");
+
+      if (dailyWeightNumber) {
+        if (dailyLossKg >= 0) {
+          // 減量中（体重低下成功）
+          dailyWeightNumber.textContent = `-${dailyLossKg.toFixed(2)} kg / 日`;
+          dailyWeightNumber.className = "text-2xl sm:text-3xl font-black font-mono tracking-tight text-teal-700";
+          if (dailyWeightSub) dailyWeightSub.textContent = `1日あたり約 ${dailyLossKg.toFixed(2)} kg ペースで減量`;
+          if (dailyWeightBadge) {
+            dailyWeightBadge.textContent = "順調に減量中";
+            dailyWeightBadge.className = "text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800 border border-teal-200";
+          }
+          if (dailyWeightCard) {
+            dailyWeightCard.className = "bg-gradient-to-br from-teal-50/90 to-cyan-50/60 p-3 sm:p-3.5 rounded-2xl border border-teal-200 flex flex-col justify-between shadow-2xs";
+          }
+        } else {
+          // 体重増加傾向
+          const gainKg = Math.abs(dailyLossKg);
+          dailyWeightNumber.textContent = `+${gainKg.toFixed(2)} kg / 日`;
+          dailyWeightNumber.className = "text-2xl sm:text-3xl font-black font-mono tracking-tight text-amber-700";
+          if (dailyWeightSub) dailyWeightSub.textContent = `1日あたり約 ${gainKg.toFixed(2)} kg 増加ペース`;
+          if (dailyWeightBadge) {
+            dailyWeightBadge.textContent = "体重増加傾向";
+            dailyWeightBadge.className = "text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200";
+          }
+          if (dailyWeightCard) {
+            dailyWeightCard.className = "bg-gradient-to-br from-amber-50/90 to-orange-50/60 p-3 sm:p-3.5 rounded-2xl border border-amber-200 flex flex-col justify-between shadow-2xs";
+          }
+        }
       }
-      if (goalLabel) {
-        goalLabel.textContent = `ペース: 月 -${paceGoalKg}kg`;
+
+      if (totalWeightLossLabel) {
+        totalWeightLossLabel.textContent = `通算変化: ${totalLossKg >= 0 ? `-${totalLossKg.toFixed(1)}` : `+${Math.abs(totalLossKg).toFixed(1)}`} kg`;
       }
-      if (rateEl) {
-        // 目標進捗率
-        const targetCutTotal = paceGoalKg * 7200 * (dashboardRangeMode === 'since_start' ? (daysPassed / 30) : 1);
-        const rate = targetCutTotal > 0 ? Math.min(999, Math.round((netDeficit / targetCutTotal) * 100)) : 100;
-        rateEl.textContent = `${Math.max(0, rate)}%`;
+      if (weightSourceHint) {
+        weightSourceHint.textContent = isActualWeight ? "実測体重ベース" : "カロリー換算推計";
       }
 
       // 📈 折れ線グラフを描画

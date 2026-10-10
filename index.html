@@ -1251,27 +1251,60 @@
         </div>
       </div>
 
-      <!-- サマリーカード（4分割） -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-        <div class="bg-teal-50 p-2.5 rounded-2xl border border-teal-200 flex flex-col justify-between">
-          <div class="text-[10px] font-bold text-teal-800">🔥 累積カット量</div>
-          <div class="text-base sm:text-lg font-black text-teal-700 font-mono mt-0.5" id="monthlyDeficitTotal">-0 kcal</div>
-          <div class="text-[9px] text-teal-600" id="monthlyDeficitSub">目標に対する赤字分</div>
+      <!-- 🎯 メインサマリーカード（1日のカロリー収支 ＆ 1日に痩せた体重の2大指標に厳選） -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+        <!-- ① 1日に何カロリーオーバーしたか／低下（カット）したか -->
+        <div id="cardDailyCalorieStatus"
+          class="bg-gradient-to-br from-emerald-50/90 to-teal-50/60 p-3 sm:p-3.5 rounded-2xl border border-emerald-200 flex flex-col justify-between shadow-2xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+              <span id="dailyCalorieIcon">🔥</span>
+              <span>1日のカロリー収支</span>
+            </span>
+            <span id="dailyCalorieStatusBadge"
+              class="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              目標内（低下中）
+            </span>
+          </div>
+          <div class="my-2">
+            <div class="text-2xl sm:text-3xl font-black font-mono tracking-tight text-emerald-700" id="dailyCalorieNumber">
+              -320 kcal
+            </div>
+            <div class="text-[10px] sm:text-[11px] font-bold text-emerald-700 mt-0.5" id="dailyCalorieSub">
+              1日あたり約 320 kcal 低下（カット成功）
+            </div>
+          </div>
+          <div class="text-[9.5px] text-slate-500 pt-1.5 border-t border-emerald-100/80 flex items-center justify-between">
+            <span id="totalCalorieDeficitLabel" class="font-medium">通算合計: -1,280 kcal</span>
+            <span id="recordedDaysLabel" class="font-medium text-slate-600">4日間記録</span>
+          </div>
         </div>
-        <div class="bg-emerald-50 p-2.5 rounded-2xl border border-emerald-200 flex flex-col justify-between">
-          <div class="text-[10px] font-bold text-emerald-800">⚖️ 推定脂肪燃焼</div>
-          <div class="text-base sm:text-lg font-black text-emerald-700 font-mono mt-0.5" id="monthlyFatLost">-0.00 kg</div>
-          <div class="text-[9px] text-emerald-600">約7,200kcalで1kg減</div>
-        </div>
-        <div class="bg-indigo-50 p-2.5 rounded-2xl border border-indigo-200 flex flex-col justify-between">
-          <div class="text-[10px] font-bold text-indigo-800">⚡ 1日平均カット</div>
-          <div class="text-base sm:text-lg font-black text-indigo-700 font-mono mt-0.5" id="monthlyDailyAvgDeficit">-0 kcal</div>
-          <div class="text-[9px] text-indigo-600" id="monthlyDailyAvgSub">日々の平均ペース</div>
-        </div>
-        <div class="bg-amber-50 p-2.5 rounded-2xl border border-amber-200 flex flex-col justify-between">
-          <div class="text-[10px] font-bold text-amber-800">🎯 目標達成率</div>
-          <div class="text-base sm:text-lg font-black text-amber-700 font-mono mt-0.5" id="monthlyProgressRate">0%</div>
-          <div class="text-[9px] text-amber-600" id="monthlyGoalLabel">月 -2.0kg 目標</div>
+
+        <!-- ② 1日に痩せた体重（kg） -->
+        <div id="cardDailyWeightStatus"
+          class="bg-gradient-to-br from-teal-50/90 to-cyan-50/60 p-3 sm:p-3.5 rounded-2xl border border-teal-200 flex flex-col justify-between shadow-2xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+              <span>⚖️</span>
+              <span>1日に痩せた体重</span>
+            </span>
+            <span id="dailyWeightStatusBadge"
+              class="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800 border border-teal-200">
+              順調に減量中
+            </span>
+          </div>
+          <div class="my-2">
+            <div class="text-2xl sm:text-3xl font-black font-mono tracking-tight text-teal-700" id="dailyWeightNumber">
+              -0.12 kg / 日
+            </div>
+            <div class="text-[10px] sm:text-[11px] font-bold text-teal-700 mt-0.5" id="dailyWeightSub">
+              1日あたり約 0.12 kg ペースで減量
+            </div>
+          </div>
+          <div class="text-[9.5px] text-slate-500 pt-1.5 border-t border-teal-100/80 flex items-center justify-between">
+            <span id="totalWeightLossLabel" class="font-medium">開始から通算: -0.5 kg</span>
+            <span id="weightSourceHint" class="font-medium text-teal-700">実測体重ベース</span>
+          </div>
         </div>
       </div>
 
@@ -1281,18 +1314,18 @@
           <div class="flex items-center space-x-1.5 min-w-0">
             <span class="font-bold text-white flex items-center gap-1 shrink-0">
               <i class="fa-solid fa-chart-line text-emerald-400"></i>
-              <span id="chartTypeTitle">累積カット推移</span>
+              <span id="chartTypeTitle">日別カロリー推移</span>
             </span>
             <span class="text-[10px] text-slate-400 truncate" id="chartRangeSubtitle">（開始日〜今日）</span>
           </div>
-          <!-- グラフ種別切り替えタブ -->
+          <!-- グラフ種別切り替えタブ（カロリー推移 ＆ 体重推移に整理） -->
           <div class="flex items-center bg-slate-800 p-0.5 rounded-lg text-[10px] font-bold shrink-0">
-            <button type="button" id="chartTabDeficitBtn"
-              class="px-2 py-0.5 rounded bg-emerald-600 text-white transition cursor-pointer">累積カット</button>
             <button type="button" id="chartTabDailyBtn"
-              class="px-2 py-0.5 rounded text-slate-400 hover:text-white transition cursor-pointer">日別カロリー</button>
+              class="px-2.5 py-0.5 rounded bg-emerald-600 text-white transition cursor-pointer">日別カロリー</button>
+            <button type="button" id="chartTabDeficitBtn"
+              class="px-2.5 py-0.5 rounded text-slate-400 hover:text-white transition cursor-pointer">累積カット</button>
             <button type="button" id="chartTabWeightBtn"
-              class="px-2 py-0.5 rounded text-slate-400 hover:text-white transition cursor-pointer">体重</button>
+              class="px-2.5 py-0.5 rounded text-slate-400 hover:text-white transition cursor-pointer">体重</button>
           </div>
         </div>
         <!-- SVGグラフ描画エリア -->
@@ -1301,10 +1334,10 @@
         </div>
         <div class="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-800/80">
           <div id="chartLegendContainer" class="flex items-center gap-3">
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>累積カット</span>
-            <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-slate-500 inline-block"></span>基準 (0kcal)</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-400 inline-block"></span>摂取カロリー</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-amber-400 inline-block border-t border-dashed"></span>目標ライン</span>
           </div>
-          <span id="chartSummaryHint" class="text-[9px]">※毎日の記録から自動プロット</span>
+          <span id="chartSummaryHint" class="text-[9px]">※目標線より下が低下（カット成功）</span>
         </div>
       </div>
 
