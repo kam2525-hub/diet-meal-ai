@@ -5189,36 +5189,14 @@ document.addEventListener("DOMContentLoaded", () => {
         startDateBadge.textContent = `開始: ${startDate.replace(/-/g, '/')} (${daysPassed}日目)`;
       }
 
-      // 期間切り替えボタンの見た目更新
-      const rangeSinceStartBtn = document.getElementById("dashboardRangeSinceStartBtn");
-      const rangeThisMonthBtn = document.getElementById("dashboardRangeThisMonthBtn");
+      // サブタイトル ＆ グラフ期間表示の更新（開始日から通算）
       const modalSubtitle = document.getElementById("monthlyModalSubtitle");
       const chartRangeSubtitle = document.getElementById("chartRangeSubtitle");
+      if (modalSubtitle) modalSubtitle.textContent = `ダイエット開始日(${startDate.replace(/-/g, '/')})からの成果と推移`;
+      if (chartRangeSubtitle) chartRangeSubtitle.textContent = `（開始日〜今日・${daysPassed}日間）`;
 
-      if (rangeSinceStartBtn && rangeThisMonthBtn) {
-        if (dashboardRangeMode === 'since_start') {
-          rangeSinceStartBtn.className = "px-2.5 py-1 rounded-lg bg-white text-emerald-800 shadow-2xs transition cursor-pointer font-black";
-          rangeThisMonthBtn.className = "px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-800 transition cursor-pointer font-bold";
-          if (modalSubtitle) modalSubtitle.textContent = `ダイエット開始日(${startDate.replace(/-/g, '/')})からの通算成果と推移`;
-          if (chartRangeSubtitle) chartRangeSubtitle.textContent = `（開始日〜今日・${daysPassed}日間）`;
-        } else {
-          rangeThisMonthBtn.className = "px-2.5 py-1 rounded-lg bg-white text-emerald-800 shadow-2xs transition cursor-pointer font-black";
-          rangeSinceStartBtn.className = "px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-800 transition cursor-pointer font-bold";
-          if (modalSubtitle) modalSubtitle.textContent = `${ty}年${tm}月のカロリー収支と推移`;
-          if (chartRangeSubtitle) chartRangeSubtitle.textContent = `（今月 1日〜${td}日）`;
-        }
-      }
-
-      // 集計対象の日付リストを生成
-      let targetRangeDates = [];
-      if (dashboardRangeMode === 'since_start') {
-        // 開始日 〜 今日
-        targetRangeDates = getDaysListBetween(startDate, todayStr);
-      } else {
-        // 当月1日 〜 今日
-        const firstDayOfMonth = `${ty}-${String(tm).padStart(2, '0')}-01`;
-        targetRangeDates = getDaysListBetween(firstDayOfMonth, todayStr);
-      }
+      // 集計対象の日付リストを生成（開始日 〜 今日）
+      const targetRangeDates = getDaysListBetween(startDate, todayStr);
 
       // 集計処理
       let totalActualCalories = 0;

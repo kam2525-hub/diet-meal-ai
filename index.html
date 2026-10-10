@@ -1224,28 +1224,25 @@
         </button>
       </div>
 
-      <!-- 🚀 期間切り替え ＆ 開始日コントロールバー -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl">
-        <!-- 期間切り替えピルボタン -->
-        <div class="flex items-center bg-slate-200/80 p-0.5 rounded-xl text-xs font-bold shrink-0">
-          <button type="button" id="dashboardRangeSinceStartBtn"
-            class="px-2.5 py-1 rounded-lg bg-white text-emerald-800 shadow-2xs transition cursor-pointer flex items-center gap-1">
-            <span>🚀 開始日から</span>
-          </button>
-          <button type="button" id="dashboardRangeThisMonthBtn"
-            class="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-800 transition cursor-pointer flex items-center gap-1">
-            <span>📅 今月</span>
-          </button>
-        </div>
-        <!-- 開始日情報 ＆ 日付変更ボタン -->
-        <div class="flex items-center justify-between sm:justify-end gap-1.5 text-[11px] text-slate-600">
-          <span class="flex items-center gap-1 font-medium">
-            <i class="fa-solid fa-flag-checkered text-emerald-600"></i>
-            <span id="dashboardStartDateBadge" class="font-bold text-slate-700">開始: 2026/10/01 (1日目)</span>
+      <!-- 🚩 集計期間コントロールバー（始めた日からを標準・初期設定として計算） -->
+      <div class="flex items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl">
+        <div class="flex items-center gap-2 text-xs min-w-0">
+          <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0">
+            <i class="fa-solid fa-flag-checkered"></i>
           </span>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-[10px] text-slate-500 font-bold">集計期間:</span>
+              <span id="dashboardStartDateBadge" class="text-xs font-black text-slate-800">開始: 2026/10/01 (1日目)</span>
+            </div>
+            <p class="text-[10px] text-emerald-700 font-medium truncate">始めた日からの成果を自動集計中</p>
+          </div>
+        </div>
+        <div class="shrink-0">
           <button type="button" id="changeStartDateBtn"
-            class="text-[10px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg font-bold transition cursor-pointer shadow-2xs">
-            変更
+            class="text-[11px] text-emerald-700 bg-white hover:bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-xl font-bold transition cursor-pointer shadow-2xs flex items-center gap-1">
+            <i class="fa-regular fa-calendar-days text-[10px]"></i>
+            開始日変更
           </button>
           <input type="date" id="hiddenStartDateInput" class="hidden">
         </div>
