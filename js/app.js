@@ -520,11 +520,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (badgeEl) badgeEl.textContent = `${slotLabel}の記録（写真${imgs.length}枚）`;
 
     listEl.innerHTML = imgs.map((imgSrc, idx) => {
-      // 紐づく品目
+      // 1. photoDetails が存在する場合は写真インデックスに直結した正確なマスターデータとして参照
+      const detail = (record.photoDetails && record.photoDetails.find(d => d.idx === idx)) || null;
+
+      // 2. 紐づく品目
       const associatedItems = items.filter(it => it.photoIndex === idx);
       let itemsText = "";
       let approxCal = 0;
-      if (associatedItems.length > 0) {
+
+      if (detail && detail.calories > 0) {
+        approxCal = detail.calories;
+        if (associatedItems.length > 0) {
+          itemsText = associatedItems.map(it => `${it.icon || '🥢'} ${it.name}`).join(", ");
+        } else {
+          itemsText = detail.name || (idx === 0 ? (record.baseName || record.name.split(" ＋ ")[0]) : `追加写真 #${idx + 1}`);
+        }
+      } else if (associatedItems.length > 0) {
         itemsText = associatedItems.map(it => `${it.icon || '🥢'} ${it.name}`).join(", ");
         approxCal = associatedItems.reduce((s, it) => s + (it.calories || 0), 0);
       } else if (items.length > 0 && imgs.length > 0) {
@@ -534,11 +545,11 @@ document.addEventListener("DOMContentLoaded", () => {
           itemsText = sliced.map(it => `${it.icon || '🥢'} ${it.name}`).join(", ");
           approxCal = sliced.reduce((s, it) => s + (it.calories || 0), 0);
         } else {
-          itemsText = `写真 #${idx + 1} のメニュー`;
+          itemsText = detail ? detail.name : `写真 #${idx + 1} のメニュー`;
           approxCal = Math.round(record.calories / imgs.length);
         }
       } else {
-        itemsText = idx === 0 ? record.name : `追加写真 #${idx + 1}`;
+        itemsText = idx === 0 ? (record.baseName || record.name.split(" ＋ ")[0]) : `追加写真 #${idx + 1}`;
         approxCal = Math.round(record.calories / Math.max(1, imgs.length));
       }
 
@@ -623,12 +634,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // photoDetails からの減算
+    // photoDetails からの減算（写真ごとのマスターカロリーを最優先適用）
     if (record.photoDetails && record.photoDetails.length > photoIdx) {
       const removedDetail = record.photoDetails.splice(photoIdx, 1)[0];
-      if (removedCal === 0 && removedDetail) {
-        removedCal = removedDetail.calories || 0;
-        removedDishName = removedDetail.name || "";
+      if (removedDetail && removedDetail.calories > 0) {
+        removedCal = removedDetail.calories;
+        removedDishName = removedDetail.name || removedDishName;
       }
       record.photoDetails.forEach((d, i) => { d.idx = i; });
     }
@@ -1818,6 +1829,7 @@ document.addEventListener("DOMContentLoaded", () => {
           baseC: record.c,
           img: record.img || null,
           imgs: record.imgs ? [...record.imgs] : (record.img ? [record.img] : []),
+          photoDetails: record.photoDetails ? JSON.parse(JSON.stringify(record.photoDetails)) : null,
           icon: record.icon || "🍽️",
           soupLevel: record.soupLevel || 'all'
         };
@@ -3511,11 +3523,11 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       }
 
-      // 写真配列を初期化（複数写真対応）
+      // 写真配列を初期化（複数写真対応：必ず時系列順に末尾追加）
       if (!currentScanItem.imgs) {
         currentScanItem.imgs = [imageSrc];
       } else if (!currentScanItem.imgs.includes(imageSrc)) {
-        currentScanItem.imgs.unshift(imageSrc);
+        currentScanItem.imgs.push(imageSrc);
       }
 
       scanOverlay.classList.add("hidden");
@@ -3596,7 +3608,8 @@ document.addEventListener("DOMContentLoaded", () => {
         : {
             ...currentScanItem,
             items: currentScanItem.items ? JSON.parse(JSON.stringify(currentScanItem.items)) : [],
-            imgs: currentScanItem.imgs ? [...currentScanItem.imgs] : (currentScanItem.img ? [currentScanItem.img] : [])
+            imgs: currentScanItem.imgs ? [...currentScanItem.imgs] : (currentScanItem.img ? [currentScanItem.img] : []),
+            photoDetails: currentScanItem.photoDetails ? JSON.parse(JSON.stringify(currentScanItem.photoDetails)) : null
           };
 
       // 2. ランチャーやカメラコンテナを完全に隠す
@@ -3726,24 +3739,56 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 写真ごとの詳細履歴（カロリー・料理名）を保持して正確な減算を保証
       parent.photoDetails = parent.photoDetails || [];
+      const photo0Items = parent.items.filter(it => it.photoIndex === 0);
+      const photo0Cal = photo0Items.length > 0
+        ? photo0Items.reduce((s, it) => s + (it.calories || 0), 0)
+        : (parent.baseCalories || parent.calories);
+      const photo0Name = photo0Items.length > 0
+        ? photo0Items.map(it => it.name).join(", ")
+        : (parent.baseName || parent.name.split(" ＋ ")[0]);
+
       if (parent.photoDetails.length === 0) {
         parent.photoDetails.push({
           idx: 0,
-          name: parent.baseName || parent.name.split(" ＋ ")[0],
-          calories: parent.baseCalories || parent.calories,
+          name: photo0Name,
+          calories: photo0Cal,
           p: parent.baseP || parent.p,
           f: parent.baseF || parent.f,
           c: parent.baseC || parent.c
         });
+      } else {
+        const d0 = parent.photoDetails.find(d => d.idx === 0);
+        if (d0) {
+          d0.calories = photo0Cal;
+          if (!d0.name) d0.name = photo0Name;
+        }
       }
-      parent.photoDetails.push({
-        idx: appendPhotoIndex,
-        name: addedName,
-        calories: added.calories,
-        p: added.p,
-        f: added.f,
-        c: added.c
-      });
+
+      const addedItemsInParent = parent.items.filter(it => it.photoIndex === appendPhotoIndex);
+      const addedCal = addedItemsInParent.length > 0
+        ? addedItemsInParent.reduce((s, it) => s + (it.calories || 0), 0)
+        : added.calories;
+      const addedText = addedItemsInParent.length > 0
+        ? addedItemsInParent.map(it => it.name).join(", ")
+        : addedName;
+
+      const existingDetail = parent.photoDetails.find(d => d.idx === appendPhotoIndex);
+      if (existingDetail) {
+        existingDetail.name = addedText;
+        existingDetail.calories = addedCal;
+        existingDetail.p = added.p;
+        existingDetail.f = added.f;
+        existingDetail.c = added.c;
+      } else {
+        parent.photoDetails.push({
+          idx: appendPhotoIndex,
+          name: addedText,
+          calories: addedCal,
+          p: added.p,
+          f: added.f,
+          c: added.c
+        });
+      }
 
       // 4. 親の食事を currentScanItem に戻す
       currentScanItem = parent;
@@ -4285,8 +4330,9 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshStep2Displays();
       updatePortionControlUI();
 
-      // ラーメンのみスープ量調整を表示（ラーメン以外の料理・定食・チキン等では絶対に出さない）
-      const isRamen = isRamenOnlyDish(currentScanItem.name);
+      // ラーメンのみスープ量調整を表示（※複数写真合算時は全体カロリー破壊を防ぐため非表示または全体上書きを抑制）
+      const hasMultiplePhotos = (currentScanItem.imgs && currentScanItem.imgs.length > 1) || (currentScanItem.name && currentScanItem.name.includes(" ＋ "));
+      const isRamen = !hasMultiplePhotos && isRamenOnlyDish(currentScanItem.name);
       const soupContainer = document.getElementById("soupOptionContainer");
       if (soupContainer) {
         if (isRamen) {
