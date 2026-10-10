@@ -1230,12 +1230,12 @@
           <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0">
             <i class="fa-solid fa-flag-checkered"></i>
           </span>
-          <div class="min-w-0">
+          <div id="dashboardStartDateBadgeContainer" class="min-w-0 cursor-pointer group">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-[10px] text-slate-500 font-bold">集計期間:</span>
-              <span id="dashboardStartDateBadge" class="text-xs font-black text-slate-800">開始: 2026/10/01 (1日目)</span>
+              <span id="dashboardStartDateBadge" class="text-xs font-black text-slate-800 group-hover:text-emerald-700 transition">開始: 2026/10/01 (1日目)</span>
             </div>
-            <p class="text-[10px] text-emerald-700 font-medium truncate">始めた日からの成果を自動集計中</p>
+            <p class="text-[10px] text-emerald-700 font-medium truncate">始めた日からの成果を自動集計中（タップで変更）</p>
           </div>
         </div>
         <div class="shrink-0">
@@ -1244,7 +1244,6 @@
             <i class="fa-regular fa-calendar-days text-[10px]"></i>
             開始日変更
           </button>
-          <input type="date" id="hiddenStartDateInput" class="hidden">
         </div>
       </div>
 
@@ -1359,6 +1358,55 @@
               class="w-2 h-2 rounded-full bg-slate-200 inline-block"></span>未記録</span>
         </div>
         <span class="text-[10px]">※データはスマホ内に永続保存されます</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🚩 ダイエット開始日変更モーダル -->
+  <div id="startDateModal"
+    class="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-4 sm:p-5 space-y-3.5 shadow-2xl">
+      <div class="flex items-center justify-between border-b pb-2">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold">
+            <i class="fa-solid fa-flag-checkered"></i>
+          </div>
+          <h3 class="text-sm font-bold text-slate-800">開始日の変更</h3>
+        </div>
+        <button id="closeStartDateModalBtn" type="button"
+          class="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        カロリー収支や減量成果の計算を始める「ダイエット開始日」を選択してください。
+      </p>
+      <!-- 日付ピッカー -->
+      <div class="space-y-1">
+        <label for="modalStartDateInput" class="text-[11px] font-bold text-slate-700 block">開始日</label>
+        <input type="date" id="modalStartDateInput"
+          class="w-full text-sm font-bold p-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition cursor-pointer">
+      </div>
+      <!-- クイック設定ボタン -->
+      <div class="flex items-center gap-2 pt-0.5">
+        <button type="button" id="setEarliestRecordDateBtn"
+          class="flex-1 py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-lg border border-emerald-200 transition text-center cursor-pointer">
+          🌱 初回記録日
+        </button>
+        <button type="button" id="setTodayStartDateBtn"
+          class="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg border border-slate-200 transition text-center cursor-pointer">
+          📅 今日
+        </button>
+      </div>
+      <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
+        <button type="button" id="cancelStartDateModalBtn"
+          class="flex-1 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer">
+          キャンセル
+        </button>
+        <button type="button" id="saveStartDateModalBtn"
+          class="flex-1 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow transition cursor-pointer">
+          保存して反映
+        </button>
       </div>
     </div>
   </div>

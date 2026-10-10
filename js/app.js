@@ -5015,13 +5015,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let dashboardRangeMode = 'since_start'; // 'since_start' (開始日から通算) | 'this_month' (今月)
     let dashboardChartMode = 'deficit'; // 'deficit' (累積カット) | 'daily' (日別カロリー) | 'weight' (体重推移)
 
-    // ダイエット開始日の取得（保存値 -> 最古の記録日 -> 今日の順で自動決定）
-    function getDietStartDate() {
-      const saved = localStorage.getItem("mealai_start_date");
-      if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
-        return saved;
-      }
-      // localStorage 内の最古の食事記録または体重記録を探索
+    // 最古の記録日（食事または体重）を探索
+    function findEarliestRecordDate() {
       const recordDates = [];
       try {
         for (let i = 0; i < localStorage.length; i++) {
@@ -5040,7 +5035,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       recordDates.sort();
-      const earliest = recordDates.length > 0 ? recordDates[0] : (state.currentDate || new Date().toISOString().split("T")[0]);
+      return recordDates.length > 0 ? recordDates[0] : (state.currentDate || new Date().toISOString().split("T")[0]);
+    }
+
+    // ダイエット開始日を取得（保存されていない場合は最古の記録日）
+    function getDietStartDate() {
+      const saved = localStorage.getItem("mealai_start_date");
+      if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
+        return saved;
+      }
+      const earliest = findEarliestRecordDate();
       localStorage.setItem("mealai_start_date", earliest);
       return earliest;
     }
@@ -5114,36 +5118,72 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ダッシュボードの各種コントロールのイベントバインド
     function setupDashboardControls() {
-      const rangeSinceStartBtn = document.getElementById("dashboardRangeSinceStartBtn");
-      const rangeThisMonthBtn = document.getElementById("dashboardRangeThisMonthBtn");
       const changeStartDateBtn = document.getElementById("changeStartDateBtn");
-      const hiddenStartDateInput = document.getElementById("hiddenStartDateInput");
+      const dashboardStartDateBadgeContainer = document.getElementById("dashboardStartDateBadgeContainer");
+      const startDateModal = document.getElementById("startDateModal");
+      const closeStartDateModalBtn = document.getElementById("closeStartDateModalBtn");
+      const cancelStartDateModalBtn = document.getElementById("cancelStartDateModalBtn");
+      const saveStartDateModalBtn = document.getElementById("saveStartDateModalBtn");
+      const modalStartDateInput = document.getElementById("modalStartDateInput");
+      const setEarliestRecordDateBtn = document.getElementById("setEarliestRecordDateBtn");
+      const setTodayStartDateBtn = document.getElementById("setTodayStartDateBtn");
+
       const chartTabDeficitBtn = document.getElementById("chartTabDeficitBtn");
       const chartTabDailyBtn = document.getElementById("chartTabDailyBtn");
       const chartTabWeightBtn = document.getElementById("chartTabWeightBtn");
 
-      if (rangeSinceStartBtn) {
-        rangeSinceStartBtn.onclick = () => {
-          dashboardRangeMode = 'since_start';
-          renderMonthlyDashboard();
-        };
+      function openStartDateModal() {
+        if (!startDateModal) return;
+        const curStart = getDietStartDate();
+        if (modalStartDateInput) {
+          modalStartDateInput.value = curStart;
+          modalStartDateInput.max = state.currentDate || new Date().toISOString().split("T")[0];
+        }
+        startDateModal.classList.remove("hidden");
       }
-      if (rangeThisMonthBtn) {
-        rangeThisMonthBtn.onclick = () => {
-          dashboardRangeMode = 'this_month';
-          renderMonthlyDashboard();
+
+      function closeStartDateModal() {
+        if (startDateModal) startDateModal.classList.add("hidden");
+      }
+
+      if (changeStartDateBtn) {
+        changeStartDateBtn.onclick = openStartDateModal;
+      }
+      if (dashboardStartDateBadgeContainer) {
+        dashboardStartDateBadgeContainer.onclick = openStartDateModal;
+      }
+      if (closeStartDateModalBtn) {
+        closeStartDateModalBtn.onclick = closeStartDateModal;
+      }
+      if (cancelStartDateModalBtn) {
+        cancelStartDateModalBtn.onclick = closeStartDateModal;
+      }
+      if (startDateModal) {
+        startDateModal.onclick = (e) => {
+          if (e.target === startDateModal) closeStartDateModal();
         };
       }
 
-      if (changeStartDateBtn && hiddenStartDateInput) {
-        changeStartDateBtn.onclick = () => {
-          hiddenStartDateInput.value = getDietStartDate();
-          hiddenStartDateInput.showPicker ? hiddenStartDateInput.showPicker() : hiddenStartDateInput.click();
+      if (setEarliestRecordDateBtn && modalStartDateInput) {
+        setEarliestRecordDateBtn.onclick = () => {
+          modalStartDateInput.value = findEarliestRecordDate();
         };
-        hiddenStartDateInput.onchange = (e) => {
-          if (e.target.value) {
-            setDietStartDate(e.target.value);
-            showActionToast(`開始日を ${e.target.value} に設定しました！`, { icon: "🚩", duration: 2500 });
+      }
+      if (setTodayStartDateBtn && modalStartDateInput) {
+        setTodayStartDateBtn.onclick = () => {
+          modalStartDateInput.value = state.currentDate || new Date().toISOString().split("T")[0];
+        };
+      }
+
+      if (saveStartDateModalBtn && modalStartDateInput) {
+        saveStartDateModalBtn.onclick = () => {
+          const val = modalStartDateInput.value;
+          if (val && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            setDietStartDate(val);
+            closeStartDateModal();
+            showActionToast(`開始日を ${val.replace(/-/g, '/')} に更新しました！`, { icon: "🚩", duration: 2500 });
+          } else {
+            showActionToast("有効な日付を選択してください", { icon: "⚠️", duration: 2000 });
           }
         };
       }
