@@ -3,6 +3,100 @@
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  // ==========================================
+  // 大容量写真ストレージ: IndexedDB (MealPhotoDB)
+  // スマホの空き容量に応じて数万枚以上・無制限に写真を永続保存
+  // ==========================================
+  const MealPhotoDB = {
+    dbName: "MealAI_PhotoStore",
+    storeName: "meal_photos",
+    dbInstance: null,
+    isAvailable: true,
+
+    async getDB() {
+      if (this.dbInstance) return this.dbInstance;
+      if (!window.indexedDB) {
+        this.isAvailable = false;
+        return null;
+      }
+      return new Promise((resolve) => {
+        try {
+          const req = indexedDB.open(this.dbName, 1);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(this.storeName)) {
+              db.createObjectStore(this.storeName);
+            }
+          };
+          req.onsuccess = () => {
+            this.dbInstance = req.result;
+            resolve(this.dbInstance);
+          };
+          req.onerror = (err) => {
+            console.warn("[MealPhotoDB] IndexedDB error, falling back to localStorage:", err);
+            this.isAvailable = false;
+            resolve(null);
+          };
+        } catch (e) {
+          this.isAvailable = false;
+          resolve(null);
+        }
+      });
+    },
+
+    async savePhoto(key, dataUrl) {
+      if (!key || !dataUrl) return false;
+      const db = await this.getDB();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(this.storeName, "readwrite");
+          const store = tx.objectStore(this.storeName);
+          store.put(dataUrl, key);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    },
+
+    async getPhoto(key) {
+      if (!key) return null;
+      const db = await this.getDB();
+      if (!db) return null;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(this.storeName, "readonly");
+          const store = tx.objectStore(this.storeName);
+          const req = store.get(key);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    },
+
+    async deletePhoto(key) {
+      if (!key) return false;
+      const db = await this.getDB();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction(this.storeName, "readwrite");
+          const store = tx.objectStore(this.storeName);
+          store.delete(key);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    }
+  };
+  window.MealPhotoDB = MealPhotoDB;
+
   // AIマスコット状態
   var mascotTapCount = 0;
   var mascotIsCelebrating = false;
@@ -563,7 +657,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="p-3 bg-white border border-slate-200 rounded-2xl shadow-2xs flex items-center justify-between gap-3 hover:border-slate-300 transition">
           <div class="flex items-center space-x-2.5 min-w-0">
             <div class="relative shrink-0">
-              <img src="${imgSrc}" class="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-xl border border-slate-200 shadow-2xs">
+              <img id="selectivePhotoImg_${slot}_${idx}" src="${imgSrc}" class="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-xl border border-slate-200 shadow-2xs">
               <span class="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1 rounded font-mono font-bold">#${idx + 1}</span>
             </div>
             <div class="min-w-0 flex-1">
@@ -580,6 +674,18 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
     }).join("");
+
+    // IndexedDB から高画質写真を非同期ロードしてアップグレード
+    if (typeof MealPhotoDB !== "undefined" && MealPhotoDB && record.photoKeys) {
+      record.photoKeys.forEach((key, idx) => {
+        MealPhotoDB.getPhoto(key).then(fullPhoto => {
+          if (fullPhoto) {
+            const imgEl = document.getElementById(`selectivePhotoImg_${slot}_${idx}`);
+            if (imgEl) imgEl.src = fullPhoto;
+          }
+        }).catch(() => {});
+      });
+    }
 
     if (deleteEntireBtn) {
       deleteEntireBtn.onclick = () => {
@@ -606,9 +712,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // 1. 対象写真の削除
+    // 1. 対象写真の削除 ＆ IndexedDB からもクリーンアップ
     record.imgs.splice(photoIdx, 1);
     record.img = record.imgs[0];
+    if (typeof MealPhotoDB !== "undefined" && MealPhotoDB && record.photoKeys) {
+      const removedKey = record.photoKeys.splice(photoIdx, 1)[0];
+      if (removedKey) MealPhotoDB.deletePhoto(removedKey);
+    }
 
     // 2. 紐づく品目の削除
     let removedDishName = "";
@@ -838,7 +948,7 @@ document.addEventListener("DOMContentLoaded", () => {
               ${record.img ? `
                 <div class="relative shrink-0 ${record.imgs && record.imgs.length > 1 ? 'cursor-pointer hover:opacity-90' : ''}"
                   ${record.imgs && record.imgs.length > 1 ? `onclick="window.openSelectivePhotoDeleteModal && window.openSelectivePhotoDeleteModal('${slot}')" title="写真が${record.imgs.length}枚あります。クリックして1枚ずつ確認・取り消し"` : ''}>
-                  <img src="${record.img}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-emerald-300 shadow-xs">
+                  <img id="mealCardImg_${slot}" src="${record.img}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-emerald-300 shadow-xs">
                   ${record.imgs && record.imgs.length > 1 ? `
                     <span class="absolute -bottom-1 -right-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[8.5px] px-1 py-0.2 rounded-full font-bold shadow-2xs flex items-center gap-0.5">
                       <i class="fa-solid fa-layer-group text-[7px]"></i>${record.imgs.length}枚
@@ -893,6 +1003,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 deleteEntireSlotRecord(s);
               }
             };
+          }
+
+          // IndexedDB から高解像度写真を非同期ロードして自動アップグレード（高速表示＆最高画質のハイブリッド）
+          if (typeof MealPhotoDB !== "undefined" && MealPhotoDB && record.photoKeys && record.photoKeys[0]) {
+            MealPhotoDB.getPhoto(record.photoKeys[0]).then(fullPhoto => {
+              if (fullPhoto) {
+                const cardImg = document.getElementById(`mealCardImg_${slot}`);
+                if (cardImg) cardImg.src = fullPhoto;
+              }
+            }).catch(() => {});
           }
         }
       } else {
@@ -5745,6 +5865,17 @@ document.addEventListener("DOMContentLoaded", () => {
         thumbImgs = [thumbImg];
       }
 
+      // 💾 IndexedDB に大容量写真を安全に保存（数万枚以上・実質無制限対応）
+      const photoKeys = [];
+      if (typeof MealPhotoDB !== "undefined" && MealPhotoDB && sourceImgs.length > 0) {
+        for (let idx = 0; idx < sourceImgs.length; idx++) {
+          const photoKey = `photo_${state.currentDate}_${slot}_${idx}`;
+          photoKeys.push(photoKey);
+          // バックグラウンド非同期保存（UIの描画を一切遅延させずサクサク動作）
+          MealPhotoDB.savePhoto(photoKey, sourceImgs[idx]);
+        }
+      }
+
       state.records[slot] = {
         name: finalName,
         items: mealData.items || (currentScanItem && currentScanItem.items) || null,
@@ -5754,6 +5885,7 @@ document.addEventListener("DOMContentLoaded", () => {
         c: mealData.c !== undefined ? mealData.c : Math.round((finalCal * 0.6) / 4),
         img: thumbImg || (thumbImgs[0] || null),
         imgs: thumbImgs,
+        photoKeys: photoKeys,
         photoDetails: (currentScanItem && currentScanItem.photoDetails) ? currentScanItem.photoDetails : null,
         icon: mealData.icon || "🍽️",
         soupLevel: mealData.soupLevel || (currentScanItem && currentScanItem.soupLevel) || null
