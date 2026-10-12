@@ -159,6 +159,12 @@ document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
     setupFeatureModules();
     updateUI();
+    // 過去に溜まった肥大化写真（1200px等）をバックグラウンドで自動最適化しlocalStorageの容量枯渇を防止
+    setTimeout(() => {
+      if (typeof optimizeStoredRecordsStorage === "function") {
+        optimizeStoredRecordsStorage();
+      }
+    }, 1500);
   }
 
   // ===================== 計算・メトリクス =====================
@@ -5674,17 +5680,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 画像を軽量サムネイル（最大120x120、約2〜3KB）に圧縮（localStorageの容量制限を完全回避）
-    function createThumbnailForStorage(imageSrc) {
+    // 画像を軽量サムネイル（長辺160px、JPEG 0.6で約8〜15KB）に圧縮（localStorageの容量制限を完全回避）
+    function createThumbnailForStorage(imageSrc, maxDim = 160) {
       return new Promise((resolve) => {
-        if (!imageSrc || !imageSrc.startsWith("data:")) {
+        if (!imageSrc || typeof imageSrc !== "string") {
+          return resolve(null);
+        }
+        if (!imageSrc.startsWith("data:")) {
+          return resolve(imageSrc);
+        }
+        // すでに圧縮済みの軽量画像（18KB未満）なら再圧縮不要
+        if (imageSrc.length < 18000) {
           return resolve(imageSrc);
         }
         const img = new Image();
         img.onload = () => {
-          const maxDim = 120;
-          let w = img.width;
-          let h = img.height;
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
           if (w > maxDim || h > maxDim) {
             if (w > h) {
               h = Math.round((h * maxDim) / w);
@@ -5695,16 +5707,17 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           }
           const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
+          canvas.width = Math.max(1, w);
+          canvas.height = Math.max(1, h);
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, w, h);
           resolve(canvas.toDataURL("image/jpeg", 0.6));
         };
-        img.onerror = () => resolve(null);
+        img.onerror = () => resolve(imageSrc);
         img.src = imageSrc;
       });
     }
+    window.createThumbnailForStorage = createThumbnailForStorage;
 
     // 共通：食事記録の即時適用処理（ワンタップ決定 ＆ 確定ボタン共有）
     async function applyCandidateMeal(mealData, photoImg) {
@@ -5713,7 +5726,24 @@ document.addEventListener("DOMContentLoaded", () => {
       const finalCal = parseInt(mealData.calories) || 400;
 
       const rawImg = photoImg || mealData.img || (currentScanItem && currentScanItem.img) || null;
-      const thumbImg = await createThumbnailForStorage(rawImg);
+      const thumbImg = await createThumbnailForStorage(rawImg, 160);
+
+      // 📸 imgs 配列の全写真も必ず軽量サムネイル（長辺160px）に一括圧縮！
+      // 1200px等の生画像がlocalStorageに保存されて数日で5MB上限を突破する現象を根本防止
+      let thumbImgs = [];
+      const sourceImgs = (currentScanItem && currentScanItem.imgs && currentScanItem.imgs.length > 0)
+        ? currentScanItem.imgs
+        : (thumbImg ? [thumbImg] : []);
+
+      if (sourceImgs.length > 0) {
+        thumbImgs = await Promise.all(
+          sourceImgs.map(imgSrc => createThumbnailForStorage(imgSrc, 160))
+        );
+        thumbImgs = thumbImgs.filter(Boolean);
+      }
+      if (thumbImgs.length === 0 && thumbImg) {
+        thumbImgs = [thumbImg];
+      }
 
       state.records[slot] = {
         name: finalName,
@@ -5722,10 +5752,8 @@ document.addEventListener("DOMContentLoaded", () => {
         p: mealData.p !== undefined ? mealData.p : Math.round(finalCal * 0.05),
         f: mealData.f !== undefined ? mealData.f : Math.round((finalCal * 0.2) / 9),
         c: mealData.c !== undefined ? mealData.c : Math.round((finalCal * 0.6) / 4),
-        img: thumbImg,
-        imgs: (currentScanItem && currentScanItem.imgs && currentScanItem.imgs.length > 0)
-          ? currentScanItem.imgs
-          : (thumbImg ? [thumbImg] : []),
+        img: thumbImg || (thumbImgs[0] || null),
+        imgs: thumbImgs,
         photoDetails: (currentScanItem && currentScanItem.photoDetails) ? currentScanItem.photoDetails : null,
         icon: mealData.icon || "🍽️",
         soupLevel: mealData.soupLevel || (currentScanItem && currentScanItem.soupLevel) || null
@@ -5802,25 +5830,120 @@ document.addEventListener("DOMContentLoaded", () => {
     return map[slot] || slot;
   }
 
-  function saveRecordsToStorage() {
+  // ストレージ内の過去レコードの余剰画像を軽量化して空き容量を確保
+  function cleanupOldImagesInLocalStorage() {
     try {
-      const key = `mealai_records_${state.currentDate}`;
-      localStorage.setItem(key, JSON.stringify(state.records));
-    } catch (e) {
-      console.warn("Storage quota exceeded, retrying without images:", e);
-      try {
-        // 画像を抜いたクローンを作成してテキスト記録だけは絶対に保存
-        const textRecords = {};
-        for (const [k, v] of Object.entries(state.records)) {
-          if (v) {
-            textRecords[k] = { ...v, img: null };
-          } else {
-            textRecords[k] = null;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("mealai_records_") && k !== `mealai_records_${state.currentDate}`) {
+          const raw = localStorage.getItem(k);
+          if (raw && raw.length > 50000) {
+            try {
+              const recs = JSON.parse(raw);
+              let modified = false;
+              for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) {
+                if (recs[slot]) {
+                  // 過去日のサブ写真が複数ある場合は1枚だけ残して容量節約
+                  if (recs[slot].imgs && recs[slot].imgs.length > 1) {
+                    recs[slot].imgs = recs[slot].imgs.slice(0, 1);
+                    modified = true;
+                  }
+                }
+              }
+              if (modified) {
+                localStorage.setItem(k, JSON.stringify(recs));
+              }
+            } catch (e) {}
           }
         }
-        localStorage.setItem(`mealai_records_${state.currentDate}`, JSON.stringify(textRecords));
+      }
+    } catch (e) {}
+  }
+
+  // 過去に保存された1200px等の未圧縮画像をバックグラウンドで自動軽量化し、空き容量を最大化
+  async function optimizeStoredRecordsStorage() {
+    try {
+      let freedBytes = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("mealai_records_")) {
+          const raw = localStorage.getItem(k);
+          if (!raw || raw.length < 35000) continue; // 35KB未満ならすでに軽量
+          let dayRecords = null;
+          try { dayRecords = JSON.parse(raw); } catch (e) { continue; }
+          if (!dayRecords) continue;
+
+          let changed = false;
+          const thumbFn = window.createThumbnailForStorage || (typeof createThumbnailForStorage === 'function' ? createThumbnailForStorage : null);
+          if (!thumbFn) continue;
+
+          for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) {
+            const rec = dayRecords[slot];
+            if (!rec) continue;
+
+            if (rec.img && rec.img.startsWith("data:") && rec.img.length > 25000) {
+              const comp = await thumbFn(rec.img, 160);
+              if (comp && comp.length < rec.img.length) {
+                rec.img = comp;
+                changed = true;
+              }
+            }
+            if (Array.isArray(rec.imgs) && rec.imgs.length > 0) {
+              const newImgs = [];
+              for (const imgItem of rec.imgs) {
+                if (imgItem && imgItem.startsWith("data:") && imgItem.length > 25000) {
+                  const comp = await thumbFn(imgItem, 160);
+                  newImgs.push(comp || imgItem);
+                  changed = true;
+                } else {
+                  newImgs.push(imgItem);
+                }
+              }
+              rec.imgs = newImgs;
+            }
+          }
+
+          if (changed) {
+            const newRaw = JSON.stringify(dayRecords);
+            freedBytes += (raw.length - newRaw.length);
+            localStorage.setItem(k, newRaw);
+          }
+        }
+      }
+      if (freedBytes > 0) {
+        console.log(`[MealAI] Storage optimized: freed ${Math.round(freedBytes / 1024)} KB of localStorage!`);
+      }
+    } catch (e) {
+      console.warn("Storage optimization skipped:", e);
+    }
+  }
+  window.optimizeStoredRecordsStorage = optimizeStoredRecordsStorage;
+
+  function saveRecordsToStorage() {
+    const key = `mealai_records_${state.currentDate}`;
+    try {
+      localStorage.setItem(key, JSON.stringify(state.records));
+    } catch (e) {
+      console.warn("Storage quota exceeded, cleaning up old records and retrying:", e);
+      try {
+        cleanupOldImagesInLocalStorage();
+        localStorage.setItem(key, JSON.stringify(state.records));
       } catch (err2) {
-        console.error("Critical: Could not save records to storage:", err2);
+        console.warn("Quota still exceeded, saving text-only records to guarantee data retention:", err2);
+        try {
+          // 最悪の場合でもテキスト情報（料理名、カロリー、PFC、品目）は絶対に消失させない
+          const textRecords = {};
+          for (const [k, v] of Object.entries(state.records)) {
+            if (v) {
+              textRecords[k] = { ...v, img: null, imgs: [] };
+            } else {
+              textRecords[k] = null;
+            }
+          }
+          localStorage.setItem(key, JSON.stringify(textRecords));
+        } catch (err3) {
+          console.error("Critical: Could not save records to storage even as text-only:", err3);
+        }
       }
     }
   }
