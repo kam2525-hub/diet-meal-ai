@@ -258,6 +258,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (typeof optimizeStoredRecordsStorage === "function") {
         optimizeStoredRecordsStorage();
       }
+      if (typeof updateAutoBackupStatusUI === "function") {
+        updateAutoBackupStatusUI();
+      }
+      if (typeof saveAutoBackupSnapshot === "function") {
+        saveAutoBackupSnapshot(false);
+      }
     }, 1500);
   }
 
@@ -1229,6 +1235,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // プロフィール・減量設定モーダルの開閉
     document.getElementById("openProfileBtn")?.addEventListener("click", () => {
+      if (typeof updateAutoBackupStatusUI === "function") updateAutoBackupStatusUI();
       window.openProfileModal();
     });
     document.getElementById("closeProfileBtn")?.addEventListener("click", () => {
@@ -1259,6 +1266,21 @@ document.addEventListener("DOMContentLoaded", () => {
       updateUI();
       window.closeProfileModal();
     });
+
+    // ==========================================
+    // データ保護 ＆ バックアップ救済システム
+    // ==========================================
+    document.getElementById("exportBackupBtn")?.addEventListener("click", exportBackupToFile);
+    document.getElementById("importBackupBtn")?.addEventListener("click", () => {
+      document.getElementById("backupFileInput")?.click();
+    });
+    document.getElementById("backupFileInput")?.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) {
+        importBackupFromFile(e.target.files[0]);
+        e.target.value = "";
+      }
+    });
+    document.getElementById("restoreAutoBackupBtn")?.addEventListener("click", restoreFromAutoBackup);
 
     // 全リロールボタン（任意）
     document.getElementById("regenerateAllBtn")?.addEventListener("click", () => {
@@ -6091,6 +6113,223 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (e) { }
   }
+
+  // ==========================================
+  // データ保護 ＆ バックアップ救済システム
+  // ==========================================
+
+  // 全データのバックアップオブジェクトを収集
+  function collectFullAppBackupData() {
+    const backup = {
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      user: state.user,
+      startDate: localStorage.getItem("mealai_start_date") || null,
+      weights: state.weights || {},
+      badges: state.badges || [],
+      records: {}
+    };
+
+    // 全ての食事記録を収集
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("mealai_records_")) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            try {
+              backup.records[k] = JSON.parse(raw);
+            } catch (e) {
+              backup.records[k] = raw;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    return backup;
+  }
+
+  // ファイルにエクスポートして保存
+  function exportBackupToFile() {
+    try {
+      const data = collectFullAppBackupData();
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const todayStr = state.currentDate || new Date().toISOString().split("T")[0];
+      const filename = `MealAI_Backup_${todayStr}.json`;
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showActionToast(`バックアップファイルを保存しました！（${filename}）`, {
+        icon: "💾",
+        duration: 3500
+      });
+    } catch (e) {
+      console.error("Export backup failed:", e);
+      showActionToast("バックアップの保存に失敗しました", { icon: "⚠️", duration: 3000 });
+    }
+  }
+
+  // ファイルからインポートして復元
+  function importBackupFromFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data || (!data.user && !data.records)) {
+          throw new Error("無効なバックアップファイルです");
+        }
+
+        // 復元前の状態を緊急スナップショットとして自動保管
+        saveAutoBackupSnapshot(true);
+
+        // 1. ユーザープロフィールの復元
+        if (data.user) {
+          state.user = { ...state.user, ...data.user };
+          localStorage.setItem("mealai_user", JSON.stringify(state.user));
+        }
+
+        // 2. ダイエット開始日
+        if (data.startDate) {
+          localStorage.setItem("mealai_start_date", data.startDate);
+        }
+
+        // 3. 体重履歴
+        if (data.weights) {
+          state.weights = { ...data.weights };
+          localStorage.setItem("mealai_weights", JSON.stringify(state.weights));
+        }
+
+        // 4. 実績バッジ
+        if (data.badges) {
+          state.badges = [...data.badges];
+          localStorage.setItem("mealai_badges", JSON.stringify(state.badges));
+        }
+
+        // 5. 食事記録の復元
+        if (data.records) {
+          for (const [k, v] of Object.entries(data.records)) {
+            if (k.startsWith("mealai_records_")) {
+              localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+            }
+          }
+        }
+
+        // 全データの再読み込みとUI更新
+        loadUserFromStorage();
+        loadRecordsFromStorage();
+        loadWeightsFromStorage();
+        loadBadgesFromStorage();
+        calculateAllMetrics();
+        generateFullDayPlan();
+        updateUI();
+
+        showActionToast("✨ バックアップから全データを完全復元しました！", {
+          icon: "🎉",
+          duration: 4000
+        });
+
+        if (window.closeProfileModal) window.closeProfileModal();
+      } catch (err) {
+        console.error("Import backup error:", err);
+        showActionToast("復元に失敗しました。正しいバックアップファイルを選択してください", {
+          icon: "⚠️",
+          duration: 3500
+        });
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // 自動スナップショットの保管
+  function saveAutoBackupSnapshot(isEmergency = false) {
+    try {
+      const data = collectFullAppBackupData();
+      const key = isEmergency ? "mealai_emergency_snapshot" : "mealai_autobackup_snapshot";
+      localStorage.setItem(key, JSON.stringify(data));
+      const nowStr = new Date().toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      localStorage.setItem("mealai_autobackup_time", nowStr);
+      updateAutoBackupStatusUI();
+    } catch (e) {
+      console.warn("Auto backup snapshot skipped:", e);
+    }
+  }
+
+  // 自動スナップショットUIの更新
+  function updateAutoBackupStatusUI() {
+    const statusEl = document.getElementById("autoBackupStatusText");
+    if (!statusEl) return;
+    const time = localStorage.getItem("mealai_autobackup_time");
+    if (time) {
+      statusEl.textContent = `最終スナップショット: ${time}（安全に保管中）`;
+    } else {
+      statusEl.textContent = "毎日自動でバックアップを保管中";
+    }
+  }
+
+  // 自動スナップショットからの巻き戻し復元
+  function restoreFromAutoBackup() {
+    const raw = localStorage.getItem("mealai_autobackup_snapshot") || localStorage.getItem("mealai_emergency_snapshot");
+    if (!raw) {
+      showActionToast("復元可能な自動スナップショットがありません", { icon: "⚠️", duration: 3000 });
+      return;
+    }
+    const time = localStorage.getItem("mealai_autobackup_time") || "直近";
+    if (!confirm(`【${time}】に自動保存された状態へデータを巻き戻しますか？`)) {
+      return;
+    }
+
+    try {
+      const data = JSON.parse(raw);
+      if (data.user) {
+        state.user = { ...state.user, ...data.user };
+        localStorage.setItem("mealai_user", JSON.stringify(state.user));
+      }
+      if (data.startDate) localStorage.setItem("mealai_start_date", data.startDate);
+      if (data.weights) {
+        state.weights = { ...data.weights };
+        localStorage.setItem("mealai_weights", JSON.stringify(state.weights));
+      }
+      if (data.badges) {
+        state.badges = [...data.badges];
+        localStorage.setItem("mealai_badges", JSON.stringify(state.badges));
+      }
+      if (data.records) {
+        for (const [k, v] of Object.entries(data.records)) {
+          if (k.startsWith("mealai_records_")) {
+            localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+          }
+        }
+      }
+      loadUserFromStorage();
+      loadRecordsFromStorage();
+      loadWeightsFromStorage();
+      loadBadgesFromStorage();
+      calculateAllMetrics();
+      generateFullDayPlan();
+      updateUI();
+
+      showActionToast(`✨ ${time} の状態へ復元しました！`, { icon: "↩️", duration: 3500 });
+      if (window.closeProfileModal) window.closeProfileModal();
+    } catch (e) {
+      console.error("Auto backup restore failed:", e);
+      showActionToast("巻き戻し復元に失敗しました", { icon: "⚠️", duration: 3000 });
+    }
+  }
+
+  window.collectFullAppBackupData = collectFullAppBackupData;
+  window.exportBackupToFile = exportBackupToFile;
+  window.importBackupFromFile = importBackupFromFile;
+  window.restoreFromAutoBackup = restoreFromAutoBackup;
 
   // === AIパートナー「モグ丸」マスコット機能 ===
 

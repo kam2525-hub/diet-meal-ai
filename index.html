@@ -916,6 +916,50 @@
         </p>
       </div>
 
+      <!-- ③ データバックアップ ＆ 緊急救済（万一のデータ保護） -->
+      <div class="space-y-2.5 pt-2 border-t border-slate-200">
+        <h3 class="text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <i class="fa-solid fa-shield-halved text-emerald-600"></i>
+            データ保護 ＆ バックアップ（安心救済）
+          </span>
+          <span class="text-[9.5px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200">二重保護中</span>
+        </h3>
+        <p class="text-[11px] text-slate-500 leading-relaxed">
+          スマホの故障や誤削除に備えて、全記録（体重・食事・開始日）をファイルに保存したり、ワンタップで過去の状態に復元できます。
+        </p>
+
+        <!-- アクションボタン群 -->
+        <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+          <button type="button" id="exportBackupBtn"
+            class="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs">
+            <i class="fa-solid fa-download text-emerald-600"></i>
+            <span>バックアップ保存</span>
+          </button>
+          <button type="button" id="importBackupBtn"
+            class="p-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 rounded-xl font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs">
+            <i class="fa-solid fa-upload text-indigo-600"></i>
+            <span>ファイルから復元</span>
+          </button>
+          <input type="file" id="backupFileInput" accept=".json" class="hidden">
+        </div>
+
+        <!-- 直近の自動バックアップからの巻き戻し救済 -->
+        <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2 text-[11px]">
+          <div class="min-w-0">
+            <div class="font-bold text-slate-700 flex items-center gap-1">
+              <i class="fa-solid fa-clock-rotate-left text-teal-600"></i>
+              <span>直前の自動スナップショット</span>
+            </div>
+            <div id="autoBackupStatusText" class="text-[10px] text-slate-500 mt-0.5 truncate">毎日自動でバックアップを保管中</div>
+          </div>
+          <button type="button" id="restoreAutoBackupBtn"
+            class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg font-bold shrink-0 shadow-2xs transition active:scale-95 cursor-pointer">
+            巻き戻し復元
+          </button>
+        </div>
+      </div>
+
       <div class="flex space-x-2 pt-2">
         <button id="saveProfileBtn"
           class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition">
