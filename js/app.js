@@ -1281,6 +1281,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     document.getElementById("restoreAutoBackupBtn")?.addEventListener("click", restoreFromAutoBackup);
+    document.getElementById("scanAndSalvageBtn")?.addEventListener("click", scanAndSalvageRecords);
 
     // 全リロールボタン（任意）
     document.getElementById("regenerateAllBtn")?.addEventListener("click", () => {
@@ -6326,10 +6327,123 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // 端末内の全記録探索 ＆ 救出機能
+  function scanAndSalvageRecords() {
+    const resultArea = document.getElementById("salvageResultArea");
+    if (!resultArea) return;
+    resultArea.classList.toggle("hidden");
+    if (resultArea.classList.contains("hidden")) return;
+
+    resultArea.innerHTML = '<div class="text-slate-500 text-center py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> 端末内の全ストレージを探索中...</div>';
+
+    setTimeout(() => {
+      const foundRecords = [];
+      const slotMap = { breakfast: "朝食", lunch: "昼食", dinner: "夕食", snack: "間食・他" };
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("mealai_records_")) {
+          const dateStr = k.replace("mealai_records_", "");
+          try {
+            const raw = localStorage.getItem(k);
+            if (!raw) continue;
+            const dayObj = JSON.parse(raw);
+            if (!dayObj || typeof dayObj !== "object") continue;
+
+            for (const slot of ["breakfast", "lunch", "dinner", "snack"]) {
+              const rec = dayObj[slot];
+              if (rec && (rec.name || rec.calories > 0)) {
+                foundRecords.push({
+                  key: k,
+                  date: dateStr,
+                  slot: slot,
+                  slotName: slotMap[slot] || slot,
+                  name: rec.name || "記録あり",
+                  calories: rec.calories || 0,
+                  p: rec.p || 0,
+                  f: rec.f || 0,
+                  c: rec.c || 0,
+                  record: rec
+                });
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      // 日付降順に並べ替え
+      foundRecords.sort((a, b) => b.date.localeCompare(a.date));
+
+      if (foundRecords.length === 0) {
+        resultArea.innerHTML = `
+          <div class="text-slate-600 text-center py-3 space-y-1.5 bg-white rounded-lg border border-slate-200 p-2">
+            <p class="font-bold text-xs">端末内に過去の食事記録が見つかりませんでした</p>
+            <p class="text-[10px] text-slate-500 leading-normal">
+              写真はなくても大丈夫です！ホーム画面の各食事カードにある「写真で記録」＞「✏️ 手動で入力する」タブから、カロリーや食べたものを直接入力してすぐに復元できます。
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = `
+        <div class="flex items-center justify-between font-bold text-slate-700 pb-1 border-b border-slate-200">
+          <span>見つかった記録 (${foundRecords.length}件)</span>
+          <span class="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-mono">今日: ${state.currentDate}</span>
+        </div>
+        <div class="space-y-1.5 max-h-48 overflow-y-auto pt-1">
+      `;
+
+      foundRecords.forEach((item, idx) => {
+        const isToday = item.date === state.currentDate;
+        html += `
+          <div class="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between gap-2 shadow-2xs">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-[10px] ${isToday ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'} px-1.5 py-0.5 rounded font-mono">${item.date}</span>
+                <span class="font-bold text-slate-700 text-xs">${item.slotName}</span>
+                <span class="text-emerald-700 font-bold font-mono text-xs">${item.calories} kcal</span>
+              </div>
+              <div class="text-slate-600 text-[11px] truncate mt-0.5">${item.name}</div>
+            </div>
+            <button type="button" onclick="window.salvageRecordToCurrentDate(${idx})"
+              class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded text-[10px] shrink-0 transition cursor-pointer shadow-2xs">
+              今日に復元
+            </button>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+      resultArea.innerHTML = html;
+      window._salvagedRecordList = foundRecords;
+    }, 100);
+  }
+
+  function salvageRecordToCurrentDate(idx) {
+    if (!window._salvagedRecordList || !window._salvagedRecordList[idx]) return;
+    const item = window._salvagedRecordList[idx];
+    if (!item) return;
+
+    state.records[item.slot] = JSON.parse(JSON.stringify(item.record));
+    saveRecordsToStorage();
+    calculateAllMetrics();
+    generateFullDayPlan();
+    updateUI();
+
+    showActionToast(`✨ 「${item.name}」(${item.calories} kcal) を今日の${item.slotName}に復元しました！`, {
+      icon: "🎉",
+      duration: 3500
+    });
+    if (window.closeProfileModal) window.closeProfileModal();
+  }
+
   window.collectFullAppBackupData = collectFullAppBackupData;
   window.exportBackupToFile = exportBackupToFile;
   window.importBackupFromFile = importBackupFromFile;
   window.restoreFromAutoBackup = restoreFromAutoBackup;
+  window.scanAndSalvageRecords = scanAndSalvageRecords;
+  window.salvageRecordToCurrentDate = salvageRecordToCurrentDate;
 
   // === AIパートナー「モグ丸」マスコット機能 ===
 
