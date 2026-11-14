@@ -611,6 +611,16 @@ document.addEventListener("DOMContentLoaded", () => {
     currentSelectiveDeleteSlot = null;
   }
 
+  function getRecordPhotoCount(record) {
+    if (!record) return 0;
+    return Math.max(
+      Array.isArray(record.imgs) ? record.imgs.length : 0,
+      Array.isArray(record.photoKeys) ? record.photoKeys.length : 0,
+      record.img ? 1 : 0
+    );
+  }
+  window.getRecordPhotoCount = getRecordPhotoCount;
+
   function renderSelectivePhotoDeleteModalContent(slot) {
     const record = state.records[slot];
     const badgeEl = document.getElementById("selectiveDeleteSlotBadge");
@@ -620,10 +630,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const slotNameMap = { breakfast: "朝食", lunch: "昼食", dinner: "夕食", snack: "間食", drink: "ドリンク" };
     const slotLabel = slotNameMap[slot] || slot;
-    const imgs = record.imgs || (record.img ? [record.img] : []);
+    const placeholderSrc = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    const photoCount = getRecordPhotoCount(record);
+    const imgs = (Array.isArray(record.imgs) && record.imgs.length > 0)
+      ? record.imgs
+      : (Array.isArray(record.photoKeys) && record.photoKeys.length > 0)
+        ? record.photoKeys.map((_, idx) => (idx === 0 && record.img) ? record.img : placeholderSrc)
+        : (record.img ? [record.img] : []);
     const items = record.items || [];
 
-    if (badgeEl) badgeEl.textContent = `${slotLabel}の記録（写真${imgs.length}枚）`;
+    if (badgeEl) badgeEl.textContent = `${slotLabel}の記録（写真${photoCount}枚）`;
 
     listEl.innerHTML = imgs.map((imgSrc, idx) => {
       // 1. photoDetails が存在する場合は写真インデックスに直結した正確なマスターデータとして参照
@@ -712,15 +728,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const prevCalories = record.calories || 0;
 
     // 写真が残り1枚（または写真がない）なら全体取り消し
-    if (!record.imgs || record.imgs.length <= 1) {
+    if (getRecordPhotoCount(record) <= 1) {
       closeSelectivePhotoDeleteModal();
       deleteEntireSlotRecord(slot);
       return;
     }
 
     // 1. 対象写真の削除 ＆ IndexedDB からもクリーンアップ
-    record.imgs.splice(photoIdx, 1);
-    record.img = record.imgs[0];
+    if (Array.isArray(record.imgs) && record.imgs.length > photoIdx) {
+      record.imgs.splice(photoIdx, 1);
+      record.img = record.imgs[0] || null;
+    } else if (photoIdx === 0) {
+      record.img = null;
+    }
+
     if (typeof MealPhotoDB !== "undefined" && MealPhotoDB && record.photoKeys) {
       const removedKey = record.photoKeys.splice(photoIdx, 1)[0];
       if (removedKey) MealPhotoDB.deletePhoto(removedKey);
@@ -747,7 +768,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         record.items = remainingItems;
       } else {
-        const itemsPerPhoto = Math.ceil(record.items.length / (record.imgs.length + 1));
+        const itemsPerPhoto = Math.ceil(record.items.length / (getRecordPhotoCount(record) + 1));
         const removed = record.items.splice(photoIdx * itemsPerPhoto, itemsPerPhoto);
         if (removed.length > 0) {
           removedDishName = removed[0].name;
@@ -777,7 +798,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (record.calories >= prevCalories && removedCal > 0) {
         record.calories = Math.max(50, prevCalories - removedCal);
       } else if (record.calories >= prevCalories) {
-        const approx = Math.round(prevCalories / (record.imgs.length + 1));
+        const approx = Math.round(prevCalories / (getRecordPhotoCount(record) + 1));
         record.calories = Math.max(50, prevCalories - approx);
         removedCal = approx;
       }
@@ -793,7 +814,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (removedCal > 0) {
         record.calories = Math.max(50, prevCalories - removedCal);
       } else {
-        const approx = Math.round(prevCalories / (record.imgs.length + 1));
+        const approx = Math.round(prevCalories / (getRecordPhotoCount(record) + 1));
         record.calories = Math.max(50, prevCalories - approx);
         removedCal = approx;
       }
@@ -805,7 +826,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateUI();
 
     // モーダルがまだ写真2枚以上なら再描画、1枚になったら閉じる
-    if (record.imgs && record.imgs.length > 1) {
+    if (getRecordPhotoCount(record) > 1) {
       renderSelectivePhotoDeleteModalContent(slot);
     } else {
       closeSelectivePhotoDeleteModal();
@@ -949,15 +970,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (filledView) {
           filledView.classList.remove("hidden");
           filledView.className = "record-filled-view p-2.5 sm:p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-xs flex items-center justify-between gap-2";
+          const photoCount = getRecordPhotoCount(record);
+          const hasPhoto = photoCount > 0;
+          const placeholderSrc = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
           filledView.innerHTML = `
             <div class="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
-              ${record.img ? `
-                <div class="relative shrink-0 ${record.imgs && record.imgs.length > 1 ? 'cursor-pointer hover:opacity-90' : ''}"
-                  ${record.imgs && record.imgs.length > 1 ? `onclick="window.openSelectivePhotoDeleteModal && window.openSelectivePhotoDeleteModal('${slot}')" title="写真が${record.imgs.length}枚あります。クリックして1枚ずつ確認・取り消し"` : ''}>
-                  <img id="mealCardImg_${slot}" src="${record.img}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-emerald-300 shadow-xs">
-                  ${record.imgs && record.imgs.length > 1 ? `
+              ${hasPhoto ? `
+                <div class="relative shrink-0 ${photoCount > 1 ? 'cursor-pointer hover:opacity-90' : ''}"
+                  ${photoCount > 1 ? `onclick="window.openSelectivePhotoDeleteModal && window.openSelectivePhotoDeleteModal('${slot}')" title="写真が${photoCount}枚あります。クリックして1枚ずつ確認・取り消し"` : ''}>
+                  <img id="mealCardImg_${slot}" src="${record.img || placeholderSrc}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-emerald-300 shadow-xs bg-slate-100">
+                  ${photoCount > 1 ? `
                     <span class="absolute -bottom-1 -right-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[8.5px] px-1 py-0.2 rounded-full font-bold shadow-2xs flex items-center gap-0.5">
-                      <i class="fa-solid fa-layer-group text-[7px]"></i>${record.imgs.length}枚
+                      <i class="fa-solid fa-layer-group text-[7px]"></i>${photoCount}枚
                     </span>
                   ` : ''}
                 </div>
@@ -988,7 +1012,7 @@ document.addEventListener("DOMContentLoaded", () => {
               </button>
               <input type="file" id="slotAppendFileInput_${slot}" accept="image/*" class="hidden" onchange="window.handleAppendPhotoToSlot && window.handleAppendPhotoToSlot('${slot}', this)">
               <button class="delete-record-btn text-[11px] text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 rounded-lg hover:bg-rose-50 transition shrink-0 cursor-pointer" data-slot="${slot}"
-                title="${record.imgs && record.imgs.length > 1 ? '写真を選んで取り消す' : 'この食事を取り消す'}">
+                title="${photoCount > 1 ? '写真を選んで取り消す' : 'この食事を取り消す'}">
                 <i class="fa-solid fa-trash-can mr-1"></i>取り消す
               </button>
             </div>
@@ -1003,7 +1027,7 @@ document.addEventListener("DOMContentLoaded", () => {
               if (!targetRecord) return;
 
               // 写真が2枚以上ある場合は、1つ1つ選べるモーダルを開く
-              if (targetRecord.imgs && targetRecord.imgs.length > 1) {
+              if (getRecordPhotoCount(targetRecord) > 1) {
                 openSelectivePhotoDeleteModal(s);
               } else {
                 deleteEntireSlotRecord(s);
@@ -1014,9 +1038,11 @@ document.addEventListener("DOMContentLoaded", () => {
           // IndexedDB から高解像度写真を非同期ロードして自動アップグレード（高速表示＆最高画質のハイブリッド）
           if (typeof MealPhotoDB !== "undefined" && MealPhotoDB && record.photoKeys && record.photoKeys[0]) {
             MealPhotoDB.getPhoto(record.photoKeys[0]).then(fullPhoto => {
+              const cardImg = document.getElementById(`mealCardImg_${slot}`);
               if (fullPhoto) {
-                const cardImg = document.getElementById(`mealCardImg_${slot}`);
                 if (cardImg) cardImg.src = fullPhoto;
+              } else if (!record.img && cardImg && cardImg.parentElement) {
+                cardImg.parentElement.outerHTML = `<span class="text-xl sm:text-2xl shrink-0">${record.icon || '🍽️'}</span>`;
               }
             }).catch(() => {});
           }
@@ -1964,6 +1990,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const sampleBox = document.querySelector("#photoTabContent .sample-presets-box");
         if (sampleBox) sampleBox.classList.add("hidden");
 
+        // IndexedDB にオフロード済みの既存写真があれば復元
+        let existingImgs = (Array.isArray(record.imgs) && record.imgs.length > 0)
+          ? [...record.imgs]
+          : (record.img ? [record.img] : []);
+        if (existingImgs.length === 0 && typeof MealPhotoDB !== "undefined" && MealPhotoDB && Array.isArray(record.photoKeys) && record.photoKeys.length > 0) {
+          const loaded = await Promise.all(record.photoKeys.map(k => MealPhotoDB.getPhoto(k).catch(() => null)));
+          existingImgs = loaded.filter(Boolean);
+        }
+
         // 既存のレコードを currentScanItem としてロード（完全ディープコピー）
         currentScanItem = {
           name: record.name,
@@ -1976,8 +2011,8 @@ document.addEventListener("DOMContentLoaded", () => {
           baseF: record.f,
           c: record.c,
           baseC: record.c,
-          img: record.img || null,
-          imgs: record.imgs ? [...record.imgs] : (record.img ? [record.img] : []),
+          img: record.img || existingImgs[0] || null,
+          imgs: existingImgs,
           photoDetails: record.photoDetails ? JSON.parse(JSON.stringify(record.photoDetails)) : null,
           icon: record.icon || "🍽️",
           soupLevel: record.soupLevel || 'all'
@@ -5890,13 +5925,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 💾 IndexedDB に大容量写真を安全に保存（数万枚以上・実質無制限対応）
       const photoKeys = [];
+      let allSavedToIDB = false;
       if (typeof MealPhotoDB !== "undefined" && MealPhotoDB && sourceImgs.length > 0) {
-        for (let idx = 0; idx < sourceImgs.length; idx++) {
+        const savePromises = sourceImgs.map((src, idx) => {
           const photoKey = `photo_${state.currentDate}_${slot}_${idx}`;
           photoKeys.push(photoKey);
-          // バックグラウンド非同期保存（UIの描画を一切遅延させずサクサク動作）
-          MealPhotoDB.savePhoto(photoKey, sourceImgs[idx]);
-        }
+          return MealPhotoDB.savePhoto(photoKey, src);
+        });
+        const results = await Promise.all(savePromises);
+        allSavedToIDB = results.length > 0 && results.every(Boolean);
       }
 
       state.records[slot] = {
@@ -5907,7 +5944,7 @@ document.addEventListener("DOMContentLoaded", () => {
         f: mealData.f !== undefined ? mealData.f : Math.round((finalCal * 0.2) / 9),
         c: mealData.c !== undefined ? mealData.c : Math.round((finalCal * 0.6) / 4),
         img: thumbImg || (thumbImgs[0] || null),
-        imgs: thumbImgs,
+        imgs: allSavedToIDB ? [] : thumbImgs,
         photoKeys: photoKeys,
         photoDetails: (currentScanItem && currentScanItem.photoDetails) ? currentScanItem.photoDetails : null,
         icon: mealData.icon || "🍽️",
@@ -5986,56 +6023,156 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ストレージ内の過去レコードの余剰画像を軽量化して空き容量を確保
+  function stripImagesFromDayRecords(dayObj) {
+    if (!dayObj || typeof dayObj !== "object") return false;
+    let modified = false;
+    for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) {
+      const rec = dayObj[slot];
+      if (rec && (rec.img || (Array.isArray(rec.imgs) && rec.imgs.length > 0))) {
+        rec.img = null;
+        rec.imgs = [];
+        modified = true;
+      }
+    }
+    return modified;
+  }
+
+  // ストレージ内の過去レコードやスナップショットの画像を軽量化・退避して空き容量を確保
   function cleanupOldImagesInLocalStorage() {
     try {
+      // 1. 自動スナップショット内に旧仕様のBase64画像が残っていれば即座に除去
+      for (const snapKey of ["mealai_autobackup_snapshot", "mealai_emergency_snapshot"]) {
+        const snapRaw = localStorage.getItem(snapKey);
+        if (snapRaw && snapRaw.length > 50000) {
+          try {
+            const snap = JSON.parse(snapRaw);
+            if (snap && snap.records) {
+              let snapChanged = false;
+              for (const k of Object.keys(snap.records)) {
+                if (stripImagesFromDayRecords(snap.records[k])) snapChanged = true;
+              }
+              if (snapChanged) {
+                localStorage.setItem(snapKey, JSON.stringify(snap));
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      // 2. 過去日のレコードで IndexedDB (photoKeys) へ保存済みのものは localStorage の重複画像を削除
+      const keys = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith("mealai_records_") && k !== `mealai_records_${state.currentDate}`) {
-          const raw = localStorage.getItem(k);
-          if (raw && raw.length > 50000) {
-            try {
-              const recs = JSON.parse(raw);
-              let modified = false;
-              for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) {
-                if (recs[slot]) {
-                  // 過去日のサブ写真が複数ある場合は1枚だけ残して容量節約
-                  if (recs[slot].imgs && recs[slot].imgs.length > 1) {
-                    recs[slot].imgs = recs[slot].imgs.slice(0, 1);
-                    modified = true;
-                  }
-                }
-              }
-              if (modified) {
-                localStorage.setItem(k, JSON.stringify(recs));
-              }
-            } catch (e) {}
-          }
+          keys.push(k);
         }
+      }
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const recs = JSON.parse(raw);
+          let modified = false;
+          for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) {
+            const rec = recs && recs[slot];
+            if (!rec) continue;
+            if (Array.isArray(rec.photoKeys) && rec.photoKeys.length > 0) {
+              if (rec.img || (Array.isArray(rec.imgs) && rec.imgs.length > 0)) {
+                rec.img = null;
+                rec.imgs = [];
+                modified = true;
+              }
+            } else if (Array.isArray(rec.imgs) && rec.imgs.length > 1) {
+              rec.imgs = rec.imgs.slice(0, 1);
+              modified = true;
+            }
+          }
+          if (modified) {
+            localStorage.setItem(k, JSON.stringify(recs));
+          }
+        } catch (e) {}
       }
     } catch (e) {}
   }
-
-  // 過去に保存された1200px等の未圧縮画像をバックグラウンドで自動軽量化し、空き容量を最大化
+  // 過去の画像データを IndexedDB へ自動退避し localStorage の5MB枯渇を根本防止
   async function optimizeStoredRecordsStorage() {
     try {
       let freedBytes = 0;
+
+      // 1. スナップショットに旧仕様の画像が含まれていれば即座に軽量化
+      for (const snapKey of ["mealai_autobackup_snapshot", "mealai_emergency_snapshot"]) {
+        const snapRaw = localStorage.getItem(snapKey);
+        if (snapRaw && snapRaw.length > 50000) {
+          try {
+            const snap = JSON.parse(snapRaw);
+            if (snap && snap.records) {
+              let snapChanged = false;
+              for (const k of Object.keys(snap.records)) {
+                if (stripImagesFromDayRecords(snap.records[k])) snapChanged = true;
+              }
+              if (snapChanged) {
+                const newSnapRaw = JSON.stringify(snap);
+                freedBytes += (snapRaw.length - newSnapRaw.length);
+                localStorage.setItem(snapKey, newSnapRaw);
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      const keys = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith("mealai_records_")) {
-          const raw = localStorage.getItem(k);
-          if (!raw || raw.length < 35000) continue; // 35KB未満ならすでに軽量
-          let dayRecords = null;
-          try { dayRecords = JSON.parse(raw); } catch (e) { continue; }
-          if (!dayRecords) continue;
+        if (k && k.startsWith("mealai_records_")) keys.push(k);
+      }
 
-          let changed = false;
-          const thumbFn = window.createThumbnailForStorage || (typeof createThumbnailForStorage === 'function' ? createThumbnailForStorage : null);
-          if (!thumbFn) continue;
+      const thumbFn = window.createThumbnailForStorage || (typeof createThumbnailForStorage === 'function' ? createThumbnailForStorage : null);
+      const canUseIDB = typeof MealPhotoDB !== "undefined" && MealPhotoDB && (await MealPhotoDB.getDB()) !== null;
 
-          for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) {
-            const rec = dayRecords[slot];
-            if (!rec) continue;
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        let dayRecords = null;
+        try { dayRecords = JSON.parse(raw); } catch (e) { continue; }
+        if (!dayRecords) continue;
 
+        const dateStr = k.replace("mealai_records_", "");
+        const isToday = (dateStr === state.currentDate);
+        let changed = false;
+
+        for (const slot of ['breakfast', 'lunch', 'dinner', 'snack']) {
+          const rec = dayRecords[slot];
+          if (!rec) continue;
+
+          // A. 過去日の画像はすべて IndexedDB へ安全に移行し localStorage からは解放
+          if (!isToday && canUseIDB && (rec.img || (Array.isArray(rec.imgs) && rec.imgs.length > 0))) {
+            const imgsToSave = (Array.isArray(rec.imgs) && rec.imgs.length > 0)
+              ? rec.imgs
+              : (rec.img ? [rec.img] : []);
+            const newKeys = Array.isArray(rec.photoKeys) ? [...rec.photoKeys] : [];
+            let allSaved = true;
+
+            for (let idx = 0; idx < imgsToSave.length; idx++) {
+              const photoKey = newKeys[idx] || `photo_${dateStr}_${slot}_${idx}`;
+              if (!newKeys[idx]) newKeys[idx] = photoKey;
+              const existing = await MealPhotoDB.getPhoto(photoKey);
+              if (!existing) {
+                const ok = await MealPhotoDB.savePhoto(photoKey, imgsToSave[idx]);
+                if (!ok) allSaved = false;
+              }
+            }
+
+            if (allSaved && newKeys.length > 0) {
+              rec.photoKeys = newKeys;
+              rec.img = null;
+              rec.imgs = [];
+              changed = true;
+              continue;
+            }
+          }
+
+          // B. 当日または IndexedDB 非対応環境ではサムネイル圧縮のみ実施
+          if (thumbFn) {
             if (rec.img && rec.img.startsWith("data:") && rec.img.length > 25000) {
               const comp = await thumbFn(rec.img, 160);
               if (comp && comp.length < rec.img.length) {
@@ -6044,25 +6181,30 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             }
             if (Array.isArray(rec.imgs) && rec.imgs.length > 0) {
-              const newImgs = [];
-              for (const imgItem of rec.imgs) {
-                if (imgItem && imgItem.startsWith("data:") && imgItem.length > 25000) {
-                  const comp = await thumbFn(imgItem, 160);
-                  newImgs.push(comp || imgItem);
-                  changed = true;
-                } else {
-                  newImgs.push(imgItem);
+              if (canUseIDB && Array.isArray(rec.photoKeys) && rec.photoKeys.length >= rec.imgs.length) {
+                rec.imgs = [];
+                changed = true;
+              } else {
+                const newImgs = [];
+                for (const imgItem of rec.imgs) {
+                  if (imgItem && imgItem.startsWith("data:") && imgItem.length > 25000) {
+                    const comp = await thumbFn(imgItem, 160);
+                    newImgs.push(comp || imgItem);
+                    changed = true;
+                  } else {
+                    newImgs.push(imgItem);
+                  }
                 }
+                rec.imgs = newImgs;
               }
-              rec.imgs = newImgs;
             }
           }
+        }
 
-          if (changed) {
-            const newRaw = JSON.stringify(dayRecords);
-            freedBytes += (raw.length - newRaw.length);
-            localStorage.setItem(k, newRaw);
-          }
+        if (changed) {
+          const newRaw = JSON.stringify(dayRecords);
+          freedBytes += (raw.length - newRaw.length);
+          localStorage.setItem(k, newRaw);
         }
       }
       if (freedBytes > 0) {
@@ -6120,7 +6262,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================================
 
   // 全データのバックアップオブジェクトを収集
-  function collectFullAppBackupData() {
+  function collectFullAppBackupData(includeImages = true) {
     const backup = {
       version: "1.0",
       timestamp: new Date().toISOString(),
@@ -6139,7 +6281,9 @@ document.addEventListener("DOMContentLoaded", () => {
           const raw = localStorage.getItem(k);
           if (raw) {
             try {
-              backup.records[k] = JSON.parse(raw);
+              const parsedDay = JSON.parse(raw);
+              if (!includeImages) stripImagesFromDayRecords(parsedDay);
+              backup.records[k] = parsedDay;
             } catch (e) {
               backup.records[k] = raw;
             }
@@ -6254,7 +6398,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 自動スナップショットの保管
   function saveAutoBackupSnapshot(isEmergency = false) {
     try {
-      const data = collectFullAppBackupData();
+      const data = collectFullAppBackupData(false);
       const key = isEmergency ? "mealai_emergency_snapshot" : "mealai_autobackup_snapshot";
       localStorage.setItem(key, JSON.stringify(data));
       const nowStr = new Date().toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
